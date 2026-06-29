@@ -1,0 +1,27 @@
+edition: 3.0.0
+name: my-app
+access: default
+
+vars:
+  region: cn-shenzhen
+
+resources:
+  applican:
+    component: fc3
+    props:
+      region: ${vars.region}
+      serviceName: appliance-service
+      functionName: applican
+      runtime: nodejs20
+      handler: index.handler
+      code: ./code.zip
+      memorySize: 512
+      timeout: 60
+      environmentVariables:
+        DB_HOST: pgm-wz97275grs6n7622.rwlb.rds.aliyuncs.com
+        DB_NAME: appliance_db
+        DB_PASSWORD: Aa_123789
+        DB_PORT: "5432"
+        DB_USER: Aa_123
+        NODE_ENV: production
+        TZ: Asia/Shanghai

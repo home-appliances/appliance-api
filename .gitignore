@@ -1,36 +1,44 @@
-# 依赖
+# Dependencies
 node_modules/
 
-# 构建产物
+# Build output
 dist/
 
-# 环境变量
+# Environment variables
 .env
 .env.local
 .env.*.local
 
-# 日志
+# Logs
 logs/
 *.log
 
-# 本地数据
-data/
+# Crawler state
 crawler-state/
 
-# Agent 缓存
-.agents/
-
-# 系统文件
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
+# Local data
+data/
+src/data/
 
 # TypeScript
 *.tsbuildinfo
 
-# 临时文件
-*.tmp
-*.temp
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Serverless Devs
+.s/
+code.zip
+fc-deploy/
+fc-test/
+fc-deploy.zip
+fc-deploy.tar.gz
+fc-test.zip
+fc-test.tar

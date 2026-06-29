@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+# 启动 Node.js 应用
+exec node dist/index.js
