@@ -11,7 +11,7 @@
     "migrate:admin": "tsx src/db/run-admin-migration.ts",
     "migrate:search": "tsx src/db/run-migration-search.ts",
     "fill:pinyin": "tsx src/db/fill-pinyin.ts",
-    "fix:images": "tsx src/db/fix-images.ts",
+    "fix:images": "tsx scripts/fix-missing-images.ts",
     "check": "tsx src/db/check-data.ts",
     "migrate:images": "node scripts/add-binary-images-field.js",
     "import:images": "node scripts/import-images.js",
@@ -21,7 +21,6 @@
     "crawl:all": "tsx src/crawler/crawl-all.ts",
     "crawl:structured": "tsx src/crawler/structured/crawl-structured.ts",
     "import:data": "tsx scripts/import-data.ts",
-    "fix:images": "tsx scripts/fix-missing-images.ts",
     "list:missing": "tsx scripts/list-missing-images.ts",
     "download:missing": "tsx scripts/download-missing-images.ts",
     "fix:suffix": "tsx scripts/fix-images-with-suffix.ts",
@@ -33,7 +32,10 @@
     "fix:zol2": "tsx scripts/fix-zol-v2.ts",
     "merge:xiaomi": "tsx scripts/merge-xiaomi-brand.ts",
     "merge:brands": "tsx scripts/merge-brands.ts",
-    "merge:brands2": "tsx scripts/merge-brands-v2.ts"
+    "merge:brands2": "tsx scripts/merge-brands-v2.ts",
+    "build": "tsc",
+    "package": "node scripts/package.js",
+    "deploy": "npm run build && npm install --omit=dev && npm run package && s deploy -y"
   },
   "dependencies": {
     "@hono/node-server": "^1.11.0",
@@ -51,6 +53,7 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.0",
+    "adm-zip": "^0.5.17",
     "tsx": "^4.15.0",
     "typescript": "^5.4.0"
   }

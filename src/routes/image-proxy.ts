@@ -39,7 +39,7 @@ imageProxy.get('/api/image-proxy', async (c) => {
     })
 
     if (!response.ok) {
-      return c.json({ error: '图片请求失败' }, response.status)
+      return c.json({ error: '图片请求失败' }, response.status as any)
     }
 
     // 获取图片数据

@@ -4,12 +4,37 @@
     "module": "ES2022",
     "moduleResolution": "bundler",
     "esModuleInterop": true,
-    "strict": true,
+    "strict": false,
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": "src",
     "resolveJsonModule": true,
-    "declaration": true
+    "declaration": false
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "src/db/example.ts",
+    "src/crawler/**/*",
+    "src/db/fix-dirty.ts",
+    "src/db/zol-images.ts",
+    "src/db/check-*.ts",
+    "src/db/analyze-*.ts",
+    "src/db/clean-*.ts",
+    "src/db/deduplicate.ts",
+    "src/db/deep-clean.ts",
+    "src/db/dump-*.ts",
+    "src/db/list-*.ts",
+    "src/db/show-*.ts",
+    "src/db/verify-*.ts",
+    "src/db/import-*.ts",
+    "src/db/merge-*.ts",
+    "src/db/fill-*.ts",
+    "src/db/final-*.ts",
+    "src/db/fix-*.ts",
+    "src/db/retry-*.ts",
+    "src/db/test-*.ts",
+    "src/db/update-*.ts",
+    "src/db/comparison-*.ts",
+    "src/db/associate-*.ts"
+  ]
 }

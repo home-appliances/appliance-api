@@ -1,0 +1,57 @@
+name: Deploy to FC
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build
+        run: |
+          rm -rf dist/ tsconfig.tsbuildinfo
+          npm ci
+          npm run build
+          cp package.json dist/
+          cp package-lock.json dist/
+          cd dist && npm install --omit=dev && cd ..
+          echo "=== VERIFY ==="
+          ls dist/node_modules/hono/package.json && echo "✅ hono exists"
+          du -sh dist/
+
+      - name: Package with adm-zip
+        run: |
+          npm install adm-zip
+          node -e "
+          const AdmZip = require('adm-zip');
+          const zip = new AdmZip();
+          zip.addLocalFolder('dist');
+          zip.writeZip('code.zip');
+          console.log('ZIP created');
+          "
+          ls -la code.zip
+
+      - name: Install Serverless Devs
+        run: npm install @serverless-devs/s -g
+
+      - name: Configure credentials
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          ALIYUN_ACCOUNT_ID: ${{ secrets.ALIYUN_ACCOUNT_ID }}
+        run: |
+          s config add \
+            --AccountID "$ALIYUN_ACCOUNT_ID" \
+            --AccessKeyID "$ALIYUN_ACCESS_KEY_ID" \
+            --AccessKeySecret "$ALIYUN_ACCESS_KEY_SECRET" \
+            -a default
+
+      - name: Deploy to FC
+        run: s deploy -y

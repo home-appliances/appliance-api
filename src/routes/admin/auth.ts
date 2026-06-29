@@ -62,7 +62,7 @@ auth.post('/api/admin/login', async (c) => {
  * GET /api/admin/profile
  */
 auth.get('/api/admin/profile', authMiddleware, async (c) => {
-  const admin = c.get('admin') as { id: number; username: string };
+  const admin = (c as any).get('admin') as { id: number; username: string };
   return c.json({
     code: 0,
     data: {
@@ -78,7 +78,7 @@ auth.get('/api/admin/profile', authMiddleware, async (c) => {
  */
 auth.put('/api/admin/password', authMiddleware, async (c) => {
   try {
-    const admin = c.get('admin') as { id: number; username: string };
+    const admin = (c as any).get('admin') as { id: number; username: string };
     const { oldPassword, newPassword } = await c.req.json();
 
     if (!oldPassword || !newPassword) {

@@ -120,13 +120,13 @@ const brandNameMap: Record<string, string> = {
   // 空调品牌
   '格力': 'gree', '大金': 'daikin', '科龙': 'kelon',
   // 洗衣机品牌
-  '小天鹅': 'little_swan', '博世': 'bosch', '创维': 'skyworth',
+  '小天鹅': 'little_swan',
   // 热水器品牌
   '林内': 'noritz', '能率': 'noritz', 'A.O.史密斯': 'a/o_smith', '史密斯': 'a/o_smith',
   '万和': 'macro', '万家乐': 'macro', '阿里斯顿': 'ariston',
   // 电视品牌
   '索尼': 'sony', '夏普': 'sharp', '飞利浦': 'philips', '长虹': 'changhong',
-  '康佳': 'konka', '创维': 'skyworth', '乐视': 'letv', '华为': 'huawei',
+  '康佳': 'konka', '乐视': 'letv', '华为': 'huawei',
   // 厨电品牌
   '老板': 'robam', '方太': 'fotile', '华帝': 'vatti',
 };
