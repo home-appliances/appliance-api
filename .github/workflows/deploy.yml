@@ -19,36 +19,30 @@ jobs:
           rm -rf dist/ tsconfig.tsbuildinfo
           npm ci
           npm run build
-          # 创建 dist/package.json（不含 type:module，FC 用 require() 加载）
-          node -e "
-          const pkg = require('./package.json');
-          const distPkg = { name: pkg.name, version: pkg.version, main: 'index.js', dependencies: pkg.dependencies || {} };
-          require('fs').writeFileSync('dist/package.json', JSON.stringify(distPkg, null, 2));
-          "
-          cp package-lock.json dist/
-          cd dist && npm install --omit=dev && cd ..
-          echo "=== DIST SIZE ==="
-          du -sh dist/
-          echo "=== NODE_MODULES COUNT ==="
-          ls dist/node_modules/ | wc -l
-          echo "=== VERIFY ==="
-          ls dist/node_modules/hono/package.json && echo "✅ hono exists"
-          cat dist/package.json
-          du -sh dist/
-          echo "=== FILES ==="
-          ls dist/*.js
 
       - name: Package code.zip
         run: |
-          cd dist && zip -r ../code.zip . && cd ..
-          echo "=== ZIP FILE ==="
-          ls -la code.zip
+          # 创建临时打包目录
+          rm -rf deploy/ && mkdir deploy/
+          # 复制编译产物
+          cp -r dist/* deploy/
+          # 创建 package.json（不含 type:module）
+          node -e "
+          const pkg = require('./package.json');
+          const distPkg = { name: pkg.name, version: pkg.version, main: 'index.js', dependencies: pkg.dependencies || {} };
+          require('fs').writeFileSync('deploy/package.json', JSON.stringify(distPkg, null, 2));
+          "
+          cp package-lock.json deploy/
+          # 安装生产依赖
+          cd deploy && npm install --omit=dev && cd ..
+          echo "=== DEPLOY DIR SIZE ==="
+          du -sh deploy/
+          echo "=== NODE_MODULES COUNT ==="
+          ls deploy/node_modules/ | wc -l
+          # 打包
+          cd deploy && zip -r ../code.zip . && cd ..
           echo "=== ZIP SIZE ==="
           du -sh code.zip
-          echo "=== ZIP TOP FILES ==="
-          unzip -l code.zip | grep -E "fc-handler|index\.js" | head -5
-          echo "=== ZIP VERIFY ==="
-          test -f code.zip && echo "✅ code.zip exists" || echo "❌ code.zip missing!"
 
       - name: Deploy to FC via API
         env:
@@ -71,7 +65,6 @@ jobs:
             const code = fs.readFileSync('code.zip');
             console.log('Uploading', code.length, 'bytes...');
 
-            // 直接调用 PUT API，用 code.zipFile 传代码
             const result = await client.put(
               '/services/appliance-service/functions/applican',
               {
