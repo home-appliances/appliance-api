@@ -35,7 +35,7 @@
     "merge:brands2": "tsx scripts/merge-brands-v2.ts",
     "build": "tsc",
     "package": "node scripts/package.js",
-    "deploy": "npm run build && npm install --omit=dev && npm run package && s deploy -y"
+    "deploy": "npm run build && npm run package && s deploy -y"
   },
   "dependencies": {
     "@hono/node-server": "^1.11.0",
