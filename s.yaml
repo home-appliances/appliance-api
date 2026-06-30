@@ -13,7 +13,7 @@ resources:
       serviceName: appliance-service
       functionName: applican
       runtime: nodejs20
-      handler: index.handler
+      handler: fc-handler.handler
       code: ./code.zip
       memorySize: 512
       timeout: 60
