@@ -26,7 +26,7 @@ jobs:
           require('fs').writeFileSync('dist/package.json', JSON.stringify(distPkg, null, 2));
           "
           cp package-lock.json dist/
-          cd dist && npm install --omit=dev && cd ..
+          cd dist && npm ci --omit=dev && cd ..
           echo "=== VERIFY ==="
           ls dist/node_modules/hono/package.json && echo "✅ hono exists"
           cat dist/package.json
