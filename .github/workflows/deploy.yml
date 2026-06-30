@@ -19,11 +19,17 @@ jobs:
           rm -rf dist/ tsconfig.tsbuildinfo
           npm ci
           npm run build
-          cp package.json dist/
+          # 创建 dist/package.json（不含 type:module，FC 用 require() 加载）
+          node -e "
+          const pkg = require('./package.json');
+          const distPkg = { name: pkg.name, version: pkg.version, main: 'index.js', dependencies: pkg.dependencies || {} };
+          require('fs').writeFileSync('dist/package.json', JSON.stringify(distPkg, null, 2));
+          "
           cp package-lock.json dist/
           cd dist && npm install --omit=dev && cd ..
           echo "=== VERIFY ==="
           ls dist/node_modules/hono/package.json && echo "✅ hono exists"
+          cat dist/package.json
           du -sh dist/
 
       - name: Package with adm-zip
