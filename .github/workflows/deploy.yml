@@ -37,9 +37,14 @@ jobs:
       - name: Package code.zip
         run: |
           cd dist && zip -r ../code.zip . && cd ..
+          echo "=== ZIP FILE ==="
           ls -la code.zip
-          echo "=== ZIP CONTENTS ==="
-          unzip -l code.zip | head -20
+          echo "=== ZIP SIZE ==="
+          du -sh code.zip
+          echo "=== ZIP TOP FILES ==="
+          unzip -l code.zip | grep -E "fc-handler|index\.js" | head -5
+          echo "=== ZIP VERIFY ==="
+          test -f code.zip && echo "✅ code.zip exists" || echo "❌ code.zip missing!"
 
       - name: Install Serverless Devs
         run: npm install @serverless-devs/s -g
@@ -62,15 +67,14 @@ jobs:
           ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
           ALIYUN_ACCOUNT_ID: ${{ secrets.ALIYUN_ACCOUNT_ID }}
         run: |
-          echo "=== PWD ==="
-          pwd
-          echo "=== S.YAML ==="
-          cat s.yaml
-          echo "=== DIST FILES ==="
-          ls -la dist/*.js | head -5
+          echo "=== PRE-DEPLOY CHECK ==="
+          test -f code.zip && echo "✅ code.zip exists ($(du -sh code.zip | cut -f1))" || echo "❌ code.zip missing!"
           echo "=== DEPLOY ==="
           s deploy -y
-          echo "=== DEPLOY DONE ==="
+          echo "=== DEPLOY EXIT CODE: $? ==="
+          echo "=== WAITING FOR FC UPDATE ==="
+          sleep 15
           echo "=== TEST ==="
-          sleep 10
-          curl -s https://fc.cheapgo.top/ || echo "curl failed"
+          RESULT=$(curl -s https://fc.cheapgo.top/ 2>&1)
+          echo "$RESULT"
+          echo "$RESULT" | grep -q "version" && echo "✅ NEW CODE DEPLOYED" || echo "⚠️ OLD CODE STILL RUNNING"
