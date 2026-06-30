@@ -100,13 +100,14 @@ export async function handler(req: any, resp: any, context: any) {
 // 本地开发：启动独立 HTTP 服务器
 // FC 环境下不启动（由 FC 运行时管理请求）
 if (!process.env.FC_FUNC_CODE_PATH) {
-  const { serve } = await import('@hono/node-server')
-  const port = 3000
-  const host = '0.0.0.0'
-  console.log(`🚀 服务启动在 http://${host}:${port}`)
-  serve({
-    fetch: app.fetch,
-    port,
-    hostname: host
+  import('@hono/node-server').then(({ serve }) => {
+    const port = 3000
+    const host = '0.0.0.0'
+    console.log(`🚀 服务启动在 http://${host}:${port}`)
+    serve({
+      fetch: app.fetch,
+      port,
+      hostname: host
+    })
   })
 }

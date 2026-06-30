@@ -15,7 +15,6 @@ const rootPkg = JSON.parse(readFileSync('package.json', 'utf-8'));
 const distPkg = {
   name: 'jd-appliance-api',
   version: '1.0.0',
-  type: 'module',
   main: 'index.js',
   dependencies: rootPkg.dependencies || {}
 };
