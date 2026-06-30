@@ -26,11 +26,11 @@ jobs:
           require('fs').writeFileSync('dist/package.json', JSON.stringify(distPkg, null, 2));
           "
           cp package-lock.json dist/
-          cd dist && npm install --omit=dev 2>&1 && cd ..
+          cd dist && npm install --omit=dev && cd ..
           echo "=== DIST SIZE ==="
           du -sh dist/
-          echo "=== NODE_MODULES ==="
-          ls dist/node_modules/ | head -5
+          echo "=== NODE_MODULES COUNT ==="
+          ls dist/node_modules/ | wc -l
           echo "=== VERIFY ==="
           ls dist/node_modules/hono/package.json && echo "✅ hono exists"
           cat dist/package.json
