@@ -32,7 +32,7 @@ app.route('/', image)
 
 // 根路径测试
 app.get('/', (c) => {
-  return c.json({ message: '家电搜索API服务运行中' })
+  return c.json({ message: '家电搜索API服务运行中', version: '1.0.1', time: new Date().toISOString() })
 })
 
 // FC HTTP 触发器 handler
