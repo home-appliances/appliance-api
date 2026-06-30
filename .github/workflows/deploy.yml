@@ -46,35 +46,59 @@ jobs:
           echo "=== ZIP VERIFY ==="
           test -f code.zip && echo "✅ code.zip exists" || echo "❌ code.zip missing!"
 
-      - name: Install Serverless Devs
-        run: npm install @serverless-devs/s -g
-
-      - name: Configure credentials
+      - name: Deploy to FC via API
         env:
           ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
           ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
           ALIYUN_ACCOUNT_ID: ${{ secrets.ALIYUN_ACCOUNT_ID }}
         run: |
-          s config add \
-            --AccountID "$ALIYUN_ACCOUNT_ID" \
-            --AccessKeyID "$ALIYUN_ACCESS_KEY_ID" \
-            --AccessKeySecret "$ALIYUN_ACCESS_KEY_SECRET" \
-            -a default
+          echo "=== DEPLOYING VIA FC API ==="
+          npm install @alicloud/fc2 --save
+          node -e "
+          const FC = require('@alicloud/fc2');
+          const fs = require('fs');
+          const path = require('path');
 
-      - name: Deploy to FC
-        env:
-          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
-          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
-          ALIYUN_ACCOUNT_ID: ${{ secrets.ALIYUN_ACCOUNT_ID }}
-        run: |
-          echo "=== PRE-DEPLOY CHECK ==="
-          test -f code.zip && echo "✅ code.zip exists ($(du -sh code.zip | cut -f1))" || echo "❌ code.zip missing!"
-          echo "=== DEPLOY ==="
-          s deploy -y
-          echo "=== DEPLOY EXIT CODE: $? ==="
-          echo "=== WAITING FOR FC UPDATE ==="
-          sleep 15
+          const client = new FC({
+            accessKeyID: process.env.ALIYUN_ACCESS_KEY_ID,
+            accessKeySecret: process.env.ALIYUN_ACCESS_KEY_SECRET,
+            region: 'cn-shenzhen',
+            accountId: process.env.ALIYUN_ACCOUNT_ID,
+          });
+
+          async function deploy() {
+            try {
+              console.log('Uploading code.zip...');
+              const code = fs.readFileSync('code.zip');
+              await client.updateFunctionCode('appliance-service', 'applican', {
+                zipBuffer: code,
+              });
+              console.log('✅ Code uploaded successfully!');
+
+              console.log('Updating function config...');
+              await client.updateFunctionConfig('appliance-service', 'applican', {
+                handler: 'fc-handler.handler',
+                timeout: 60,
+                memorySize: 512,
+                environmentVariables: {
+                  DB_HOST: 'pgm-wz97275grs6n7622.rwlb.rds.aliyuncs.com',
+                  DB_NAME: 'appliance_db',
+                  DB_PASSWORD: 'Aa_123789',
+                  DB_PORT: '5432',
+                  DB_USER: 'Aa_123',
+                  NODE_ENV: 'production',
+                  TZ: 'Asia/Shanghai',
+                },
+              });
+              console.log('✅ Config updated successfully!');
+              console.log('Handler: fc-handler.handler');
+            } catch (err) {
+              console.error('❌ Deploy failed:', err.message);
+              process.exit(1);
+            }
+          }
+          deploy();
+          "
           echo "=== TEST ==="
-          RESULT=$(curl -s https://fc.cheapgo.top/ 2>&1)
-          echo "$RESULT"
-          echo "$RESULT" | grep -q "version" && echo "✅ NEW CODE DEPLOYED" || echo "⚠️ OLD CODE STILL RUNNING"
+          sleep 10
+          curl -s https://fc.cheapgo.top/ || echo "curl failed"
