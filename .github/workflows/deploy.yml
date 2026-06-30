@@ -34,6 +34,13 @@ jobs:
           echo "=== FILES ==="
           ls dist/*.js
 
+      - name: Package code.zip
+        run: |
+          cd dist && zip -r ../code.zip . && cd ..
+          ls -la code.zip
+          echo "=== ZIP CONTENTS ==="
+          unzip -l code.zip | head -20
+
       - name: Install Serverless Devs
         run: npm install @serverless-devs/s -g
 
