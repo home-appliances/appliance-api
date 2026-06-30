@@ -14,7 +14,7 @@ resources:
       functionName: applican
       runtime: nodejs20
       handler: fc-handler.handler
-      code: ./code.zip
+      code: ./dist
       memorySize: 512
       timeout: 60
       environmentVariables:
