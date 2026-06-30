@@ -50,10 +50,20 @@ jobs:
             -a default
 
       - name: Deploy to FC
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          ALIYUN_ACCOUNT_ID: ${{ secrets.ALIYUN_ACCOUNT_ID }}
         run: |
+          echo "=== PWD ==="
+          pwd
           echo "=== S.YAML ==="
           cat s.yaml
+          echo "=== DIST FILES ==="
+          ls -la dist/*.js | head -5
           echo "=== DEPLOY ==="
           s deploy -y
-          echo "=== VERIFY ==="
+          echo "=== DEPLOY DONE ==="
+          echo "=== TEST ==="
+          sleep 10
           curl -s https://fc.cheapgo.top/ || echo "curl failed"
