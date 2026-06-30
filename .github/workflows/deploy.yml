@@ -52,34 +52,29 @@ jobs:
           ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
           ALIYUN_ACCOUNT_ID: ${{ secrets.ALIYUN_ACCOUNT_ID }}
         run: |
-          echo "=== DEPLOYING VIA FC API ==="
-          npm install @alicloud/fc2 --save
+          npm install @alicloud/fc2
           node -e "
           const FC = require('@alicloud/fc2');
           const fs = require('fs');
-          const path = require('path');
 
-          const client = new FC({
+          const client = new FC(process.env.ALIYUN_ACCOUNT_ID, {
             accessKeyID: process.env.ALIYUN_ACCESS_KEY_ID,
             accessKeySecret: process.env.ALIYUN_ACCESS_KEY_SECRET,
             region: 'cn-shenzhen',
-            accountId: process.env.ALIYUN_ACCOUNT_ID,
           });
 
           async function deploy() {
-            try {
-              console.log('Uploading code.zip...');
-              const code = fs.readFileSync('code.zip');
-              await client.updateFunctionCode('appliance-service', 'applican', {
-                zipBuffer: code,
-              });
-              console.log('✅ Code uploaded successfully!');
+            const code = fs.readFileSync('code.zip');
+            console.log('Uploading', code.length, 'bytes...');
 
-              console.log('Updating function config...');
-              await client.updateFunctionConfig('appliance-service', 'applican', {
+            // 直接调用 PUT API，用 code.zipFile 传代码
+            const result = await client.put(
+              '/services/appliance-service/functions/applican',
+              {
                 handler: 'fc-handler.handler',
                 timeout: 60,
                 memorySize: 512,
+                code: { zipFile: code.toString('base64') },
                 environmentVariables: {
                   DB_HOST: 'pgm-wz97275grs6n7622.rwlb.rds.aliyuncs.com',
                   DB_NAME: 'appliance_db',
@@ -89,16 +84,11 @@ jobs:
                   NODE_ENV: 'production',
                   TZ: 'Asia/Shanghai',
                 },
-              });
-              console.log('✅ Config updated successfully!');
-              console.log('Handler: fc-handler.handler');
-            } catch (err) {
-              console.error('❌ Deploy failed:', err.message);
-              process.exit(1);
-            }
+              }
+            );
+            console.log('✅ Deployed! codeSize:', result.data.codeSize, 'checksum:', result.data.codeChecksum);
           }
-          deploy();
+          deploy().catch(e => { console.error('❌', e.message); process.exit(1); });
           "
-          echo "=== TEST ==="
           sleep 10
-          curl -s https://fc.cheapgo.top/ || echo "curl failed"
+          curl -s https://fc.cheapgo.top/
