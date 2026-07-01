@@ -13,23 +13,14 @@ jobs:
       - name: Install acme.sh
         run: curl https://get.acme.sh | sh -s email=admin@cheapgo.top
 
-      - name: Install aliyun CLI
-        run: |
-          curl -fsSL "https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz" -o aliyun-cli.tgz
-          tar xzf aliyun-cli.tgz
-          sudo mv aliyun /usr/local/bin/
-          aliyun version
+      - name: Install Serverless Devs
+        run: npm install -g @serverless-devs/s
 
-      - name: Configure Aliyun CLI
+      - name: Configure Serverless Devs
         env:
           ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
           ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
-        run: |
-          aliyun configure set \
-            --mode AK \
-            --access-key-id "$ALIYUN_ACCESS_KEY_ID" \
-            --access-key-secret "$ALIYUN_ACCESS_KEY_SECRET" \
-            --region "cn-shenzhen"
+        run: s config add --AccessKeyID "$ALIYUN_ACCESS_KEY_ID" --AccessKeySecret "$ALIYUN_ACCESS_KEY_SECRET" -a default -f
 
       - name: Configure acme.sh DNS API
         env:
@@ -39,43 +30,60 @@ jobs:
           echo "Ali_Key=$Ali_Key" >> ~/.acme.sh/account.conf
           echo "Ali_Secret=$Ali_Secret" >> ~/.acme.sh/account.conf
 
-      - name: Issue/ Renew Certificate
+      - name: Issue/ Renew Certificate (RSA 2048)
         run: |
           ~/.acme.sh/acme.sh --issue \
-            -d ssl-test.cheapgo.top \
+            -d appliance-api.cheapgo.top \
             --dns dns_ali \
+            --keylength 2048 \
             --force
 
-      - name: Upload Certificate to FC
+      - name: Convert key to PKCS#1 format
         run: |
-          # 读取证书文件
-          CERT=$(cat ~/.acme.sh/ssl-test.cheapgo.top_ecc/ssl-test.cheapgo.top.cer)
-          KEY=$(cat ~/.acme.sh/ssl-test.cheapgo.top_ecc/ssl-test.cheapgo.top.key)
+          openssl rsa \
+            -in ~/.acme.sh/appliance-api.cheapgo.top/appliance-api.cheapgo.top.key \
+            -out /tmp/key-pkcs1.pem \
+            -traditional
 
-          # 用 jq 构建 JSON（自动处理换行符转义）
-          BODY=$(jq -n \
-            --arg cert "$CERT" \
-            --arg key "$KEY" \
-            '{
-              "protocol": "HTTP,HTTPS",
-              "routeConfig": {
-                "routes": [{
-                  "path": "/*",
-                  "functionName": "api",
-                  "qualifier": "LATEST"
-                }]
-              },
-              "certConfig": {
-                "certType": "upload",
-                "certificate": $cert,
-                "privateKey": $key
-              }
-            }')
+      - name: Prepare certificate files
+        run: |
+          cp ~/.acme.sh/appliance-api.cheapgo.top/fullchain.cer /tmp/cert.pem
+          cp /tmp/key-pkcs1.pem /tmp/key.pem
 
-          # 用 aliyun CLI 上传证书到 FC
-          aliyun fc PUT /2023-03-30/custom-domains/ssl-test.cheapgo.top --body "$BODY"
+      - name: Create s.yaml for SSL deployment
+        run: |
+          cat > /tmp/s-ssl.yaml << 'EOF'
+          edition: 3.0.0
+          name: ssl-deploy
+          access: default
+
+          vars:
+            region: cn-shenzhen
+
+          resources:
+            ssl-domain:
+              component: fc3-domain
+              props:
+                region: ${vars.region}
+                domainName: appliance-api.cheapgo.top
+                protocol: HTTP,HTTPS
+                routeConfig:
+                  routes:
+                    - path: /*
+                      functionName: api
+                      qualifier: LATEST
+                certConfig:
+                  certType: upload
+                  certName: appliance-api-cheapgo
+                  certificate: ${file(./cert.pem)}
+                  privateKey: ${file(./key.pem)}
+          EOF
+
+      - name: Deploy certificate to FC
+        run: |
+          cd /tmp && s deploy -y -t /tmp/s-ssl.yaml
 
       - name: Verify HTTPS
         run: |
           sleep 10
-          curl -sI https://ssl-test.cheapgo.top | head -5
+          curl -sI https://appliance-api.cheapgo.top | head -5
