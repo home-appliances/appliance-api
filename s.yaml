@@ -19,8 +19,8 @@ resources:
       memorySize: 512
       timeout: 60
       logConfig:
-        enableInstanceMetrics: true
-        enableRequestMetrics: true
+        enableInstanceMetrics: false
+        enableRequestMetrics: false
       vpcConfig: auto
       environmentVariables:
         DB_HOST: ${env('DB_HOST')}
