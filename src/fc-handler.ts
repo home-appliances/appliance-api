@@ -1,6 +1,7 @@
 /**
  * 阿里云函数计算 (FC) HTTP 触发器入口
  * 将 FC 的 req/resp 转换为 Hono 的 Request/Response
+ * 更新时间: 2026-06-30 23:34
  */
 
 import { Hono } from 'hono'
@@ -37,7 +38,7 @@ app.route('/', image)
 
 // 根路径测试
 app.get('/', (c) => {
-  return c.json({ message: '家电搜索API服务运行中' })
+  return c.json({ message: '家电搜索API服务运行中', version: '1.0.1', time: new Date().toISOString() })
 })
 
 /**
