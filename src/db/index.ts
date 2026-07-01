@@ -425,24 +425,36 @@ export async function searchProducts(
     const limitIdx = 5 + searchTerms.length;
     const offsetIdx = limitIdx + 1;
 
+    // 重新计算参数索引（从 $1 开始）
+    const termConditionsFixed = searchTerms.map((_, i) => {
+      const idx = i + 1;
+      return `(name ILIKE $${idx} OR brand ILIKE $${idx} OR model ILIKE $${idx})`;
+    }).join(' OR ');
+
+    const brandIdx = 1 + searchTerms.length;
+    const keywordIdx = brandIdx + 1;
+    const nameIdx = keywordIdx + 1;
+    const limitIdxNew = nameIdx + 1;
+    const offsetIdxNew = limitIdxNew + 1;
+
     query = `
       SELECT *,
         ${brandBoostCase} as brand_boost
       FROM products
-      WHERE ${termConditions}
-         OR brand ILIKE $2
-         OR brand ILIKE $3
-         OR name ILIKE $4
-         OR pinyin ILIKE $4
+      WHERE ${termConditionsFixed}
+         OR brand ILIKE $${brandIdx}
+         OR brand ILIKE $${keywordIdx}
+         OR name ILIKE $${nameIdx}
+         OR pinyin ILIKE $${nameIdx}
       ORDER BY brand_boost DESC, created_at DESC
-      LIMIT $${limitIdx} OFFSET $${offsetIdx}
+      LIMIT $${limitIdxNew} OFFSET $${offsetIdxNew}
     `;
 
     params = [
+      ...searchTerms.map(t => `%${t}%`),
       `%${brandFilter}%`,
       `%${keyword}%`,
       `%${keyword}%`,
-      ...searchTerms.map(t => `%${t}%`),
       limit,
       (page - 1) * limit,
     ];
@@ -450,17 +462,17 @@ export async function searchProducts(
     // 计算总数（不需要 limit/offset）
     const countQuery = `
       SELECT COUNT(*) FROM products
-      WHERE ${termConditions}
-         OR brand ILIKE $2
-         OR brand ILIKE $3
-         OR name ILIKE $4
-         OR pinyin ILIKE $4
+      WHERE ${termConditionsFixed}
+         OR brand ILIKE $${brandIdx}
+         OR brand ILIKE $${keywordIdx}
+         OR name ILIKE $${nameIdx}
+         OR pinyin ILIKE $${nameIdx}
     `;
     const countParams = [
+      ...searchTerms.map(t => `%${t}%`),
       `%${brandFilter}%`,
       `%${keyword}%`,
       `%${keyword}%`,
-      ...searchTerms.map(t => `%${t}%`),
     ];
     const countResult = await pool.query(countQuery, countParams);
     var total = parseInt(countResult.rows[0].count);
