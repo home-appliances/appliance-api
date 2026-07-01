@@ -14,84 +14,23 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Build
-        run: |
-          rm -rf dist/ tsconfig.tsbuildinfo
-          npm ci
-          npm run build
+        run: npm run build
 
-      - name: Package code.zip
-        run: |
-          # 创建临时打包目录
-          rm -rf deploy/ && mkdir deploy/
-          # 复制编译产物
-          cp -r dist/* deploy/
-          # 创建 package.json（不含 type:module）
-          node -e "
-          const pkg = require('./package.json');
-          const distPkg = { name: pkg.name, version: pkg.version, main: 'index.js', dependencies: pkg.dependencies || {} };
-          require('fs').writeFileSync('deploy/package.json', JSON.stringify(distPkg, null, 2));
-          "
-          cp package-lock.json deploy/
-          # 安装生产依赖
-          cd deploy && npm install --omit=dev && cd ..
-          echo "=== DEPLOY DIR SIZE ==="
-          du -sh deploy/
-          echo "=== NODE_MODULES COUNT ==="
-          ls deploy/node_modules/ | wc -l
-          # 打包
-          cd deploy && zip -r ../code.zip . && cd ..
-          echo "=== ZIP SIZE ==="
-          du -sh code.zip
+      - name: Install Serverless Devs
+        run: npm install -g @serverless-devs/s
 
-      - name: Deploy to FC via API
+      - name: Configure credentials
+        run: s config add --AccessKeyID ${{ secrets.ALIYUN_ACCESS_KEY_ID }} --AccessKeySecret ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }} -a default -f
+
+      - name: Deploy to FC
         env:
-          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
-          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
-          ALIYUN_ACCOUNT_ID: ${{ secrets.ALIYUN_ACCOUNT_ID }}
-        run: |
-          npm install @alicloud/fc2
-          node -e "
-          const FC = require('@alicloud/fc2');
-          const fs = require('fs');
-
-          const client = new FC(process.env.ALIYUN_ACCOUNT_ID, {
-            accessKeyID: process.env.ALIYUN_ACCESS_KEY_ID,
-            accessKeySecret: process.env.ALIYUN_ACCESS_KEY_SECRET,
-            region: 'cn-shenzhen',
-          });
-
-          async function deploy() {
-            const code = fs.readFileSync('code.zip');
-            console.log('Uploading', code.length, 'bytes...');
-
-            const result = await client.put(
-              '/services/appliance-service/functions/applican',
-              {
-                handler: 'fc-handler.handler',
-                timeout: 60,
-                memorySize: 512,
-                code: { zipFile: code.toString('base64') },
-                environmentVariables: {
-                  DB_HOST: 'pgm-wz97275grs6n7622.rwlb.rds.aliyuncs.com',
-                  DB_NAME: 'appliance_db',
-                  DB_PASSWORD: 'Aa_123789',
-                  DB_PORT: '5432',
-                  DB_USER: 'Aa_123',
-                  NODE_ENV: 'production',
-                  TZ: 'Asia/Shanghai',
-                },
-                // VPC 配置
-                vpcConfig: {
-                  vpcId: 'vpc-wz9panhs3lr4y30c8cd75',
-                  vswitchIds: ['vsw-wz9x49y8clwt46f3086x7'],
-                  securityGroupId: 'sg-wz95y2xh9e7ajlongxaj',
-                },
-              }
-            );
-            console.log('✅ Deployed! codeSize:', result.data.codeSize, 'checksum:', result.data.codeChecksum);
-          }
-          deploy().catch(e => { console.error('❌', e.message); process.exit(1); });
-          "
-          sleep 10
-          curl -sk https://fc.cheapgo.top/ || echo "⚠️ 验证请求失败，但部署已完成"
+          DB_HOST: pgm-wz97275grs6n7622.rwlb.rds.aliyuncs.com
+          DB_NAME: appliance_db
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: "5432"
+          DB_USER: Aa_123
+        run: s deploy -y --use-local
