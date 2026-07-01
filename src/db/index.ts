@@ -429,17 +429,16 @@ export async function searchProducts(
       SELECT *,
         ${brandBoostCase} as brand_boost
       FROM products
-      WHERE search_vector @@ to_tsquery('simple', $1)
-         OR ${termConditions}
+      WHERE ${termConditions}
          OR brand ILIKE $2
          OR brand ILIKE $3
+         OR name ILIKE $4
          OR pinyin ILIKE $4
       ORDER BY brand_boost DESC, created_at DESC
       LIMIT $${limitIdx} OFFSET $${offsetIdx}
     `;
 
     params = [
-      tsQuery,
       `%${brandFilter}%`,
       `%${keyword}%`,
       `%${keyword}%`,
@@ -451,14 +450,13 @@ export async function searchProducts(
     // 计算总数（不需要 limit/offset）
     const countQuery = `
       SELECT COUNT(*) FROM products
-      WHERE search_vector @@ to_tsquery('simple', $1)
-         OR ${termConditions}
+      WHERE ${termConditions}
          OR brand ILIKE $2
          OR brand ILIKE $3
+         OR name ILIKE $4
          OR pinyin ILIKE $4
     `;
     const countParams = [
-      tsQuery,
       `%${brandFilter}%`,
       `%${keyword}%`,
       `%${keyword}%`,
