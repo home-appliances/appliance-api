@@ -220,6 +220,10 @@ export async function searchProducts(
     };
   }
 
+  // 检查是否包含产品型号（如 KFR-35GW/BP3DN8Y-PH200(B1)）
+  const modelPattern = /[A-Z]{2,}[-/][A-Z0-9]+/i;
+  const hasModel = modelPattern.test(keyword);
+
   // 提取搜索词（中文、英文、数字）
   const cleaned = keyword.replace(/[^一-龥a-zA-Z0-9]/g, ' ').trim();
 
@@ -238,7 +242,19 @@ export async function searchProducts(
   // 检查是否是英文品牌名（如 gree, haier, midea）
   const terms: string[] = [];
   const englishBrandPattern = /^[a-zA-Z]+$/;
-  if (englishBrandPattern.test(cleaned)) {
+
+  if (hasModel) {
+    // 包含产品型号时，提取品牌和型号
+    const brandMatch = keyword.match(/^([一-龥]+)/);
+    if (brandMatch) {
+      terms.push(brandMatch[1]); // 中文品牌名
+    }
+    // 提取完整的产品型号（保留原始格式）
+    const modelMatch = keyword.match(/([A-Z]{2,}[-/][A-Z0-9()/-]+)/i);
+    if (modelMatch) {
+      terms.push(modelMatch[1]); // 完整的产品型号
+    }
+  } else if (englishBrandPattern.test(cleaned)) {
     // 英文品牌名直接使用完整词
     terms.push(cleaned);
   } else {
