@@ -50,6 +50,8 @@ export async function handler(event: string, context: any) {
     // FC 3.0 HTTP 触发器 event 是 JSON 字符串
     const httpTrigger = typeof event === 'string' ? JSON.parse(event) : event
 
+    console.log('FC Event:', JSON.stringify(httpTrigger, null, 2))
+
     // 构建完整的请求 URL
     const protocol = httpTrigger.headers?.['x-forwarded-proto'] || 'https'
     const host = httpTrigger.headers?.host || httpTrigger.headers?.Host || context?.host || 'localhost'
