@@ -235,26 +235,32 @@ export async function searchProducts(
     '液晶', '智能', '暖风机', '油汀', '电饭锅', '压力锅', '油烟机', '吸油烟机',
   ];
 
-  // 从长到短匹配词典
-  let remaining = cleaned;
-  const terms: string[] = [];
-  allDictWords.sort((a, b) => b.length - a.length); // 按长度降序
+  // 检查是否是英文品牌名（如 gree, haier, midea）
+  const englishBrandPattern = /^[a-zA-Z]+$/;
+  if (englishBrandPattern.test(cleaned)) {
+    // 英文品牌名直接使用完整词
+    terms.push(cleaned);
+  } else {
+    // 从长到短匹配词典
+    let remaining = cleaned;
+    allDictWords.sort((a, b) => b.length - a.length); // 按长度降序
 
-  while (remaining.length > 0) {
-    let matched = false;
-    for (const word of allDictWords) {
-      if (remaining.startsWith(word)) {
-        terms.push(word);
-        remaining = remaining.substring(word.length).trim();
-        matched = true;
-        break;
+    while (remaining.length > 0) {
+      let matched = false;
+      for (const word of allDictWords) {
+        if (remaining.startsWith(word)) {
+          terms.push(word);
+          remaining = remaining.substring(word.length).trim();
+          matched = true;
+          break;
+        }
       }
-    }
-    if (!matched) {
-      // 没有匹配到词典，取第一个字/词
-      const nextWord = remaining.charAt(0);
-      terms.push(nextWord);
-      remaining = remaining.substring(1).trim();
+      if (!matched) {
+        // 没有匹配到词典，取第一个字/词
+        const nextWord = remaining.charAt(0);
+        terms.push(nextWord);
+        remaining = remaining.substring(1).trim();
+      }
     }
   }
 
