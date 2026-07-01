@@ -41,15 +41,19 @@ jobs:
 
       - name: Upload certificate to FC
         run: |
-          jq -n \
-            --rawfile cert ~/.acme.sh/appliance-api.cheapgo.top/fullchain.cer \
-            --rawfile key ~/.acme.sh/appliance-api.cheapgo.top/appliance-api.cheapgo.top.key \
-            '{
-              "protocol": "HTTP,HTTPS",
-              "routeConfig": {"routes": [{"path": "/*", "functionName": "api", "qualifier": "LATEST"}]},
-              "certConfig": {"certType": "upload", "certName": "appliance-api-cheapgo", "certificate": $cert, "privateKey": $key}
-            }' > /tmp/fc-body.json
-          aliyun fc PUT /2023-03-30/custom-domains/appliance-api.cheapgo.top --body "$(cat /tmp/fc-body.json)"
+          node -e "
+          const fs = require('fs');
+          const cert = fs.readFileSync(process.env.HOME + '/.acme.sh/appliance-api.cheapgo.top/fullchain.cer', 'utf-8');
+          const key = fs.readFileSync(process.env.HOME + '/.acme.sh/appliance-api.cheapgo.top/appliance-api.cheapgo.top.key', 'utf-8');
+          const body = {
+            protocol: 'HTTP,HTTPS',
+            routeConfig: { routes: [{ path: '/*', functionName: 'api', qualifier: 'LATEST' }] },
+            certConfig: { certType: 'upload', certName: 'appliance-api-cheapgo', certificate: cert, privateKey: key }
+          };
+          fs.writeFileSync('/tmp/fc-body.json', JSON.stringify(body));
+          "
+          BODY=$(node -e "process.stdout.write(fs.readFileSync('/tmp/fc-body.json','utf-8'))")
+          aliyun fc PUT /2023-03-30/custom-domains/appliance-api.cheapgo.top --body "$BODY"
 
       - name: Verify HTTPS
         run: sleep 10 && curl -sI https://appliance-api.cheapgo.top | head -5
