@@ -21,6 +21,7 @@ resources:
       logConfig:
         enableInstanceMetrics: true
         enableRequestMetrics: true
+      internetAccess: true
       vpcConfig:
         vpcId: vpc-wz9panhs3lr4y30c8cd75
         vswitchIds:
