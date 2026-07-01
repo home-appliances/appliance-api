@@ -52,7 +52,7 @@ export async function handler(event: string, context: any) {
 
     // 构建完整的请求 URL
     const protocol = httpTrigger.headers?.['x-forwarded-proto'] || 'https'
-    const host = httpTrigger.headers?.host || httpTrigger.headers?.Host || ''
+    const host = httpTrigger.headers?.host || httpTrigger.headers?.Host || context?.host || 'localhost'
     const rawPath = httpTrigger.rawPath || httpTrigger.path || '/'
     const query = httpTrigger.queryParameters || {}
     const queryString = Object.keys(query).length > 0
