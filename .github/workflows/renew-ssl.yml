@@ -48,26 +48,32 @@ jobs:
 
       - name: Upload Certificate to FC
         run: |
-          # 读取证书文件（转义换行符为 \\n）
-          CERT=$(cat ~/.acme.sh/appliance-api.cheapgo.top_ecc/appliance-api.cheapgo.top.cer | sed ':a;N;$!ba;s/\n/\\n/g')
-          KEY=$(cat ~/.acme.sh/appliance-api.cheapgo.top_ecc/appliance-api.cheapgo.top.key | sed ':a;N;$!ba;s/\n/\\n/g')
+          # 读取证书文件
+          CERT=$(cat ~/.acme.sh/ssl-test.cheapgo.top_ecc/ssl-test.cheapgo.top.cer)
+          KEY=$(cat ~/.acme.sh/ssl-test.cheapgo.top_ecc/ssl-test.cheapgo.top.key)
+
+          # 用 jq 构建 JSON（自动处理换行符转义）
+          BODY=$(jq -n \
+            --arg cert "$CERT" \
+            --arg key "$KEY" \
+            '{
+              "protocol": "HTTP,HTTPS",
+              "routeConfig": {
+                "routes": [{
+                  "path": "/*",
+                  "functionName": "api",
+                  "qualifier": "LATEST"
+                }]
+              },
+              "certConfig": {
+                "certType": "upload",
+                "certificate": $cert,
+                "privateKey": $key
+              }
+            }')
 
           # 用 aliyun CLI 上传证书到 FC
-          aliyun fc PUT /2023-03-30/custom-domains/ssl-test.cheapgo.top --body "{
-            \"protocol\": \"HTTP,HTTPS\",
-            \"routeConfig\": {
-              \"routes\": [{
-                \"path\": \"/*\",
-                \"functionName\": \"api\",
-                \"qualifier\": \"LATEST\"
-              }]
-            },
-            \"certConfig\": {
-              \"certType\": \"upload\",
-              \"certificate\": \"$CERT\",
-              \"privateKey\": \"$KEY\"
-            }
-          }"
+          aliyun fc PUT /2023-03-30/custom-domains/ssl-test.cheapgo.top --body "$BODY"
 
       - name: Verify HTTPS
         run: |
