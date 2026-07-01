@@ -1,7 +1,7 @@
 /**
- * 阿里云函数计算 (FC) HTTP 触发器入口
- * 将 FC 的 req/resp 转换为 Hono 的 Request/Response
- * 更新时间: 2026-06-30 23:34
+ * 阿里云函数计算 (FC 3.0) HTTP 触发器入口
+ * 将 FC 的 event/context 转换为 Hono 的 Request/Response
+ * 更新时间: 2026-07-02 03:30
  */
 
 import { Hono } from 'hono'
@@ -42,80 +42,80 @@ app.get('/', (c) => {
 })
 
 /**
- * FC HTTP 触发器 handler
- * 兼容 FC 3.0 HTTP 触发器的 req/resp 接口
+ * FC 3.0 HTTP 触发器 handler
+ * FC 3.0 使用 event/context 模式，需要返回标准 HTTP 响应对象
  */
-export async function handler(req: any, resp: any, context: any) {
+export async function handler(event: string, context: any) {
   try {
+    // FC 3.0 HTTP 触发器 event 是 JSON 字符串
+    const httpTrigger = typeof event === 'string' ? JSON.parse(event) : event
+
     // 构建完整的请求 URL
-    const protocol = req.headers['x-forwarded-proto'] || 'https'
-    const host = req.headers.host || req.headers.Host || ''
-    const url = `${protocol}://${host}${req.url || req.path || '/'}`
+    const protocol = httpTrigger.headers?.['x-forwarded-proto'] || 'https'
+    const host = httpTrigger.headers?.host || httpTrigger.headers?.Host || ''
+    const rawPath = httpTrigger.rawPath || httpTrigger.path || '/'
+    const query = httpTrigger.queryParameters || {}
+    const queryString = Object.keys(query).length > 0
+      ? '?' + new URLSearchParams(query).toString()
+      : ''
+    const url = `${protocol}://${host}${rawPath}${queryString}`
 
     // 构建 Request headers
     const headers = new Headers()
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (value !== undefined && value !== null) {
-        headers.set(key, String(value))
+    if (httpTrigger.headers) {
+      for (const [key, value] of Object.entries(httpTrigger.headers)) {
+        if (value !== undefined && value !== null) {
+          headers.set(key, String(value))
+        }
       }
     }
 
     // 构建 Request init
     const requestInit: RequestInit = {
-      method: req.method || 'GET',
+      method: httpTrigger.method || 'GET',
       headers,
     }
 
-    // 处理请求体（非 GET/HEAD）
-    if (req.method && req.method !== 'GET' && req.method !== 'HEAD') {
-      if (req.body !== undefined && req.body !== null) {
-        requestInit.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
-      }
+    // 处理请求体
+    if (httpTrigger.body) {
+      const body = typeof httpTrigger.body === 'string'
+        ? httpTrigger.body
+        : JSON.stringify(httpTrigger.body)
+      requestInit.body = body
     }
 
     // 调用 Hono 处理请求
     const request = new Request(url, requestInit)
     const response = await app.fetch(request)
 
-    // 设置状态码
-    resp.setStatusCode(response.status)
+    // 读取响应体
+    const responseBody = await response.text()
 
-    // ✅ 关键：只复制安全的 header，避免 FC 兼容问题
-    const safeHeaders = ['content-type', 'cache-control', 'etag', 'last-modified', 'x-request-id']
-    for (const h of safeHeaders) {
-      const val = response.headers.get(h)
-      if (val) {
-        resp.setHeader(h, val)
-      }
+    // 构建 FC 3.0 标准响应
+    const responseHeaders: Record<string, string> = {}
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value
+    })
+    responseHeaders['content-disposition'] = 'inline'
+
+    return {
+      statusCode: response.status,
+      headers: responseHeaders,
+      body: responseBody,
     }
-
-    // ✅ 确保 Content-Type 被正确设置
-    const contentType = response.headers.get('content-type')
-    if (!contentType) {
-      // 根据请求路径推断 Content-Type
-      const path = req.url || req.path || ''
-      if (path.includes('/api/') || path === '/') {
-        resp.setHeader('content-type', 'application/json; charset=utf-8')
-      } else {
-        resp.setHeader('content-type', 'text/plain; charset=utf-8')
-      }
-    }
-
-    // ✅ 确保不是 attachment，防止浏览器触发下载
-    resp.setHeader('content-disposition', 'inline')
-
-    // 读取响应体并发送
-    const body = await response.text()
-    resp.send(body)
 
   } catch (err: any) {
     console.error('FC Handler error:', err)
-    resp.setStatusCode(500)
-    resp.setHeader('content-type', 'application/json; charset=utf-8')
-    resp.send(JSON.stringify({
-      code: 500,
-      error: err.message || 'Internal Server Error',
-      ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
-    }))
+    return {
+      statusCode: 500,
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+      },
+      body: JSON.stringify({
+        code: 500,
+        error: err.message || 'Internal Server Error',
+        ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+      }),
+    }
   }
 }
