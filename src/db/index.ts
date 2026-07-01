@@ -308,7 +308,10 @@ export async function searchProducts(
   };
 
   let isCategorySearch = categoryKeywords.some(kw => lowerKeyword.includes(kw));
-  const hasBrandKeyword = terms.some(t => brandKeywords[t] || brandKeywords[t.toLowerCase()]);
+  const hasBrandKeyword = terms.some(t =>
+    brandKeywords[t] || brandKeywords[t.toLowerCase()] ||
+    brandEnglishToChinese[t] || brandEnglishToChinese[t.toLowerCase()]
+  );
 
   console.log('搜索调试:', { keyword, terms, isCategorySearch, hasBrandKeyword });
 
