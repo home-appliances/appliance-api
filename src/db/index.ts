@@ -288,7 +288,7 @@ export async function searchProducts(
     '油烟机', '吸油烟机'
   ];
 
-  // 品牌关键词
+  // 品牌关键词（中文 → 英文）
   const brandKeywords: Record<string, string> = {
     '小米': 'xiaomi', '格力': 'gree', '海尔': 'haier', '美的': 'midea',
     '奥克斯': 'aux', '海信': 'hisense', 'tcl': 'tcl', '松下': 'panasonic',
@@ -296,6 +296,15 @@ export async function searchProducts(
     '长虹': 'changhong', '扬子': 'yangzi', '惠而浦': 'whirlpool', '富士通': 'fujitsu',
     '日立': 'hitachi', '康佳': 'konka', '飞利浦': 'philips', '统帅': 'tongshuai',
     '米家': 'xiaomi', '华凌': 'midea', '卡萨帝': 'haier',
+  };
+
+  // 反向映射（英文 → 中文）
+  const brandEnglishToChinese: Record<string, string> = {
+    'xiaomi': '小米', 'gree': '格力', 'haier': '海尔', 'midea': '美的',
+    'aux': '奥克斯', 'hisense': '海信', 'panasonic': '松下',
+    'daikin': '大金', 'mitsubishi': '三菱', 'kelon': '科龙', 'chigo': '志高',
+    'changhong': '长虹', 'yangzi': '扬子', 'whirlpool': '惠而浦', 'fujitsu': '富士通',
+    'hitachi': '日立', 'konka': '康佳', 'philips': '飞利浦', 'tongshuai': '统帅',
   };
 
   let isCategorySearch = categoryKeywords.some(kw => lowerKeyword.includes(kw));
@@ -396,6 +405,12 @@ export async function searchProducts(
         if (term !== mapped) {
           nameBoostParts.push(`name LIKE '%${term}%'`);
         }
+      }
+
+      // 反向映射：英文品牌名 → 中文品牌名
+      const chineseBrand = brandEnglishToChinese[term.toLowerCase()];
+      if (chineseBrand) {
+        brandBoostParts.push(`brand = '${chineseBrand}'`);
       }
     }
 
