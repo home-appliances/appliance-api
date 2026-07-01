@@ -6,12 +6,12 @@ vars:
   region: cn-shenzhen
 
 resources:
-  applican:
+  api:
     component: fc3
     props:
       region: ${vars.region}
-      serviceName: appliance-service
-      functionName: applican
+      serviceName: appliance
+      functionName: api
       runtime: nodejs20
       handler: fc-handler.handler
       code: ./code.zip
