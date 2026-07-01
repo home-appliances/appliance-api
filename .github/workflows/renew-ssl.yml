@@ -1,0 +1,63 @@
+name: Renew SSL Certificate
+
+on:
+  schedule:
+    # 每 60 天运行一次（每月 1 号和 31 号）
+    - cron: '0 2 1,31 * *'
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install acme.sh
+        run: curl https://get.acme.sh | sh -s email=admin@cheapgo.top
+
+      - name: Configure Aliyun DNS API
+        env:
+          Ali_Key: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          Ali_Secret: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+        run: |
+          echo "Ali_Key=$Ali_Key" >> ~/.acme.sh/account.conf
+          echo "Ali_Secret=$Ali_Secret" >> ~/.acme.sh/account.conf
+
+      - name: Issue/ Renew Certificate
+        run: |
+          ~/.acme.sh/acme.sh --issue \
+            -d appliance-api.cheapgo.top \
+            --dns dns_ali \
+            --force
+
+      - name: Upload Certificate to FC
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+        run: |
+          # 读取证书文件
+          CERT=$(cat ~/.acme.sh/appliance-api.cheapgo.top_ecc/appliance-api.cheapgo.top.cer)
+          KEY=$(cat ~/.acme.sh/appliance-api.cheapgo.top_ecc/appliance-api.cheapgo.top.key)
+
+          # 上传到 FC 自定义域名
+          curl -X PUT "https://fc.cn-shenzhen.aliyuncs.com/2023-03-30/custom-domains/appliance-api.cheapgo.top" \
+            -H "Authorization: acs $ALIYUN_ACCESS_KEY_ID:$(echo -en "PUT\n\n\n\n/2023-03-30/custom-domains/appliance-api.cheapgo.top" | openssl dgst -sha1 -hmac "$ALIYUN_ACCESS_KEY_SECRET" -binary | base64)" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"protocol\": \"HTTP,HTTPS\",
+              \"routeConfig\": {
+                \"routes\": [{
+                  \"path\": \"/*\",
+                  \"functionName\": \"api\",
+                  \"qualifier\": \"LATEST\"
+                }]
+              },
+              \"certConfig\": {
+                \"certType\": \"upload\",
+                \"certificate\": \"$CERT\",
+                \"privateKey\": \"$KEY\"
+              }
+            }"
+
+      - name: Verify HTTPS
+        run: |
+          sleep 10
+          curl -sI https://appliance-api.cheapgo.top | head -5
