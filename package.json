@@ -38,7 +38,6 @@
     "deploy": "npm run build && npm run package && s deploy -y"
   },
   "dependencies": {
-    "@alicloud/fc2": "^2.6.6",
     "@hono/node-server": "^1.11.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^17.4.2",
@@ -50,6 +49,7 @@
     "winston": "^3.13.0"
   },
   "devDependencies": {
+    "@alicloud/fc2": "^2.6.6",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.14.0",
