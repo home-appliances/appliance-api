@@ -78,6 +78,8 @@ jobs:
                   certificate: ${file(./cert.pem)}
                   privateKey: ${file(./key.pem)}
           EOF
+          # 移除 YAML 中的缩进
+          sed -i 's/^          //' /tmp/s-ssl.yaml
 
       - name: Deploy certificate to FC
         run: |

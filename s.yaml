@@ -37,3 +37,15 @@ resources:
               - PUT
               - DELETE
               - OPTIONS
+
+  domain:
+    component: fc3-domain
+    props:
+      region: ${vars.region}
+      domainName: appliance-api.cheapgo.top
+      protocol: HTTP
+      routeConfig:
+        routes:
+          - path: /*
+            functionName: api
+            qualifier: LATEST
