@@ -26,3 +26,14 @@ resources:
         DB_USER: ${env('DB_USER')}
         NODE_ENV: production
         TZ: Asia/Shanghai
+      triggers:
+        - triggerName: http
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
