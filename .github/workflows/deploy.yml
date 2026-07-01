@@ -20,6 +20,19 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Package code.zip
+        run: |
+          rm -rf deploy/ && mkdir deploy/
+          cp -r dist/* deploy/
+          node -e "
+          const pkg = require('./package.json');
+          const distPkg = { name: pkg.name, version: pkg.version, main: 'index.js', dependencies: pkg.dependencies || {} };
+          require('fs').writeFileSync('deploy/package.json', JSON.stringify(distPkg, null, 2));
+          "
+          cp package-lock.json deploy/
+          cd deploy && npm install --omit=dev && cd ..
+          cd deploy && zip -r ../code.zip . && cd ..
+
       - name: Install Serverless Devs
         run: npm install -g @serverless-devs/s
 
