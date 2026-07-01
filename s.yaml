@@ -12,6 +12,7 @@ resources:
       region: ${vars.region}
       serviceName: appliance
       functionName: api
+      description: '家电搜索 Hono 后端 API (Node.js 20 + PostgreSQL)'
       runtime: nodejs20
       handler: fc-handler.handler
       code: ./code.zip
