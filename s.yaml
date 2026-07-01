@@ -21,11 +21,7 @@ resources:
       logConfig:
         enableInstanceMetrics: true
         enableRequestMetrics: true
-      # vpcConfig:  # VPC 配置暂不通过 s.yaml 管理，在 FC 控制台配置
-      #   vpcId: vpc-wz9panhs3lr4y30c8cd75
-      #   vswitchIds:
-      #     - vsw-wz9x49y8clwt46f3086x7
-      #   securityGroupId: sg-wz95y2xh9e7ajlongxaj
+      vpcConfig: auto
       environmentVariables:
         DB_HOST: ${env('DB_HOST')}
         DB_NAME: ${env('DB_NAME')}
