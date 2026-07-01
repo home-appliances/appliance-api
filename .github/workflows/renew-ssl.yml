@@ -36,6 +36,7 @@ jobs:
             -d appliance-api.cheapgo.top \
             --dns dns_ali \
             --keylength 2048 \
+            --server letsencrypt \
             --force
 
       - name: Convert key to PKCS#1 format
