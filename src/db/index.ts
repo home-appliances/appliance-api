@@ -236,6 +236,7 @@ export async function searchProducts(
   ];
 
   // 检查是否是英文品牌名（如 gree, haier, midea）
+  const terms: string[] = [];
   const englishBrandPattern = /^[a-zA-Z]+$/;
   if (englishBrandPattern.test(cleaned)) {
     // 英文品牌名直接使用完整词
