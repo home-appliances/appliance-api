@@ -505,7 +505,7 @@ export async function searchProducts(
     // 计算总数（不需要 limit/offset）
     const countQuery = `
       SELECT COUNT(*) FROM products
-      WHERE ${termConditionsFixed}
+      WHERE ${whereClause}
          OR brand ILIKE $${brandIdx}
          OR brand ILIKE $${keywordIdx}
          OR name ILIKE $${nameIdx}
@@ -513,6 +513,7 @@ export async function searchProducts(
     `;
     const countParams = [
       ...searchTerms.map(t => `%${t}%`),
+      ...chineseBrands,
       `%${brandFilter}%`,
       `%${keyword}%`,
       `%${keyword}%`,
