@@ -47,8 +47,15 @@ app.get('/', (c) => {
  */
 export async function handler(event: string, context: any) {
   try {
-    // FC 3.0 HTTP 触发器 event 是 JSON 字符串
-    const httpTrigger = typeof event === 'string' ? JSON.parse(event) : event
+    // FC 3.0 HTTP 触发器 event 可能是字符串、Buffer 或对象
+    let httpTrigger: any
+    if (Buffer.isBuffer(event)) {
+      httpTrigger = JSON.parse(event.toString('utf-8'))
+    } else if (typeof event === 'string') {
+      httpTrigger = JSON.parse(event)
+    } else {
+      httpTrigger = event
+    }
 
     console.log('FC Event:', JSON.stringify(httpTrigger, null, 2))
 
