@@ -415,13 +415,19 @@ export async function searchProducts(
     const brandBoostSQL = brandBoostParts.length > 0 ? `WHEN ${brandBoostParts.join(' OR ')} THEN 100` : '';
     const categoryBoostSQL = categoryBoostParts.length > 0 ? `WHEN category IN (${categoryBoostParts.join(',')}) THEN 50` : '';
 
+    // 构建完整的 CASE 语句（至少需要一个 WHEN）
+    const caseParts = [nameBoostSQL, brandBoostSQL, categoryBoostSQL].filter(Boolean);
+    const brandBoostCase = caseParts.length > 0
+      ? `CASE ${caseParts.join(' ')} ELSE 0 END`
+      : '0';
+
     // 主查询：$1-$4 固定，$5... searchTerms，最后 $N-1=limit, $N=offset
     const limitIdx = 5 + searchTerms.length;
     const offsetIdx = limitIdx + 1;
 
     query = `
       SELECT *,
-        CASE ${nameBoostSQL} ${brandBoostSQL} ${categoryBoostSQL} ELSE 0 END as brand_boost
+        ${brandBoostCase} as brand_boost
       FROM products
       WHERE search_vector @@ to_tsquery('simple', $1)
          OR ${termConditions}
