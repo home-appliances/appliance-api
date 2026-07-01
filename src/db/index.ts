@@ -495,9 +495,18 @@ export async function searchProducts(
       ? `(${termConditionsFixed} OR ${chineseBrandConditions})`
       : termConditionsFixed;
 
+    // 添加 exact 型号匹配条件（最高优先级）
+    const exactModelBoost = hasModel ? `WHEN name = '${keyword}' THEN 200` : '';
+
+    // 重新构建 brandBoostCase
+    const allCaseParts = [exactModelBoost, ...caseParts].filter(Boolean);
+    const finalBrandBoostCase = allCaseParts.length > 0
+      ? `CASE ${allCaseParts.join(' ')} ELSE 0 END`
+      : '0';
+
     query = `
       SELECT *,
-        ${brandBoostCase} as brand_boost
+        ${finalBrandBoostCase} as brand_boost
       FROM products
       WHERE ${whereClause}
          OR brand ILIKE $${brandIdx}
