@@ -18,6 +18,9 @@ resources:
       code: ./code.zip
       memorySize: 512
       timeout: 60
+      logConfig:
+        enableInstanceMetrics: true
+        enableRequestMetrics: true
       environmentVariables:
         DB_HOST: ${env('DB_HOST')}
         DB_NAME: ${env('DB_NAME')}
