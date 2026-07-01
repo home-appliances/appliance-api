@@ -57,8 +57,6 @@ export async function handler(event: string, context: any) {
       httpTrigger = event
     }
 
-    console.log('FC Event:', JSON.stringify(httpTrigger, null, 2))
-
     // 构建完整的请求 URL
     const protocol = httpTrigger.headers?.['x-forwarded-proto'] || 'https'
     const host = httpTrigger.headers?.host || httpTrigger.headers?.Host || context?.host || 'localhost'
