@@ -81,6 +81,12 @@ jobs:
                   NODE_ENV: 'production',
                   TZ: 'Asia/Shanghai',
                 },
+                // VPC 配置
+                vpcConfig: {
+                  vpcId: 'vpc-wz9panhs3lr4y30c8cd75',
+                  vswitchIds: ['vsw-wz9x49y8clwt46f3086x7'],
+                  securityGroupId: 'sg-wz95y2xh9e7ajlongxaj',
+                },
               }
             );
             console.log('✅ Deployed! codeSize:', result.data.codeSize, 'checksum:', result.data.codeChecksum);
