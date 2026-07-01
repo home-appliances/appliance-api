@@ -456,17 +456,34 @@ export async function searchProducts(
       return `(name ILIKE $${idx} OR brand ILIKE $${idx} OR model ILIKE $${idx})`;
     }).join(' OR ');
 
-    const brandIdx = 1 + searchTerms.length;
+    // 收集中文品牌名（用于英文品牌搜索）
+    const chineseBrands: string[] = [];
+    for (const term of searchTerms) {
+      const chineseBrand = brandEnglishToChinese[term.toLowerCase()];
+      if (chineseBrand) {
+        chineseBrands.push(chineseBrand);
+      }
+    }
+    const chineseBrandConditions = chineseBrands.map((_, i) => {
+      const idx = i + 1 + searchTerms.length;
+      return `brand = $${idx}`;
+    }).join(' OR ');
+
+    const brandIdx = 1 + searchTerms.length + chineseBrands.length;
     const keywordIdx = brandIdx + 1;
     const nameIdx = keywordIdx + 1;
     const limitIdxNew = nameIdx + 1;
     const offsetIdxNew = limitIdxNew + 1;
 
+    const whereClause = chineseBrandConditions
+      ? `(${termConditionsFixed} OR ${chineseBrandConditions})`
+      : termConditionsFixed;
+
     query = `
       SELECT *,
         ${brandBoostCase} as brand_boost
       FROM products
-      WHERE ${termConditionsFixed}
+      WHERE ${whereClause}
          OR brand ILIKE $${brandIdx}
          OR brand ILIKE $${keywordIdx}
          OR name ILIKE $${nameIdx}
@@ -477,6 +494,7 @@ export async function searchProducts(
 
     params = [
       ...searchTerms.map(t => `%${t}%`),
+      ...chineseBrands,
       `%${brandFilter}%`,
       `%${keyword}%`,
       `%${keyword}%`,
