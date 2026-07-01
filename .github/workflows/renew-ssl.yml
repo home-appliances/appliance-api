@@ -13,7 +13,25 @@ jobs:
       - name: Install acme.sh
         run: curl https://get.acme.sh | sh -s email=admin@cheapgo.top
 
-      - name: Configure Aliyun DNS API
+      - name: Install aliyun CLI
+        run: |
+          curl -fsSL "https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz" -o aliyun-cli.tgz
+          tar xzf aliyun-cli.tgz
+          sudo mv aliyun /usr/local/bin/
+          aliyun version
+
+      - name: Configure Aliyun CLI
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+        run: |
+          aliyun configure set \
+            --mode AK \
+            --access-key-id "$ALIYUN_ACCESS_KEY_ID" \
+            --access-key-secret "$ALIYUN_ACCESS_KEY_SECRET" \
+            --region "cn-shenzhen"
+
+      - name: Configure acme.sh DNS API
         env:
           Ali_Key: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
           Ali_Secret: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
@@ -29,33 +47,27 @@ jobs:
             --force
 
       - name: Upload Certificate to FC
-        env:
-          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
-          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
         run: |
-          # 读取证书文件
-          CERT=$(cat ~/.acme.sh/appliance-api.cheapgo.top_ecc/appliance-api.cheapgo.top.cer)
-          KEY=$(cat ~/.acme.sh/appliance-api.cheapgo.top_ecc/appliance-api.cheapgo.top.key)
+          # 读取证书文件（转义换行符为 \\n）
+          CERT=$(cat ~/.acme.sh/appliance-api.cheapgo.top_ecc/appliance-api.cheapgo.top.cer | sed ':a;N;$!ba;s/\n/\\n/g')
+          KEY=$(cat ~/.acme.sh/appliance-api.cheapgo.top_ecc/appliance-api.cheapgo.top.key | sed ':a;N;$!ba;s/\n/\\n/g')
 
-          # 上传到 FC 自定义域名
-          curl -X PUT "https://fc.cn-shenzhen.aliyuncs.com/2023-03-30/custom-domains/appliance-api.cheapgo.top" \
-            -H "Authorization: acs $ALIYUN_ACCESS_KEY_ID:$(echo -en "PUT\n\n\n\n/2023-03-30/custom-domains/appliance-api.cheapgo.top" | openssl dgst -sha1 -hmac "$ALIYUN_ACCESS_KEY_SECRET" -binary | base64)" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"protocol\": \"HTTP,HTTPS\",
-              \"routeConfig\": {
-                \"routes\": [{
-                  \"path\": \"/*\",
-                  \"functionName\": \"api\",
-                  \"qualifier\": \"LATEST\"
-                }]
-              },
-              \"certConfig\": {
-                \"certType\": \"upload\",
-                \"certificate\": \"$CERT\",
-                \"privateKey\": \"$KEY\"
-              }
-            }"
+          # 用 aliyun CLI 上传证书到 FC
+          aliyun fc PUT /2023-03-30/custom-domains/appliance-api.cheapgo.top --body "{
+            \"protocol\": \"HTTP,HTTPS\",
+            \"routeConfig\": {
+              \"routes\": [{
+                \"path\": \"/*\",
+                \"functionName\": \"api\",
+                \"qualifier\": \"LATEST\"
+              }]
+            },
+            \"certConfig\": {
+              \"certType\": \"upload\",
+              \"certificate\": \"$CERT\",
+              \"privateKey\": \"$KEY\"
+            }
+          }"
 
       - name: Verify HTTPS
         run: |
