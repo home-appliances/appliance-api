@@ -1,5 +1,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { serveStatic } from '@hono/node-server/serve-static'
+import { readFile } from 'fs/promises'
+import { join } from 'path'
 import search from './routes/search.js'
 import detail from './routes/detail.js'
 import suggest from './routes/suggest.js'
@@ -29,6 +32,29 @@ app.route('/api/air-conditioners', airConditioners)
 app.route('/', imageProxy)
 app.route('/', category)
 app.route('/', image)
+
+// 管理后台静态文件 - 直接通过 HTTP 访问
+app.get('/admin', (c) => c.redirect('/admin/index.html'))
+app.get('/admin/*', async (c) => {
+  const path = c.req.path.replace('/admin/', '')
+  const filePath = join(process.cwd(), 'admin-panel', path || 'index.html')
+  try {
+    const content = await readFile(filePath)
+    const ext = path.split('.').pop() || 'html'
+    const mimeMap: Record<string, string> = {
+      'html': 'text/html; charset=utf-8',
+      'css': 'text/css; charset=utf-8',
+      'js': 'application/javascript; charset=utf-8',
+      'json': 'application/json; charset=utf-8',
+      'png': 'image/png',
+      'jpg': 'image/jpeg',
+      'svg': 'image/svg+xml',
+    }
+    return new Response(content, { headers: { 'content-type': mimeMap[ext] || 'text/plain' } })
+  } catch {
+    return c.text('Not Found', 404)
+  }
+})
 
 // 根路径测试
 app.get('/', (c) => {

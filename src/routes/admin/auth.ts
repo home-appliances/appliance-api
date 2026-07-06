@@ -19,7 +19,7 @@ auth.post('/api/admin/login', async (c) => {
 
     // 查询管理员
     const result = await pool.query(
-      'SELECT id, username, password_hash FROM admins WHERE username = $1',
+      'SELECT id, username, name, email, phone, role, status, avatar, password_hash FROM admins WHERE username = $1',
       [username]
     );
 
@@ -28,6 +28,17 @@ auth.post('/api/admin/login', async (c) => {
     }
 
     const admin = result.rows[0];
+
+    // 检查账号状态
+    if (admin.status === 'deleted') {
+      return c.json({ code: 403, message: '账号不存在或已被删除' }, 403);
+    }
+    if (admin.status === 'disabled') {
+      return c.json({ code: 403, message: '账号已被禁用，请联系管理员' }, 403);
+    }
+    if (admin.status === 'locked') {
+      return c.json({ code: 403, message: '账号已被锁定，请联系管理员' }, 403);
+    }
 
     // 验证密码
     const isValid = await bcrypt.compare(password, admin.password_hash);
@@ -41,14 +52,29 @@ auth.post('/api/admin/login', async (c) => {
       [admin.id]
     );
 
+    // 记录登录日志
+    await pool.query(
+      `INSERT INTO operation_logs (admin_id, operator, ip, type, target, result, detail)
+       VALUES ($1, $2, $3, 'login', '登录系统', 'success', '')`,
+      [admin.id, admin.name || admin.username, c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown']
+    );
+
     // 生成 Token
-    const token = generateToken({ id: admin.id, username: admin.username });
+    const token = generateToken({ id: admin.id, username: admin.username, role: admin.role });
 
     return c.json({
       code: 0,
       data: {
         token,
-        username: admin.username,
+        user: {
+          id: admin.id,
+          username: admin.username,
+          name: admin.name || admin.username,
+          email: admin.email,
+          phone: admin.phone,
+          role: admin.role || 'admin',
+          avatar: admin.avatar || (admin.name || admin.username).slice(0, 2),
+        },
       },
     });
   } catch (error) {
@@ -62,14 +88,43 @@ auth.post('/api/admin/login', async (c) => {
  * GET /api/admin/profile
  */
 auth.get('/api/admin/profile', authMiddleware, async (c) => {
-  const admin = (c as any).get('admin') as { id: number; username: string };
-  return c.json({
-    code: 0,
-    data: {
-      id: admin.id,
-      username: admin.username,
-    },
-  });
+  try {
+    const admin = (c as any).get('admin') as { id: number; username: string };
+    const result = await pool.query(
+      'SELECT id, username, name, email, phone, role, status, avatar, created_at, last_login FROM admins WHERE id = $1',
+      [admin.id]
+    );
+
+    if (result.rows.length === 0) {
+      return c.json({ code: 404, message: '用户不存在' }, 404);
+    }
+
+    return c.json({ code: 0, data: result.rows[0] });
+  } catch (error) {
+    console.error('获取用户信息失败:', error);
+    return c.json({ code: 500, message: '获取用户信息失败' }, 500);
+  }
+});
+
+/**
+ * 修改个人信息
+ * PUT /api/admin/profile
+ */
+auth.put('/api/admin/profile', authMiddleware, async (c) => {
+  try {
+    const admin = (c as any).get('admin') as { id: number; username: string };
+    const { name, email, phone } = await c.req.json();
+
+    const result = await pool.query(
+      'UPDATE admins SET name = $1, email = $2, phone = $3, updated_at = NOW() WHERE id = $4 RETURNING id, username, name, email, phone, role, avatar',
+      [name, email || null, phone || null, admin.id]
+    );
+
+    return c.json({ code: 0, data: result.rows[0], message: '个人信息更新成功' });
+  } catch (error) {
+    console.error('更新个人信息失败:', error);
+    return c.json({ code: 500, message: '更新个人信息失败' }, 500);
+  }
 });
 
 /**
@@ -99,7 +154,7 @@ auth.put('/api/admin/password', authMiddleware, async (c) => {
     // 更新密码
     const newHash = await bcrypt.hash(newPassword, 10);
     await pool.query(
-      'UPDATE admins SET password_hash = $1 WHERE id = $2',
+      'UPDATE admins SET password_hash = $1, updated_at = NOW() WHERE id = $2',
       [newHash, admin.id]
     );
 

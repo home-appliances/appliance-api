@@ -8,7 +8,7 @@
     "api": "tsx src/api/server.ts",
     "crawler": "tsx src/crawler/index.ts",
     "migrate": "tsx src/db/run-migration.ts",
-    "migrate:admin": "tsx src/db/run-admin-migration.ts",
+    "migrate:admin": "tsx src/db/run-admin-migration-v2.ts",
     "migrate:search": "tsx src/db/run-migration-search.ts",
     "fill:pinyin": "tsx src/db/fill-pinyin.ts",
     "fix:images": "tsx scripts/fix-missing-images.ts",
