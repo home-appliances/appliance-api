@@ -12,7 +12,8 @@ import search from './routes/search.js'
 import detail from './routes/detail.js'
 import suggest from './routes/suggest.js'
 import recommend from './routes/recommend.js'
-import admin from './routes/admin/index.js'
+import adminApi from './routes/admin/index.js'
+import adminSSR from './admin/routes.js'
 import airConditioners from './routes/air-conditioners.js'
 import imageProxy from './routes/image-proxy.js'
 import category from './routes/category.js'
@@ -32,50 +33,31 @@ app.route('/', search)
 app.route('/', detail)
 app.route('/', suggest)
 app.route('/', recommend)
-app.route('/', admin)
+app.route('/api/admin', adminApi)  // 管理后台 API
+app.route('/admin', adminSSR)      // 管理后台 SSR 页面
 app.route('/api/air-conditioners', airConditioners)
 app.route('/', imageProxy)
 app.route('/', category)
 app.route('/', image)
 
-// 管理后台静态文件
-app.get('/admin', (c) => c.redirect('/admin/index.html'))
-app.get('/admin/*', async (c) => {
-  const reqPath = c.req.path.replace('/admin/', '')
-  const filePath = path.join(process.cwd(), 'admin-panel', reqPath || 'index.html')
+// 管理后台 CSS 静态文件（SSR 页面需要）
+app.get('/admin/css/*', async (c) => {
+  const cssFile = c.req.path.replace('/admin/css/', '')
+  const filePath = path.join(process.cwd(), 'admin-panel', 'css', cssFile)
   try {
     const content = fs.readFileSync(filePath)
-    const ext = path.extname(filePath).toLowerCase()
-    const mimeMap: Record<string, string> = {
-      '.html': 'text/html; charset=utf-8',
-      '.css': 'text/css; charset=utf-8',
-      '.js': 'application/javascript; charset=utf-8',
-      '.json': 'application/json; charset=utf-8',
-      '.png': 'image/png',
-      '.jpg': 'image/jpeg',
-      '.svg': 'image/svg+xml',
-    }
-    return new Response(content, { headers: { 'content-type': mimeMap[ext] || 'text/plain' } })
+    return new Response(content, { headers: { 'content-type': 'text/css; charset=utf-8' } })
   } catch {
     return c.text('Not Found', 404)
   }
 })
 
+// 管理后台根路径重定向
+app.get('/admin', (c) => c.redirect('/admin/'))
+
 // 根路径测试
 app.get('/', (c) => {
   return c.json({ message: '家电搜索API服务运行中', version: '1.0.1', time: new Date().toISOString() })
-})
-
-// 临时迁移接口，执行后删除
-app.post('/api/migrate-v2', async (c) => {
-  try {
-    const { pool } = await import('./db/index.js')
-    const sql = `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='admins' AND column_name='name') THEN ALTER TABLE admins ADD COLUMN name TEXT; END IF; IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='admins' AND column_name='email') THEN ALTER TABLE admins ADD COLUMN email TEXT; END IF; IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='admins' AND column_name='phone') THEN ALTER TABLE admins ADD COLUMN phone TEXT; END IF; IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='admins' AND column_name='role') THEN ALTER TABLE admins ADD COLUMN role TEXT DEFAULT 'admin'; END IF; IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='admins' AND column_name='status') THEN ALTER TABLE admins ADD COLUMN status TEXT DEFAULT 'active'; END IF; IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='admins' AND column_name='avatar') THEN ALTER TABLE admins ADD COLUMN avatar TEXT; END IF; IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='admins' AND column_name='remark') THEN ALTER TABLE admins ADD COLUMN remark TEXT; END IF; IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='admins' AND column_name='updated_at') THEN ALTER TABLE admins ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW(); END IF; END $$; UPDATE admins SET name=COALESCE(name,'系统管理员'),email=COALESCE(email,'admin@appliance.com'),role=COALESCE(role,'super_admin'),status=COALESCE(status,'active'),avatar=COALESCE(avatar,'SA') WHERE username='admin'; CREATE TABLE IF NOT EXISTS operation_logs (id BIGSERIAL PRIMARY KEY,admin_id BIGINT REFERENCES admins(id),operator TEXT NOT NULL,ip TEXT,type TEXT NOT NULL,target TEXT,result TEXT DEFAULT 'success',detail TEXT,created_at TIMESTAMPTZ DEFAULT NOW()); CREATE INDEX IF NOT EXISTS idx_operation_logs_created_at ON operation_logs (created_at DESC); CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY,value JSONB NOT NULL,updated_at TIMESTAMPTZ DEFAULT NOW()); INSERT INTO system_settings (key,value) VALUES ('basic','{"systemName":"Appliance Admin"}'),('security','{"pwdMinLength":8}'),('data','{"defaultPageSize":20}'),('notification','{"alertEnabled":true}') ON CONFLICT (key) DO NOTHING; DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='deleted_at') THEN ALTER TABLE products ADD COLUMN deleted_at TIMESTAMPTZ; END IF; IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='deleted_by') THEN ALTER TABLE products ADD COLUMN deleted_by TEXT; END IF; END $$;`
-    await pool.query(sql)
-    return c.json({ success: true, message: 'v2 迁移完成' })
-  } catch (error: any) {
-    return c.json({ success: false, error: error.message }, 500)
-  }
 })
 
 /**

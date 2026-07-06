@@ -1,13 +1,14 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from '@hono/node-server/serve-static'
-import { readFile } from 'fs/promises'
-import { join } from 'path'
+import fs from 'fs'
+import path from 'path'
 import search from './routes/search.js'
 import detail from './routes/detail.js'
 import suggest from './routes/suggest.js'
 import recommend from './routes/recommend.js'
-import admin from './routes/admin/index.js'
+import adminApi from './routes/admin/index.js'
+import adminSSR from './admin/routes.js'
 import airConditioners from './routes/air-conditioners.js'
 import imageProxy from './routes/image-proxy.js'
 import category from './routes/category.js'
@@ -27,34 +28,27 @@ app.route('/', search)
 app.route('/', detail)
 app.route('/', suggest)
 app.route('/', recommend)
-app.route('/', admin)
+app.route('/api/admin', adminApi)  // 管理后台 API
+app.route('/admin', adminSSR)      // 管理后台 SSR 页面
 app.route('/api/air-conditioners', airConditioners)
 app.route('/', imageProxy)
 app.route('/', category)
 app.route('/', image)
 
-// 管理后台静态文件 - 直接通过 HTTP 访问
-app.get('/admin', (c) => c.redirect('/admin/index.html'))
-app.get('/admin/*', async (c) => {
-  const path = c.req.path.replace('/admin/', '')
-  const filePath = join(process.cwd(), 'admin-panel', path || 'index.html')
+// 管理后台 CSS 静态文件（SSR 页面需要）
+app.get('/admin/css/*', async (c) => {
+  const cssFile = c.req.path.replace('/admin/css/', '')
+  const filePath = path.join(process.cwd(), 'admin-panel', 'css', cssFile)
   try {
-    const content = await readFile(filePath)
-    const ext = path.split('.').pop() || 'html'
-    const mimeMap: Record<string, string> = {
-      'html': 'text/html; charset=utf-8',
-      'css': 'text/css; charset=utf-8',
-      'js': 'application/javascript; charset=utf-8',
-      'json': 'application/json; charset=utf-8',
-      'png': 'image/png',
-      'jpg': 'image/jpeg',
-      'svg': 'image/svg+xml',
-    }
-    return new Response(content, { headers: { 'content-type': mimeMap[ext] || 'text/plain' } })
+    const content = fs.readFileSync(filePath)
+    return new Response(content, { headers: { 'content-type': 'text/css; charset=utf-8' } })
   } catch {
     return c.text('Not Found', 404)
   }
 })
+
+// 管理后台根路径重定向
+app.get('/admin', (c) => c.redirect('/admin/'))
 
 // 根路径测试
 app.get('/', (c) => {

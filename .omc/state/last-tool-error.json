@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"npm run build 2>&1\",\"description\":\"构建 TypeScript\"}",
+  "error": "Exit code 2\n\n> jd-appliance-search-api@1.0.0 build\n> tsc\n\nsrc/admin/routes.ts(223,27): error TS2769: No overload matches this call.\n  Overload 1 of 2, '(key: never): unknown', gave the following error.\n    Argument of type '\"admin\"' is not assignable to parameter of type 'never'.\n  Overload 2 of 2, '(key: never): never', gave the following error.\n    Argument of type '\"admin\"' is not assignable to parameter of type 'never'.",
+  "timestamp": "2026-07-06T21:24:54.227Z",
+  "retry_count": 1
+}
