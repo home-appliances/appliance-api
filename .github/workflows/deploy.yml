@@ -24,6 +24,8 @@ jobs:
         run: |
           rm -rf deploy/ && mkdir deploy/
           cp -r dist/* deploy/
+          mkdir -p deploy/db
+          cp src/db/*.sql deploy/db/
           node -e "
           const pkg = require('./package.json');
           const distPkg = { name: pkg.name, version: pkg.version, main: 'index.js', dependencies: pkg.dependencies || {} };
