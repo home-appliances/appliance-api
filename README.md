@@ -8,13 +8,6 @@
 |------|------|
 | API | https://appliance-api.cheapgo.top |
 | 管理后台 | https://appliance-api.cheapgo.top/admin |
-| 管理后台登录 | https://appliance-api.cheapgo.top/admin/login |
-
-**管理员账号**
-
-| 用户名 | 密码 |
-|--------|------|
-| admin | admin123 |
 
 ## 技术栈
 
