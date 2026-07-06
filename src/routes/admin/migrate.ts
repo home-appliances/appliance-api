@@ -6,7 +6,7 @@ import path from 'path';
 const migrate = new Hono();
 
 // 临时迁移接口，执行后删除
-migrate.post('/api/admin/migrate-v2', async (c) => {
+migrate.post('/migrate-v2', async (c) => {
   try {
     const sqlPath = path.join(process.cwd(), 'db', 'admin-schema-v2.sql');
     const sql = fs.readFileSync(sqlPath, 'utf-8');
