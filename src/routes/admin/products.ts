@@ -27,10 +27,30 @@ products.get('/api/admin/products', async (c) => {
     const params: any[] = [];
     let paramIndex = 1;
 
+    // 英文品牌名到中文的映射
+    const brandMap: Record<string, string> = {
+      'gree': '格力', 'haier': '海尔', 'midea': '美的', 'aux': '奥克斯',
+      'hisense': '海信', 'tcl': 'tcl', 'panasonic': '松下', 'daikin': '大金',
+      'mitsubishi': '三菱', 'kelon': '科龙', 'chigo': '志高', 'changhong': '长虹',
+      'yangzi': '扬子', 'whirlpool': '惠而浦', 'fujitsu': '富士通', 'hitachi': '日立',
+      'konka': '康佳', 'philips': '飞利浦', 'tongshuai': '统帅', 'xiaomi': '小米',
+    };
+
     if (keyword) {
-      conditions.push(`(name ILIKE $${paramIndex} OR model ILIKE $${paramIndex})`);
-      params.push(`%${keyword}%`);
-      paramIndex++;
+      // 尝试品牌名映射
+      const lowerKeyword = keyword.toLowerCase().trim();
+      const mappedBrand = brandMap[lowerKeyword];
+
+      if (mappedBrand) {
+        // 匹配中文品牌名或英文名称
+        conditions.push(`(name ILIKE $${paramIndex} OR model ILIKE $${paramIndex} OR brand = $${paramIndex + 1})`);
+        params.push(`%${keyword}%`, mappedBrand);
+        paramIndex += 2;
+      } else {
+        conditions.push(`(name ILIKE $${paramIndex} OR model ILIKE $${paramIndex} OR brand ILIKE $${paramIndex})`);
+        params.push(`%${keyword}%`);
+        paramIndex++;
+      }
     }
 
     if (brand) {
@@ -79,6 +99,32 @@ products.get('/api/admin/products', async (c) => {
   } catch (error) {
     console.error('获取产品列表失败:', error);
     return c.json({ code: 500, message: '获取产品列表失败' }, 500);
+  }
+});
+
+/**
+ * 新增产品
+ * POST /api/admin/products
+ */
+products.post('/api/admin/products', async (c) => {
+  try {
+    const { name, brand, category, model, price, rating, params } = await c.req.json();
+
+    if (!name || !brand) {
+      return c.json({ code: 400, message: '产品名称和品牌为必填项' }, 400);
+    }
+
+    const result = await pool.query(
+      `INSERT INTO products (name, brand, category, model, price, rating, params, source_platform)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'admin')
+       RETURNING id, name, brand, category, model, price, rating, created_at`,
+      [name, brand, category || null, model || null, price || null, rating || null, params || '{}']
+    );
+
+    return c.json({ code: 0, data: result.rows[0], message: '产品创建成功' });
+  } catch (error) {
+    console.error('创建产品失败:', error);
+    return c.json({ code: 500, message: '创建产品失败' }, 500);
   }
 });
 
