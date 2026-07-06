@@ -198,7 +198,7 @@ admin.get('/products', authMiddleware, async (c) => {
 
   const [products, count] = await Promise.all([
     pool.query(
-      `SELECT id, title, brand, model, category
+      `SELECT id, name as title, brand, model, category, created_at
        FROM products
        ORDER BY id DESC
        LIMIT $1 OFFSET $2`,
