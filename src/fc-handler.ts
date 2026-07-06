@@ -98,9 +98,7 @@ export async function handler(event: string, context: any) {
           httpMethod: httpTrigger.httpMethod,
           method: httpTrigger.method,
           rawPath: httpTrigger.rawPath,
-          path: httpTrigger.path,
-          body: httpTrigger.body,
-          headers: httpTrigger.headers,
+          requestContext: httpTrigger.requestContext,
           keys: Object.keys(httpTrigger),
         }),
       }
