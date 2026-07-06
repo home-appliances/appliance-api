@@ -90,8 +90,10 @@ export async function handler(event: string, context: any) {
     }
 
     // 构建 Request init
+    const finalMethod = httpTrigger.httpMethod || httpTrigger.method || 'GET'
+    console.log('DEBUG method:', finalMethod, 'raw:', JSON.stringify({httpMethod: httpTrigger.httpMethod, method: httpTrigger.method}))
     const requestInit: RequestInit = {
-      method: httpTrigger.httpMethod || httpTrigger.method || 'GET',
+      method: finalMethod,
       headers,
     }
 
