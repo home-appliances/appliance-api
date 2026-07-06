@@ -89,9 +89,25 @@ export async function handler(event: string, context: any) {
       }
     }
 
+    // 调试：返回请求信息
+    if (rawPath === '/api/debug') {
+      return {
+        statusCode: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          httpMethod: httpTrigger.httpMethod,
+          method: httpTrigger.method,
+          rawPath: httpTrigger.rawPath,
+          path: httpTrigger.path,
+          body: httpTrigger.body,
+          headers: httpTrigger.headers,
+          keys: Object.keys(httpTrigger),
+        }),
+      }
+    }
+
     // 构建 Request init
     const finalMethod = httpTrigger.httpMethod || httpTrigger.method || 'GET'
-    console.log('DEBUG method:', finalMethod, 'raw:', JSON.stringify({httpMethod: httpTrigger.httpMethod, method: httpTrigger.method}))
     const requestInit: RequestInit = {
       method: finalMethod,
       headers,
