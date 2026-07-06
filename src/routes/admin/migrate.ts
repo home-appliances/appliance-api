@@ -4,7 +4,7 @@ import { pool } from '../../db/index.js';
 const migrate = new Hono();
 
 // 临时迁移接口，执行后删除
-migrate.post('/migrate-v2', async (c) => {
+migrate.post('/api/admin/migrate-v2', async (c) => {
   try {
     const sql = `
 -- 扩展 admins 表
