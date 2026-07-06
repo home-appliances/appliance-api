@@ -198,15 +198,13 @@ admin.get('/products', authMiddleware, async (c) => {
 
   const [products, count] = await Promise.all([
     pool.query(
-      `SELECT p.id, p.title, p.brand, p.model, c.name as category_name, p.created_at
-       FROM products p
-       LEFT JOIN categories c ON p.category_id = c.id
-       WHERE p.deleted_at IS NULL
-       ORDER BY p.id DESC
+      `SELECT id, title, brand, model, category
+       FROM products
+       ORDER BY id DESC
        LIMIT $1 OFFSET $2`,
       [pageSize, offset]
     ),
-    pool.query('SELECT COUNT(*) FROM products WHERE deleted_at IS NULL'),
+    pool.query('SELECT COUNT(*) FROM products'),
   ])
 
   return c.html(productsPage(
