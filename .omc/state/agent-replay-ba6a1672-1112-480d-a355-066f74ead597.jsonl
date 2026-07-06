@@ -209,3 +209,7 @@
 {"t":0,"agent":"a1d56b9","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":64596}
 {"t":0,"agent":"a1d56b9","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":66746}
 {"t":0,"agent":"a1d56b9","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":68338}
+{"t":0,"agent":"a26a3fa","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a8b6651","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a8b6651","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a8b6651","agent_type":"unknown","event":"agent_stop","success":true}

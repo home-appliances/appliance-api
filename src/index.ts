@@ -38,7 +38,7 @@ app.route('/', image)
 // 管理后台 CSS 静态文件（SSR 页面需要）
 app.get('/admin/css/*', async (c) => {
   const cssFile = c.req.path.replace('/admin/css/', '')
-  const filePath = path.join(process.cwd(), 'admin-panel', 'css', cssFile)
+  const filePath = path.join(process.cwd(), 'src', 'admin', 'css', cssFile)
   try {
     const content = fs.readFileSync(filePath)
     return new Response(content, { headers: { 'content-type': 'text/css; charset=utf-8' } })

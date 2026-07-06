@@ -1,7 +1,7 @@
 {
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"npm run build 2>&1\",\"description\":\"构建 TypeScript\"}",
-  "error": "Exit code 2\n\n> jd-appliance-search-api@1.0.0 build\n> tsc\n\nsrc/admin/routes.ts(223,27): error TS2769: No overload matches this call.\n  Overload 1 of 2, '(key: never): unknown', gave the following error.\n    Argument of type '\"admin\"' is not assignable to parameter of type 'never'.\n  Overload 2 of 2, '(key: never): never', gave the following error.\n    Argument of type '\"admin\"' is not assignable to parameter of type 'never'.",
-  "timestamp": "2026-07-06T21:24:54.227Z",
+  "tool_name": "Read",
+  "tool_input_preview": "{\"file_path\":\"/Users/ganzhengwei/.claude/projects/-Users-ganzhengwei-Desktop-object---/ba6a1672-1112-480d-a355-066f74ead597.jsonl\",\"limit\":100}",
+  "error": "File content (60002 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
+  "timestamp": "2026-07-06T22:02:56.080Z",
   "retry_count": 1
 }

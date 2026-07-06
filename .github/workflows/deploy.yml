@@ -24,8 +24,7 @@ jobs:
         run: |
           rm -rf deploy/ && mkdir deploy/
           cp -r dist/* deploy/
-          mkdir -p deploy/admin-panel/css
-          cp admin-panel/css/*.css deploy/admin-panel/css/
+          cp -r src deploy/src
           mkdir -p deploy/db
           cp src/db/*.sql deploy/db/
           node -e "
