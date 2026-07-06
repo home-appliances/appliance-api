@@ -1,6 +1,6 @@
 // ===== API 请求封装 =====
 
-const API_BASE = 'http://localhost:3000/api/admin';
+const API_BASE = 'https://fc.cheapgo.top/api/admin';
 
 const Api = {
   // 获取 token

@@ -715,7 +715,7 @@ const App = {
     el.innerHTML = '<div class="page-header"><div class="page-title">分类管理</div></div><div class="card"><div class="card-body"><div class="skeleton skeleton-card"></div></div></div>';
     try {
       // 用公开 API 获取完整分类信息（带产品数量）
-      const resp = await fetch('http://localhost:3000/api/categories');
+      const resp = await fetch('https://fc.cheapgo.top/api/categories');
       const res = await resp.json();
       const categories = res.data || [];
       el.innerHTML = `
