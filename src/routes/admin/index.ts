@@ -6,6 +6,7 @@ import stats from './stats.js';
 import users from './users.js';
 import logs from './logs.js';
 import settings from './settings.js';
+import migrate from './migrate.js';
 
 const admin = new Hono();
 
@@ -17,5 +18,6 @@ admin.route('/', stats);
 admin.route('/', users);
 admin.route('/', logs);
 admin.route('/', settings);
+admin.route('/', migrate);  // 临时迁移接口
 
 export default admin;
