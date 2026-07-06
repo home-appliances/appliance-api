@@ -91,7 +91,7 @@ export async function handler(event: string, context: any) {
 
     // 构建 Request init
     const requestInit: RequestInit = {
-      method: httpTrigger.method || 'GET',
+      method: httpTrigger.httpMethod || httpTrigger.method || 'GET',
       headers,
     }
 
