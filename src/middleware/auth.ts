@@ -6,6 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'jd-appliance-admin-secret-key-2024
 export interface AdminPayload {
   id: number;
   username: string;
+  role?: string;
 }
 
 /**
