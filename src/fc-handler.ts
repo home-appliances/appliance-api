@@ -52,9 +52,6 @@ app.get('/admin/css/*', async (c) => {
   }
 })
 
-// 管理后台根路径重定向
-app.get('/admin', (c) => c.redirect('/admin/'))
-
 // 根路径测试
 app.get('/', (c) => {
   return c.json({ message: '家电搜索API服务运行中', version: '1.0.1', time: new Date().toISOString() })
