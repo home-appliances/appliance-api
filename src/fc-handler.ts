@@ -105,9 +105,13 @@ export async function handler(event: string, context: any) {
 
     // 处理请求体
     if (httpTrigger.body) {
-      const body = typeof httpTrigger.body === 'string'
+      let body = typeof httpTrigger.body === 'string'
         ? httpTrigger.body
         : JSON.stringify(httpTrigger.body)
+      // FC 3.0 可能对 body 做 base64 编码
+      if (httpTrigger.isBase64Encoded) {
+        body = Buffer.from(body, 'base64').toString('utf-8')
+      }
       requestInit.body = body
     }
 
