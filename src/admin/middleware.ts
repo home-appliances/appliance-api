@@ -51,3 +51,34 @@ export const authMiddleware = async (c: Context, next: Next) => {
   c.set('admin', payload)
   await next()
 }
+
+/**
+ * 超级管理员权限中间件
+ */
+export const superAdminMiddleware = async (c: Context, next: Next) => {
+  const admin = c.get('admin') as AdminPayload
+
+  if (!admin || admin.role !== 'super_admin') {
+    return c.html(`
+      <!DOCTYPE html>
+      <html lang="zh-CN">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>权限不足</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+      </head>
+      <body class="bg-gray-50 min-h-screen flex items-center justify-center">
+        <div class="text-center">
+          <div class="text-6xl mb-4">🚫</div>
+          <h1 class="text-2xl font-bold text-gray-900 mb-2">权限不足</h1>
+          <p class="text-gray-500 mb-6">您需要超级管理员权限才能访问此页面</p>
+          <a href="/admin/" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">返回首页</a>
+        </div>
+      </body>
+      </html>
+    `, 403)
+  }
+
+  await next()
+}

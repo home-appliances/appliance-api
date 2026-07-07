@@ -1,110 +1,66 @@
 /**
- * 管理后台公共布局模板
+ * 管理后台公共布局模板 - Tailwind CSS
  */
 
-export const layout = (title: string, content: string, activeMenu = '') => `<!DOCTYPE html>
+export const layout = (title: string, content: string, activeMenu = '', role = 'admin') => `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} - Appliance Admin</title>
-  <link rel="stylesheet" href="/admin/css/variables.css">
-  <link rel="stylesheet" href="/admin/css/base.css">
-  <link rel="stylesheet" href="/admin/css/layout.css">
-  <style>
-    .layout { display: flex; min-height: 100vh; }
-    .sidebar {
-      width: 240px; background: var(--primary-900); color: #fff;
-      display: flex; flex-direction: column; flex-shrink: 0;
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#e8eaf6', 100: '#c5cae9', 200: '#9fa8da', 300: '#7986cb', 400: '#5c6bc0', 500: '#3f51b5', 600: '#3949ab', 700: '#303f9f', 800: '#283593', 900: '#1a237e' },
+          }
+        }
+      }
     }
-    .sidebar-header {
-      padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1);
-      display: flex; align-items: center; gap: 12px;
-    }
-    .sidebar-logo {
-      width: 36px; height: 36px; border-radius: 8px;
-      background: rgba(255,255,255,0.15); display: flex;
-      align-items: center; justify-content: center; font-size: 18px;
-    }
-    .sidebar-title { font-size: 16px; font-weight: 600; }
-    .sidebar-nav { flex: 1; padding: 12px 0; }
-    .nav-section { padding: 8px 20px; font-size: 11px; text-transform: uppercase; color: rgba(255,255,255,0.4); letter-spacing: 1px; }
-    .nav-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 20px; color: rgba(255,255,255,0.7);
-      text-decoration: none; font-size: 14px; transition: all 0.2s;
-    }
-    .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
-    .nav-item.active { background: rgba(255,255,255,0.12); color: #fff; border-right: 3px solid var(--accent); }
-    .nav-icon { width: 20px; text-align: center; }
-    .sidebar-footer {
-      padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.1);
-      font-size: 12px; color: rgba(255,255,255,0.4);
-    }
-    .main { flex: 1; display: flex; flex-direction: column; background: var(--bg-body); }
-    .header {
-      height: 56px; background: #fff; border-bottom: 1px solid var(--gray-100);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 24px; flex-shrink: 0;
-    }
-    .header-title { font-size: 18px; font-weight: 600; color: var(--gray-900); }
-    .header-user {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 14px; color: var(--gray-600);
-    }
-    .header-user-avatar {
-      width: 32px; height: 32px; border-radius: 50%;
-      background: var(--primary-50); color: var(--primary);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px; font-weight: 600;
-    }
-    .btn-logout {
-      padding: 6px 12px; border: 1px solid var(--gray-200);
-      border-radius: 6px; background: #fff; color: var(--gray-600);
-      font-size: 13px; cursor: pointer; text-decoration: none;
-    }
-    .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
-    .content { flex: 1; padding: 24px; overflow-y: auto; }
-    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-    .page-title { font-size: 22px; font-weight: 700; color: var(--gray-900); }
-  </style>
+  </script>
 </head>
-<body>
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-logo">⚙</div>
-        <div class="sidebar-title">Appliance Admin</div>
+<body class="bg-gray-50 text-gray-800 antialiased">
+  <div class="flex h-screen overflow-hidden">
+    <!-- 侧边栏 -->
+    <aside class="w-64 bg-primary-900 text-white flex flex-col flex-shrink-0">
+      <div class="p-5 border-b border-white/10 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center text-lg">⚙</div>
+        <div class="text-base font-semibold">Appliance Admin</div>
       </div>
-      <nav class="sidebar-nav">
-        <div class="nav-section">主菜单</div>
-        <a href="/admin/" class="nav-item ${activeMenu === 'dashboard' ? 'active' : ''}">
-          <span class="nav-icon">📊</span> 仪表盘
+      <nav class="flex-1 py-3 overflow-y-auto">
+        <div class="px-5 py-2 text-[11px] uppercase text-white/40 tracking-wider">主菜单</div>
+        <a href="/admin/" class="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors ${activeMenu === 'dashboard' ? 'bg-white/15 text-white border-r-3 border-amber-400' : ''}">
+          <span class="w-5 text-center">📊</span> 仪表盘
         </a>
-        <a href="/admin/users" class="nav-item ${activeMenu === 'users' ? 'active' : ''}">
-          <span class="nav-icon">👥</span> 用户管理
+        ${role === 'super_admin' ? `
+        <a href="/admin/users" class="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors ${activeMenu === 'users' ? 'bg-white/15 text-white border-r-3 border-amber-400' : ''}">
+          <span class="w-5 text-center">👥</span> 用户管理
+        </a>` : ''}
+        <a href="/admin/products" class="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors ${activeMenu === 'products' ? 'bg-white/15 text-white border-r-3 border-amber-400' : ''}">
+          <span class="w-5 text-center">📦</span> 产品管理
         </a>
-        <a href="/admin/products" class="nav-item ${activeMenu === 'products' ? 'active' : ''}">
-          <span class="nav-icon">📦</span> 产品管理
-        </a>
-        <a href="/admin/logs" class="nav-item ${activeMenu === 'logs' ? 'active' : ''}">
-          <span class="nav-icon">📋</span> 操作日志
+        <a href="/admin/logs" class="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors ${activeMenu === 'logs' ? 'bg-white/15 text-white border-r-3 border-amber-400' : ''}">
+          <span class="w-5 text-center">📋</span> 操作日志
         </a>
       </nav>
-      <div class="sidebar-footer">
+      <div class="px-5 py-4 border-t border-white/10 text-xs text-white/40">
         © 2026 Appliance Admin
       </div>
     </aside>
-    <main class="main">
-      <header class="header">
-        <div class="header-title">${title}</div>
-        <div class="header-user">
-          <div class="header-user-avatar">A</div>
-          <span>管理员</span>
-          <a href="/admin/logout" class="btn-logout">退出</a>
+
+    <!-- 主内容区 -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-14 bg-white border-b border-gray-100 flex items-center justify-between px-6 flex-shrink-0">
+        <div class="text-lg font-semibold text-gray-900">${title}</div>
+        <div class="flex items-center gap-3 text-sm text-gray-600">
+          <div class="w-8 h-8 rounded-full bg-primary-50 text-primary flex items-center justify-center text-sm font-semibold">A</div>
+          <span>${role === 'super_admin' ? '超级管理员' : '管理员'}</span>
+          <a href="/admin/logout" class="px-3 py-1.5 border border-gray-200 rounded text-xs text-gray-600 hover:border-red-500 hover:text-red-500 transition-colors">退出</a>
         </div>
       </header>
-      <div class="content">
+      <div class="flex-1 overflow-y-auto p-6">
         ${content}
       </div>
     </main>

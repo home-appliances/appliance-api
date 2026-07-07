@@ -47,8 +47,8 @@ app.get('/admin/css/*', async (c) => {
   }
 })
 
-// 管理后台根路径重定向
-app.get('/admin', (c) => c.redirect('/admin/'))
+// 管理后台根路径重定向到登录页（未登录时）
+app.get('/admin/', (c) => c.redirect('/admin'))
 
 // 根路径测试
 app.get('/', (c) => {

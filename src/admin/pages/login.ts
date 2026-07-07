@@ -1,5 +1,5 @@
 /**
- * 登录页 - 服务端渲染
+ * 登录页 - Tailwind CSS
  */
 
 export const loginPage = (error?: string) => `<!DOCTYPE html>
@@ -8,92 +8,48 @@ export const loginPage = (error?: string) => `<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>登录 - Appliance Admin</title>
-  <link rel="stylesheet" href="/admin/css/variables.css">
-  <link rel="stylesheet" href="/admin/css/base.css">
-  <style>
-    body { margin: 0; min-height: 100vh; display: flex; background: var(--gray-50); }
-    .login-wrapper { display: flex; width: 100%; min-height: 100vh; }
-    .login-brand {
-      flex: 0 0 45%; background: linear-gradient(160deg, var(--primary-900) 0%, var(--primary-700) 50%, var(--primary-800) 100%);
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      padding: 60px; position: relative; overflow: hidden;
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#e8eaf6', 100: '#c5cae9', 200: '#9fa8da', 300: '#7986cb', 400: '#5c6bc0', 500: '#3f51b5', 600: '#3949ab', 700: '#303f9f', 800: '#283593', 900: '#1a237e' },
+          }
+        }
+      }
     }
-    .login-brand::before {
-      content: ''; position: absolute; top: -30%; right: -20%;
-      width: 500px; height: 500px; border-radius: 50%;
-      background: rgba(255,255,255,0.03);
-    }
-    .brand-content { text-align: center; position: relative; z-index: 1; max-width: 400px; }
-    .brand-logo {
-      width: 72px; height: 72px; border-radius: 16px;
-      background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
-      display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 24px; font-size: 32px; color: #fff;
-      border: 1px solid rgba(255,255,255,0.2);
-    }
-    .brand-name { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 12px; }
-    .brand-slogan { font-size: 15px; color: rgba(255,255,255,0.7); line-height: 1.6; }
-    .brand-footer {
-      position: absolute; bottom: 32px; left: 0; right: 0; text-align: center;
-      color: rgba(255,255,255,0.4); font-size: 12px;
-    }
-    .login-form-area {
-      flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px;
-    }
-    .login-card { width: 100%; max-width: 420px; }
-    .login-title { font-size: 26px; font-weight: 700; color: var(--gray-900); margin-bottom: 6px; }
-    .login-subtitle { font-size: 14px; color: var(--gray-500); margin-bottom: 36px; }
-    .form-group { margin-bottom: 20px; }
-    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
-    .form-input {
-      width: 100%; padding: 10px 14px;
-      border: 1.5px solid var(--gray-200); border-radius: 8px;
-      font-size: 14px; color: var(--gray-900); background: #fff;
-      transition: all 0.2s; box-sizing: border-box;
-    }
-    .form-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,35,126,0.08); }
-    .btn-login {
-      width: 100%; padding: 12px; border: none; border-radius: 8px;
-      background: var(--primary); color: #fff; font-size: 15px; font-weight: 600;
-      cursor: pointer; transition: all 0.2s;
-    }
-    .btn-login:hover { background: var(--primary-700); }
-    .error-msg {
-      background: rgba(244,67,54,0.08); border: 1px solid rgba(244,67,54,0.2);
-      border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;
-      font-size: 13px; color: var(--danger);
-    }
-    @media (max-width: 768px) {
-      .login-brand { display: none; }
-      .login-form-area { padding: 24px; }
-    }
-  </style>
+  </script>
 </head>
-<body>
-  <div class="login-wrapper">
-    <div class="login-brand">
-      <div class="brand-content">
-        <div class="brand-logo">⚙</div>
-        <div class="brand-name">Appliance Admin</div>
-        <div class="brand-slogan">高效、安全、智能的后台管理系统</div>
+<body class="bg-gray-50 min-h-screen flex m-0">
+  <div class="flex w-full min-h-screen">
+    <!-- 左侧品牌区 -->
+    <div class="hidden md:flex w-[45%] bg-gradient-to-br from-primary-900 via-primary-700 to-primary-800 flex-col justify-center items-center p-16 relative overflow-hidden">
+      <div class="absolute -top-[30%] -right-[20%] w-[500px] h-[500px] rounded-full bg-white/[0.03]"></div>
+      <div class="text-center relative z-10 max-w-md">
+        <div class="w-[72px] h-[72px] rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center mx-auto mb-6 text-4xl text-white border border-white/20">⚙</div>
+        <div class="text-3xl font-bold text-white mb-3">Appliance Admin</div>
+        <div class="text-sm text-white/70 leading-relaxed">高效、安全、智能的后台管理系统</div>
       </div>
-      <div class="brand-footer">© 2026 Appliance Admin</div>
+      <div class="absolute bottom-8 left-0 right-0 text-center text-white/40 text-xs">© 2026 Appliance Admin</div>
     </div>
-    <div class="login-form-area">
-      <div class="login-card">
-        <div class="login-title">欢迎回来</div>
-        <div class="login-subtitle">请输入您的账号信息以继续</div>
-        ${error ? `<div class="error-msg">⚠ ${error}</div>` : ''}
+
+    <!-- 右侧表单区 -->
+    <div class="flex-1 flex items-center justify-center p-10">
+      <div class="w-full max-w-[420px]">
+        <div class="text-[26px] font-bold text-gray-900 mb-1.5">欢迎回来</div>
+        <div class="text-sm text-gray-500 mb-9">请输入您的账号信息以继续</div>
+        ${error ? `<div class="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-5 text-sm text-red-600">⚠ ${error}</div>` : ''}
         <form method="POST" action="/admin/login">
-          <div class="form-group">
-            <label class="form-label">账号</label>
-            <input type="text" name="username" class="form-input" placeholder="请输入用户名" required>
+          <div class="mb-5">
+            <label class="block text-[13px] font-semibold text-gray-700 mb-1.5">账号</label>
+            <input type="text" name="username" class="w-full px-3.5 py-2.5 border-2 border-gray-200 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-primary-500 focus:ring-3 focus:ring-primary-500/10 transition-all" placeholder="请输入用户名" required>
           </div>
-          <div class="form-group">
-            <label class="form-label">密码</label>
-            <input type="password" name="password" class="form-input" placeholder="请输入密码" required>
+          <div class="mb-5">
+            <label class="block text-[13px] font-semibold text-gray-700 mb-1.5">密码</label>
+            <input type="password" name="password" class="w-full px-3.5 py-2.5 border-2 border-gray-200 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:border-primary-500 focus:ring-3 focus:ring-primary-500/10 transition-all" placeholder="请输入密码" required>
           </div>
-          <button type="submit" class="btn-login">登 录</button>
+          <button type="submit" class="w-full py-3 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-colors cursor-pointer border-0">登 录</button>
         </form>
       </div>
     </div>
