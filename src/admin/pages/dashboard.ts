@@ -1,5 +1,5 @@
 /**
- * 仪表盘页面 - 服务端渲染
+ * 仪表盘页面 - Tailwind CSS
  */
 
 import { layout } from '../layout.js'
@@ -9,44 +9,44 @@ export const dashboardPage = (stats: {
   totalBrands: number
   totalCategories: number
   totalSearches: number
-}) => {
+}, role = 'admin') => {
   const content = `
-    <div class="page-header">
-      <h1 class="page-title">仪表盘</h1>
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold text-gray-900">仪表盘</h1>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 32px;">
-      <div class="card" style="padding: 20px;">
-        <div style="font-size: 14px; color: var(--gray-500); margin-bottom: 8px;">📦 产品总数</div>
-        <div style="font-size: 32px; font-weight: 700; color: var(--gray-900);">${stats.totalProducts}</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-sm text-gray-500 mb-2">📦 产品总数</div>
+        <div class="text-3xl font-bold text-gray-900">${stats.totalProducts}</div>
       </div>
-      <div class="card" style="padding: 20px;">
-        <div style="font-size: 14px; color: var(--gray-500); margin-bottom: 8px;">🏷 品牌数量</div>
-        <div style="font-size: 32px; font-weight: 700; color: var(--gray-900);">${stats.totalBrands}</div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-sm text-gray-500 mb-2">🏷 品牌数量</div>
+        <div class="text-3xl font-bold text-gray-900">${stats.totalBrands}</div>
       </div>
-      <div class="card" style="padding: 20px;">
-        <div style="font-size: 14px; color: var(--gray-500); margin-bottom: 8px;">📂 分类数量</div>
-        <div style="font-size: 32px; font-weight: 700; color: var(--gray-900);">${stats.totalCategories}</div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-sm text-gray-500 mb-2">📂 分类数量</div>
+        <div class="text-3xl font-bold text-gray-900">${stats.totalCategories}</div>
       </div>
-      <div class="card" style="padding: 20px;">
-        <div style="font-size: 14px; color: var(--gray-500); margin-bottom: 8px;">🔍 搜索次数</div>
-        <div style="font-size: 32px; font-weight: 700; color: var(--gray-900);">${stats.totalSearches}</div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-sm text-gray-500 mb-2">🔍 搜索次数</div>
+        <div class="text-3xl font-bold text-gray-900">${stats.totalSearches}</div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">快速操作</div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div class="text-lg font-semibold text-gray-900">快速操作</div>
       </div>
-      <div class="card-body">
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-          <a href="/admin/users" class="btn btn-primary">👥 用户管理</a>
-          <a href="/admin/products" class="btn btn-outline">📦 产品管理</a>
-          <a href="/admin/logs" class="btn btn-outline">📋 操作日志</a>
+      <div class="p-5">
+        <div class="flex gap-3 flex-wrap">
+          ${role === 'super_admin' ? '<a href="/admin/users" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">👥 用户管理</a>' : ''}
+          <a href="/admin/products" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">📦 产品管理</a>
+          <a href="/admin/logs" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">📋 操作日志</a>
         </div>
       </div>
     </div>
   `
 
-  return layout('仪表盘', content, 'dashboard')
+  return layout('仪表盘', content, 'dashboard', role)
 }
