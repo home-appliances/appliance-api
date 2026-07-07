@@ -14,8 +14,35 @@ interface Product {
   image_url?: string | null
 }
 
-export const productsPage = (products: Product[], page: number, total: number, pageSize: number, role = 'admin') => {
+export const productsPage = (products: Product[], page: number, total: number, pageSize: number, role = 'admin', filters: { keyword?: string; brand?: string; category?: string } = {}, brands: string[] = []) => {
   const totalPages = Math.ceil(total / pageSize)
+
+  // 分类选项
+  const categoryOptions = [
+    { value: '', label: '全部分类' },
+    { value: 'air_condition', label: '空调' },
+    { value: 'icebox', label: '冰箱/冰柜' },
+    { value: 'washer', label: '洗衣机' },
+    { value: 'gas_water', label: '热水器' },
+    { value: 'lcd_tv', label: '电视' },
+    { value: 'heater', label: '取暖器' },
+    { value: 'rice_cooker', label: '电饭煲/油烟机' },
+  ]
+
+  // 品牌中文名映射
+  const brandChineseNames: Record<string, string> = {
+    'xiaomi': '小米', 'haier': '海尔', 'midea': '美的', 'panasonic': '松下',
+    'siemens': '西门子', 'samsung': '三星', 'hisense': '海信', 'rongsheng': '容声',
+    'casarte': '卡萨帝', 'electrolux': '伊莱克斯', 'whirlpool': '惠而浦',
+    'bocsh': '博世', 'tcl': 'TCL', 'chigo': '志高', 'xinfei': '新飞',
+    'mitsubishi': '三菱', 'aux': '奥克斯', 'lg': 'LG',
+    'gree': '格力', 'daikin': '大金', 'kelon': '科龙',
+    'little_swan': '小天鹅',
+    'noritz': '林内', 'a/o_smith': 'A.O.史密斯', 'macro': '万和', 'ariston': '阿里斯顿',
+    'sony': '索尼', 'sharp': '夏普', 'philips': '飞利浦', 'changhong': '长虹',
+    'konka': '康佳', 'letv': '乐视', 'huawei': '华为',
+    'robam': '老板', 'fotile': '方太', 'vatti': '华帝',
+  }
 
   const rows = products.map(p => `
     <tr class="hover:bg-gray-50 transition-colors">
@@ -41,9 +68,19 @@ export const productsPage = (products: Product[], page: number, total: number, p
     </tr>
   `).join('')
 
+  // 构建查询字符串（保留搜索和筛选参数）
+  const buildUrl = (pageNum: number) => {
+    const params = new URLSearchParams()
+    params.set('page', pageNum.toString())
+    if (filters.keyword) params.set('keyword', filters.keyword)
+    if (filters.brand) params.set('brand', filters.brand)
+    if (filters.category) params.set('category', filters.category)
+    return `/admin/products?${params.toString()}`
+  }
+
   const pagination = totalPages > 1 ? `
     <div class="flex items-center justify-center gap-3 py-4">
-      ${page > 1 ? `<a href="/admin/products?page=${page - 1}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">上一页</a>` : ''}
+      ${page > 1 ? `<a href="${buildUrl(page - 1)}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">上一页</a>` : ''}
       <div class="flex items-center gap-2">
         <span class="text-sm text-gray-500">第</span>
         <input type="number" id="pageJump" value="${page}" min="1" max="${totalPages}"
@@ -52,14 +89,14 @@ export const productsPage = (products: Product[], page: number, total: number, p
         <span class="text-sm text-gray-500">/ ${totalPages} 页</span>
         <button onclick="jumpToPage()" class="px-2 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors cursor-pointer">跳转</button>
       </div>
-      ${page < totalPages ? `<a href="/admin/products?page=${page + 1}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">下一页</a>` : ''}
+      ${page < totalPages ? `<a href="${buildUrl(page + 1)}" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">下一页</a>` : ''}
     </div>
     <script>
       function jumpToPage() {
         const input = document.getElementById('pageJump')
         const page = parseInt(input.value)
         if (page >= 1 && page <= ${totalPages}) {
-          window.location.href = '/admin/products?page=' + page
+          window.location.href = '${buildUrl(0)}'.replace('page=0', 'page=' + page)
         }
       }
     </script>
@@ -72,6 +109,29 @@ export const productsPage = (products: Product[], page: number, total: number, p
         <span class="text-sm text-gray-500">共 ${total} 个产品</span>
         <a href="/admin/products/create" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors">+ 新增产品</a>
       </div>
+    </div>
+
+    <!-- 搜索和筛选 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+      <form method="GET" action="/admin/products" class="flex items-center gap-4">
+        <div class="flex-1">
+          <input type="text" name="keyword" value="${filters.keyword || ''}" placeholder="搜索产品名称、品牌、型号...（如：格力空调、美的小天鹅）"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
+        </div>
+        <div class="w-40">
+          <select name="brand" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
+            <option value="">全部品牌</option>
+            ${brands.map(b => `<option value="${b}" ${filters.brand === b ? 'selected' : ''}>${brandChineseNames[b] || b}</option>`).join('')}
+          </select>
+        </div>
+        <div class="w-36">
+          <select name="category" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
+            ${categoryOptions.map(c => `<option value="${c.value}" ${filters.category === c.value ? 'selected' : ''}>${c.label}</option>`).join('')}
+          </select>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors cursor-pointer border-0">搜索</button>
+        ${filters.keyword || filters.brand || filters.category ? `<a href="/admin/products" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">清除</a>` : ''}
+      </form>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
