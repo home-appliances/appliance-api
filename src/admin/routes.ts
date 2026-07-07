@@ -7,14 +7,18 @@ import { Hono } from 'hono'
 import { setCookie, deleteCookie } from 'hono/cookie'
 import { pool } from '../db/index.js'
 import bcrypt from 'bcryptjs'
-import { generateToken, authMiddleware, superAdminMiddleware } from './middleware.js'
+import { generateToken, authMiddleware, superAdminMiddleware, AdminPayload } from './middleware.js'
+
+type AdminVariables = {
+  admin: AdminPayload
+}
+
+const admin = new Hono<{ Variables: AdminVariables }>()
 import { loginPage } from './pages/login.js'
 import { dashboardPage } from './pages/dashboard.js'
 import { usersPage, userFormPage } from './pages/users.js'
 import { productsPage, productFormPage } from './pages/products.js'
 import { logsPage } from './pages/logs.js'
-
-const admin = new Hono()
 
 // ==================== 登录 ====================
 
