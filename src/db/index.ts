@@ -242,6 +242,8 @@ export async function searchProducts(
   // 检查是否是英文品牌名（如 gree, haier, midea）
   const terms: string[] = [];
   const englishBrandPattern = /^[a-zA-Z]+$/;
+  // 纯数字或字母数字混合（如 7255, KFR35, 1.5匹）应作为完整词
+  const alphanumericPattern = /^[a-zA-Z0-9]+$/;
 
   if (hasModel) {
     // 包含产品型号时，提取品牌和型号
@@ -256,6 +258,9 @@ export async function searchProducts(
     }
   } else if (englishBrandPattern.test(cleaned)) {
     // 英文品牌名直接使用完整词
+    terms.push(cleaned);
+  } else if (alphanumericPattern.test(cleaned)) {
+    // 纯数字或字母数字混合（如 7255），作为完整搜索词
     terms.push(cleaned);
   } else {
     // 从长到短匹配词典
@@ -498,8 +503,12 @@ export async function searchProducts(
     // 添加 exact 型号匹配条件（最高优先级）
     const exactModelBoost = hasModel ? `WHEN name = '${keyword}' THEN 200` : '';
 
+    // 数字型号匹配：当搜索词是纯数字时，model 字段匹配给予高权重
+    const isNumericSearch = /^\d+$/.test(keyword.trim());
+    const modelBoostSQL = isNumericSearch ? `WHEN model ILIKE '%${keyword.trim()}%' THEN 180` : '';
+
     // 重新构建 brandBoostCase
-    const allCaseParts = [exactModelBoost, ...caseParts].filter(Boolean);
+    const allCaseParts = [exactModelBoost, modelBoostSQL, ...caseParts].filter(Boolean);
     const finalBrandBoostCase = allCaseParts.length > 0
       ? `CASE ${allCaseParts.join(' ')} ELSE 0 END`
       : '0';
