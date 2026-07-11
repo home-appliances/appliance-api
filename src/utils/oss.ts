@@ -4,7 +4,7 @@
 
 import OSS from 'ali-oss';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 // CDN 域名（配置后替换）
 const CDN_DOMAIN = process.env.CDN_DOMAIN || 'https://cheapgo-assets.oss-cn-shenzhen.aliyuncs.com';
@@ -49,7 +49,7 @@ export async function uploadImage(
 
   // 生成唯一文件名
   const ext = path.extname(originalName).toLowerCase() || '.jpg';
-  const fileName = `${folder}/${uuidv4()}${ext}`;
+  const fileName = `${folder}/${crypto.randomUUID()}${ext}`;
 
   // 上传文件
   await client.put(fileName, file, {
