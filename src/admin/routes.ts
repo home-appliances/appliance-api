@@ -325,10 +325,10 @@ admin.get('/products', authMiddleware, async (c) => {
       params.push(`%${part}%`)
       paramIndex++
 
-      // 分类词匹配 category 字段
+      // 分类词匹配 category 字段（使用 category_id）
       const mappedCategory = categoryKeywordMap[part] || categoryKeywordMap[partLower]
       if (mappedCategory) {
-        partConditions.push(`p.category = $${paramIndex}`)
+        partConditions.push(`c.code = $${paramIndex}`)
         params.push(mappedCategory)
         paramIndex++
       }
@@ -360,50 +360,32 @@ admin.get('/products', authMiddleware, async (c) => {
     paramIndex++
   }
 
-  // 分类筛选
+  // 分类筛选（使用 category_id）
   if (categoryFilter) {
-    conditions.push(`p.category = $${paramIndex}`)
+    conditions.push(`c.code = $${paramIndex}`)
     params.push(categoryFilter)
     paramIndex++
   }
 
-  // 尝试过滤已删除的产品（如果 deleted_at 字段存在）
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
-  let products, count
-  try {
-    // 先尝试带 deleted_at 条件
-    const deletedWhere = conditions.length > 0
-      ? `WHERE p.deleted_at IS NULL AND ${conditions.join(' AND ')}`
-      : 'WHERE p.deleted_at IS NULL'
-    ;[products, count] = await Promise.all([
-      pool.query(
-        `SELECT p.id, p.name as title, p.brand, p.model, p.category, p.created_at,
-                COALESCE(p.images[1], i.source_url) as image_url
-         FROM products p
-         LEFT JOIN images i ON p.image_id = i.id
-         ${deletedWhere}
-         ORDER BY p.id DESC
-         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-        [...params, pageSize, offset]
-      ),
-      pool.query(`SELECT COUNT(*) FROM products p ${deletedWhere}`, params),
-    ])
-  } catch {
-    // 如果 deleted_at 字段不存在，查询所有产品
-    [products, count] = await Promise.all([
-      pool.query(
-        `SELECT p.id, p.name as title, p.brand, p.model, p.category, p.created_at,
-                COALESCE(p.images[1], i.source_url) as image_url
-         FROM products p
-         LEFT JOIN images i ON p.image_id = i.id
-         ${whereClause}
-         ORDER BY p.id DESC
-         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-        [...params, pageSize, offset]
-      ),
-      pool.query(`SELECT COUNT(*) FROM products p ${whereClause}`, params),
-    ])
-  }
+  // 过滤已删除的产品
+  const deletedWhere = conditions.length > 0
+    ? `WHERE p.deleted_at IS NULL AND ${conditions.join(' AND ')}`
+    : 'WHERE p.deleted_at IS NULL'
+
+  const [products, count] = await Promise.all([
+    pool.query(
+      `SELECT p.id, p.name as title, p.brand, p.model, c.name as category, p.created_at,
+              pi.image_url
+       FROM products p
+       LEFT JOIN categories c ON p.category_id = c.id
+       LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.image_type = 'main' AND pi.sort_order = 0
+       ${deletedWhere}
+       ORDER BY p.id DESC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      [...params, pageSize, offset]
+    ),
+    pool.query(`SELECT COUNT(*) FROM products p ${deletedWhere}`, params),
+  ])
 
   // 获取品牌列表（用于筛选下拉框，排除已删除产品和无意义品牌）
   let brandsResult
