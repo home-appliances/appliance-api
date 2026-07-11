@@ -28,6 +28,8 @@ resources:
         DB_PASSWORD: ${env('DB_PASSWORD')}
         DB_PORT: ${env('DB_PORT')}
         DB_USER: ${env('DB_USER')}
+        ALIYUN_ACCESS_KEY_ID: ${env('ALIYUN_ACCESS_KEY_ID')}
+        ALIYUN_ACCESS_KEY_SECRET: ${env('ALIYUN_ACCESS_KEY_SECRET')}
         NODE_ENV: production
         TZ: Asia/Shanghai
       triggers:
