@@ -43,6 +43,15 @@ const layout = (title, content, activeMenu = '', role = 'admin') => `<!DOCTYPE h
         <a href="/admin/products" class="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors ${activeMenu === 'products' ? 'bg-white/15 text-white border-r-3 border-amber-400' : ''}">
           <span class="w-5 text-center">📦</span> 产品管理
         </a>
+        <a href="/admin/categories" class="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors ${activeMenu === 'categories' ? 'bg-white/15 text-white border-r-3 border-amber-400' : ''}">
+          <span class="w-5 text-center">📂</span> 分类管理
+        </a>
+        <a href="/admin/category-params" class="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors ${activeMenu === 'category-params' ? 'bg-white/15 text-white border-r-3 border-amber-400' : ''}">
+          <span class="w-5 text-center">⚙️</span> 参数规范
+        </a>
+        <a href="/admin/product-images" class="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors ${activeMenu === 'product-images' ? 'bg-white/15 text-white border-r-3 border-amber-400' : ''}">
+          <span class="w-5 text-center">🖼️</span> 图片管理
+        </a>
         <a href="/admin/logs" class="flex items-center gap-3 px-5 py-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors ${activeMenu === 'logs' ? 'bg-white/15 text-white border-r-3 border-amber-400' : ''}">
           <span class="w-5 text-center">📋</span> 操作日志
         </a>
