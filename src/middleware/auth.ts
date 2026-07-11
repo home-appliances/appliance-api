@@ -1,4 +1,5 @@
 import { Context, Next } from 'hono';
+import { getCookie } from 'hono/cookie';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'jd-appliance-admin-secret-key-2024';
@@ -29,15 +30,27 @@ export function verifyToken(token: string): AdminPayload | null {
 
 /**
  * 认证中间件
+ * 支持两种方式:
+ * 1. Authorization: Bearer <token> (API 客户端, 如小程序)
+ * 2. Cookie: admin_token=<token> (后台 SSR 页面, 浏览器自动携带)
  */
 export async function authMiddleware(c: Context, next: Next) {
+  // 1. 优先读 Authorization header
+  let token: string | undefined;
   const authHeader = c.req.header('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  }
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  // 2. 没有则读 Cookie (后台页面登录后设置的 admin_token)
+  if (!token) {
+    token = getCookie(c, 'admin_token');
+  }
+
+  if (!token) {
     return c.json({ code: 401, message: '未登录或 Token 无效' }, 401);
   }
 
-  const token = authHeader.slice(7);
   const payload = verifyToken(token);
 
   if (!payload) {
