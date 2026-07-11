@@ -523,7 +523,7 @@ export async function getDashboardStats() {
     .where(isNull(products.deletedAt));
 
   const [brandCount] = await db
-    .select({ count: sql`COUNT(DISTINCT ${products.brand})` })
+    .select({ count: sql<number>`COUNT(DISTINCT ${products.brand})` })
     .from(products)
     .where(isNull(products.deletedAt));
 
