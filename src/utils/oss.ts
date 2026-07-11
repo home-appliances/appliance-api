@@ -6,8 +6,8 @@ import OSS from 'ali-oss';
 import path from 'path';
 import crypto from 'crypto';
 
-// CDN 域名（配置后替换）
-const CDN_DOMAIN = process.env.CDN_DOMAIN || 'https://cheapgo-assets.oss-cn-shenzhen.aliyuncs.com';
+// CDN 域名（图片走 CDN 加速）
+const CDN_DOMAIN = process.env.CDN_DOMAIN || 'https://static.cheapgo.top';
 
 // OSS 客户端懒加载
 let _ossClient: OSS | null = null;
