@@ -232,178 +232,78 @@ admin.get('/products', authMiddleware, async (c) => {
 
   const page = parseInt(c.req.query('page') || '1')
   const pageSize = 20
-  const offset = (page - 1) * pageSize
-
-  // 获取搜索和筛选参数
   const keyword = c.req.query('keyword') || ''
   const brandFilter = c.req.query('brand') || ''
   const categoryFilter = c.req.query('category') || ''
 
-  // 构建查询条件
-  const conditions: string[] = []
-  const params: any[] = []
-  let paramIndex = 1
-
-  // 品牌别名映射（与数据库搜索保持一致）
+  // 品牌别名映射
   const brandNameMap: Record<string, string> = {
-    '小米': 'xiaomi', '海尔': 'haier', '美的': 'midea', '松下': 'panasonic',
-    '西门子': 'siemens', '三星': 'samsung', '海信': 'hisense', '容声': 'rongsheng',
-    '卡萨帝': 'casarte', '伊莱克斯': 'electrolux', '惠而浦': 'whirlpool',
-    '博世': 'bocsh', 'TCL': 'tcl', '志高': 'chigo', '新飞': 'xinfei',
-    '三菱': 'mitsubishi', '奥克斯': 'aux', 'LG': 'lg',
-    '格力': 'gree', '大金': 'daikin', '科龙': 'kelon',
-    '小天鹅': 'little_swan',
-    '林内': 'noritz', '能率': 'noritz', 'A.O.史密斯': 'a/o_smith', '史密斯': 'a/o_smith',
-    '万和': 'macro', '万家乐': 'macro', '阿里斯顿': 'ariston',
-    '索尼': 'sony', '夏普': 'sharp', '飞利浦': 'philips', '长虹': 'changhong',
-    '康佳': 'konka', '乐视': 'letv', '华为': 'huawei',
-    '老板': 'robam', '方太': 'fotile', '华帝': 'vatti',
+    '小米': 'xiaomi', '海尔': 'haier', '美的': 'midea', '格力': 'gree',
+    '奥克斯': 'aux', '海信': 'hisense', 'tcl': 'tcl', '松下': 'panasonic',
+    '大金': 'daikin', '三菱': 'mitsubishi', '科龙': 'kelon', '志高': 'chigo',
+    '长虹': 'changhong', '小天鹅': 'little_swan',
   }
 
-  // 反向映射：英文品牌名 → 中文品牌名
-  const brandEnglishToChinese: Record<string, string> = {}
-  Object.entries(brandNameMap).forEach(([cn, en]) => {
-    brandEnglishToChinese[en] = cn
-  })
-
-  // 分类词 → category 字段映射
+  // 分类词 → category code 映射
   const categoryKeywordMap: Record<string, string> = {
-    '冰箱': 'icebox', '冰柜': 'icebox', '冷柜': 'icebox',
+    '冰箱': 'icebox', '冰柜': 'icebox',
     '空调': 'air_condition', '柜机': 'air_condition', '挂机': 'air_condition',
     '洗衣机': 'washer', '滚筒': 'washer', '波轮': 'washer',
-    '热水器': 'gas_water', '燃气热水器': 'gas_water', '电热水器': 'gas_water', '空气能': 'central_water',
-    '电视': 'lcd_tv', '液晶电视': 'lcd_tv', '智能电视': 'lcd_tv',
-    '取暖器': 'heater', '暖风机': 'heater', '油汀': 'heater',
-    '电饭煲': 'rice_cooker', '电饭锅': 'rice_cooker', '油烟机': 'rice_cooker',
+    '热水器': 'gas_water', '燃气热水器': 'gas_water',
+    '电视': 'lcd_tv', '液晶电视': 'lcd_tv',
+    '取暖器': 'heater', '电饭煲': 'rice_cooker', '油烟机': 'range_hood',
   }
 
-  // 关键词搜索（支持品牌别名 + 多关键词拆分 + 分类词匹配 category）
+  // 解析关键词，提取品牌和分类
+  let searchKeyword = keyword
+  let brandSearch = brandFilter
+  let categoryCode = categoryFilter
+
   if (keyword) {
-    const lowerKeyword = keyword.toLowerCase().trim()
-
-    // 拆分关键词：用空格分隔，或按已知品牌名/分类词拆分
-    const splitWords = [
-      // 品牌名
-      ...Object.keys(brandNameMap),
-      ...Object.values(brandNameMap),
-      ...Object.values(brandEnglishToChinese),
-      // 分类词
-      ...Object.keys(categoryKeywordMap),
-      // 规格词
-      '1匹', '1.5匹', '2匹', '3匹', '5匹', '大1匹', '大1.5匹', '大2匹', '大3匹',
-    ].sort((a, b) => b.length - a.length) // 按长度降序
-
-    let parts: string[] = []
-    if (keyword.includes(' ')) {
-      parts = keyword.split(/\s+/).filter(t => t.length > 0)
-    } else {
-      let remaining = keyword.trim()
-      while (remaining.length > 0) {
-        let matched = false
-        for (const word of splitWords) {
-          if (remaining.startsWith(word)) {
-            parts.push(word)
-            remaining = remaining.substring(word.length)
-            matched = true
-            break
-          }
-        }
-        if (!matched) break
-      }
-      if (parts.length === 0 || remaining.length > 0) {
-        parts = [keyword.trim()]
+    const lower = keyword.toLowerCase().trim()
+    // 检查是否包含品牌名
+    for (const [cn, en] of Object.entries(brandNameMap)) {
+      if (lower.includes(cn) || lower.includes(en)) {
+        brandSearch = en
+        searchKeyword = lower.replace(cn, '').replace(en, '').trim()
+        break
       }
     }
-
-    // 对每个关键词部分构建匹配条件，整体用 AND 连接
-    for (const part of parts) {
-      const partConditions: string[] = []
-      const partLower = part.toLowerCase().trim()
-
-      // 原始关键词匹配 name/brand/model
-      partConditions.push(`(p.name ILIKE $${paramIndex} OR p.brand ILIKE $${paramIndex} OR p.model ILIKE $${paramIndex})`)
-      params.push(`%${part}%`)
-      paramIndex++
-
-      // 分类词匹配 category 字段（使用 category_id）
-      const mappedCategory = categoryKeywordMap[part] || categoryKeywordMap[partLower]
-      if (mappedCategory) {
-        partConditions.push(`c.code = $${paramIndex}`)
-        params.push(mappedCategory)
-        paramIndex++
+    // 检查是否包含分类词
+    for (const [word, code] of Object.entries(categoryKeywordMap)) {
+      if (lower.includes(word)) {
+        categoryCode = code
+        searchKeyword = searchKeyword.replace(word, '').trim()
+        break
       }
-
-      // 中文品牌名 → 英文品牌名
-      const mappedEn = brandNameMap[partLower] || brandNameMap[part.trim()]
-      if (mappedEn) {
-        partConditions.push(`p.brand ILIKE $${paramIndex}`)
-        params.push(`%${mappedEn}%`)
-        paramIndex++
-      }
-
-      // 英文品牌名 → 中文品牌名
-      const mappedCn = brandEnglishToChinese[partLower]
-      if (mappedCn) {
-        partConditions.push(`p.brand ILIKE $${paramIndex}`)
-        params.push(`%${mappedCn}%`)
-        paramIndex++
-      }
-
-      conditions.push(`(${partConditions.join(' OR ')})`)
     }
   }
 
-  // 品牌筛选
-  if (brandFilter) {
-    conditions.push(`p.brand = $${paramIndex}`)
-    params.push(brandFilter)
-    paramIndex++
-  }
+  // 使用 Drizzle 查询
+  const { getProducts, getBrands } = await import('../db/queries.js')
 
-  // 分类筛选（使用 category_id）
-  if (categoryFilter) {
-    conditions.push(`c.code = $${paramIndex}`)
-    params.push(categoryFilter)
-    paramIndex++
-  }
+  const result = await getProducts({
+    page,
+    limit: pageSize,
+    keyword: searchKeyword || undefined,
+    brand: brandSearch || undefined,
+    categoryId: categoryCode ? undefined : undefined, // 需要通过 code 查找 id
+  })
 
-  // 过滤已删除的产品
-  const deletedWhere = conditions.length > 0
-    ? `WHERE p.deleted_at IS NULL AND ${conditions.join(' AND ')}`
-    : 'WHERE p.deleted_at IS NULL'
-
-  const [products, count] = await Promise.all([
-    pool.query(
-      `SELECT p.id, p.name as title, p.brand, p.model, c.name as category, p.created_at,
-              pi.image_url
-       FROM products p
-       LEFT JOIN categories c ON p.category_id = c.id
-       LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.image_type = 'main' AND pi.sort_order = 0
-       ${deletedWhere}
-       ORDER BY p.id DESC
-       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-      [...params, pageSize, offset]
-    ),
-    pool.query(`SELECT COUNT(*) FROM products p ${deletedWhere}`, params),
-  ])
-
-  // 获取品牌列表（用于筛选下拉框，排除已删除产品和无意义品牌）
-  let brandsResult
-  try {
-    brandsResult = await pool.query(
-      "SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND deleted_at IS NULL AND brand != '' ORDER BY brand"
-    )
-  } catch {
-    brandsResult = await pool.query(
-      "SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != '' ORDER BY brand"
-    )
-  }
-  const brands = brandsResult.rows.map((r: any) => r.brand)
+  const brands = await getBrands()
 
   return c.html(productsPage(
-    products.rows,
+    result.products.map(p => ({
+      id: p.id,
+      title: p.name,
+      brand: p.brand,
+      model: p.model,
+      category: p.categoryName,
+      created_at: p.createdAt,
+      image_url: null, // TODO: 从 product_images 获取
+    })),
     page,
-    parseInt(count.rows[0].count),
+    result.total,
     pageSize,
     role,
     { keyword, brand: brandFilter, category: categoryFilter },
