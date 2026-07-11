@@ -283,15 +283,27 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
             ${product?.images ? product.images.map((img: any, idx: number) => `
               <div class="relative group" data-image-id="${img.id || ''}">
                 <img src="${img.imageUrl || img.url}" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="previewImage(this.src)">
-                <div class="absolute top-2 left-2 flex gap-1">
-                  <span class="px-2 py-0.5 text-xs bg-black/50 text-white rounded">${img.imageType === 'main' ? '主图' : img.imageType === 'display' ? '展示' : img.imageType === 'detail' ? '细节' : '场景'}</span>
-                </div>
+                <select onchange="changeImageType(${img.id}, this)" class="absolute top-2 left-2 px-1 py-0.5 text-xs bg-black/50 text-white rounded border-none cursor-pointer" title="点击修改图片类型">
+                  <option value="main" ${img.imageType === 'main' ? 'selected' : ''}>主图</option>
+                  <option value="display" ${img.imageType === 'display' ? 'selected' : ''}>展示图</option>
+                  <option value="detail" ${img.imageType === 'detail' ? 'selected' : ''}>细节图</option>
+                  <option value="scene" ${img.imageType === 'scene' ? 'selected' : ''}>场景图</option>
+                </select>
                 <button type="button" onclick="deleteImage(${img.id}, this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>
               </div>
             `).join('') : ''}
           </div>
 
           <!-- 上传区域 -->
+          <div class="flex items-center gap-3 mb-3">
+            <label class="text-sm text-gray-600 whitespace-nowrap">上传类型:</label>
+            <select id="upload-image-type" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">
+              <option value="main">主图</option>
+              <option value="display">展示图</option>
+              <option value="detail">细节图</option>
+              <option value="scene">场景图</option>
+            </select>
+          </div>
           <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors cursor-pointer" onclick="document.getElementById('file-input').click()">
             <input type="file" id="file-input" multiple accept="image/*" class="hidden" onchange="handleFileSelect(this.files)">
             <div class="text-gray-400">
@@ -468,7 +480,8 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           const formData = new FormData()
           formData.append('file', file)
           formData.append('product_id', productId)
-          formData.append('image_type', uploaded === 0 ? 'main' : 'display')
+          // 使用用户选择的图片类型(批量上传时都用同一类型)
+          formData.append('image_type', document.getElementById('upload-image-type').value)
           formData.append('sort_order', uploaded)
 
           try {
@@ -504,10 +517,32 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         div.className = 'relative group'
         div.dataset.imageId = image.id
         div.innerHTML = '<img src="' + image.url + '" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="previewImage(this.src)">' +
-          '<div class="absolute top-2 left-2 flex gap-1">' +
-          '<span class="px-2 py-0.5 text-xs bg-black/50 text-white rounded">' + (image.image_type === 'main' ? '主图' : '展示') + '</span></div>' +
+          '<select onchange="changeImageType(' + image.id + ', this)" class="absolute top-2 left-2 px-1 py-0.5 text-xs bg-black/50 text-white rounded border-none cursor-pointer" title="点击修改图片类型">' +
+          '<option value="main" ' + (image.image_type === 'main' ? 'selected' : '') + '>主图</option>' +
+          '<option value="display" ' + (image.image_type === 'display' ? 'selected' : '') + '>展示图</option>' +
+          '<option value="detail" ' + (image.image_type === 'detail' ? 'selected' : '') + '>细节图</option>' +
+          '<option value="scene" ' + (image.image_type === 'scene' ? 'selected' : '') + '>场景图</option>' +
+          '</select>' +
           '<button type="button" onclick="deleteImage(' + image.id + ', this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>'
         list.appendChild(div)
+      }
+
+      // 修改图片类型
+      async function changeImageType(id, select) {
+        const newType = select.value
+        try {
+          const res = await fetch('/api/admin/product-images/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_type: newType })
+          })
+          const data = await res.json()
+          if (data.code !== 0) {
+            alert(data.message || '修改类型失败')
+          }
+        } catch (err) {
+          alert('修改类型失败: ' + err.message)
+        }
       }
 
       // 删除图片
