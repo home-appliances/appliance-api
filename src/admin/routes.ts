@@ -296,11 +296,11 @@ admin.get('/products', authMiddleware, async (c) => {
     result.products.map(p => ({
       id: p.id,
       title: p.name,
-      brand: p.brand,
-      model: p.model,
-      category: p.categoryName,
-      created_at: p.createdAt,
-      image_url: null, // TODO: 从 product_images 获取
+      brand: p.brand || null,
+      model: p.model || null,
+      category: p.categoryName || null,
+      created_at: p.createdAt ? p.createdAt.toISOString() : null,
+      image_url: null,
     })),
     page,
     result.total,
