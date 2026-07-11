@@ -410,15 +410,27 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
   const role = adminUser?.role || 'admin'
 
   const id = parseInt(c.req.param('id'))
-  const { getProductById, getCategories } = await import('../db/queries.js')
-  const [product, categories] = await Promise.all([
+  const { getProductById, getCategories, getProductImages } = await import('../db/queries.js')
+  const [product, categories, images] = await Promise.all([
     getProductById(id),
-    getCategories()
+    getCategories(),
+    getProductImages(id),
   ])
 
   if (!product) return c.redirect('/admin/products')
 
-  return c.html(productFormPage(product, undefined, role, categories))
+  // 拼上图片数据供表单页渲染
+  const productWithImages = {
+    ...product,
+    images: images.map(img => ({
+      id: img.id,
+      imageUrl: img.imageUrl,
+      imageType: img.imageType,
+      sortOrder: img.sortOrder,
+    })),
+  }
+
+  return c.html(productFormPage(productWithImages, undefined, role, categories))
 })
 
 // 编辑产品处理
