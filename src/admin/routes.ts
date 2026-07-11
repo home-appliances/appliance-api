@@ -69,7 +69,7 @@ admin.post('/login', async (c) => {
     // 生成 Token 并设置 Cookie
     const token = generateToken({ id: adminUser.id, username: adminUser.username, role: adminUser.role })
     setCookie(c, 'admin_token', token, {
-      path: '/admin',
+      path: '/',
       httpOnly: true,
       maxAge: 86400, // 24 小时
       sameSite: 'Lax',
@@ -84,7 +84,7 @@ admin.post('/login', async (c) => {
 
 // 退出登录
 admin.get('/logout', async (c) => {
-  deleteCookie(c, 'admin_token', { path: '/admin' })
+  deleteCookie(c, 'admin_token', { path: '/' })
   return c.redirect('/admin/login')
 })
 
@@ -385,8 +385,8 @@ admin.post('/products/create', authMiddleware, async (c) => {
       if (key && value) params[key] = value
     }
 
-    const { createProduct } = await import('../db/queries.js')
-    await createProduct({
+    const { createProduct, createProductImage } = await import('../db/queries.js')
+    const product = await createProduct({
       name,
       brand: brand || '未知品牌',
       model: model || null,
@@ -396,6 +396,9 @@ admin.post('/products/create', authMiddleware, async (c) => {
       sourcePlatform: 'admin',
     })
 
+    // 关联上传好的图片(new_image_* 隐藏字段)
+    await saveProductImages(product.id, body)
+
     return c.redirect('/admin/products')
   } catch (error: any) {
     const adminUser = c.get('admin') as { role?: string }
@@ -403,6 +406,26 @@ admin.post('/products/create', authMiddleware, async (c) => {
     return c.html(productFormPage(undefined, '创建失败: ' + error.message, role))
   }
 })
+
+// 收集表单里的 new_image_* 字段, 保存到 product_images
+async function saveProductImages(productId: number, body: Record<string, any>) {
+  const { createProductImage } = await import('../db/queries.js')
+  for (const [key, value] of Object.entries(body)) {
+    if (key.startsWith('new_image_') && value) {
+      try {
+        const img = JSON.parse(value as string)
+        await createProductImage({
+          productId,
+          imageUrl: img.url,
+          imageType: img.image_type || 'main',
+          sortOrder: img.sort_order || 0,
+        })
+      } catch (e) {
+        console.error('保存图片失败:', key, e)
+      }
+    }
+  }
+}
 
 // 编辑产品页面
 admin.get('/products/:id/edit', authMiddleware, async (c) => {
@@ -465,6 +488,9 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
       price: price || null,
       params,
     })
+
+    // 关联新上传的图片
+    await saveProductImages(id, body)
 
     return c.redirect('/admin/products')
   } catch (error: any) {

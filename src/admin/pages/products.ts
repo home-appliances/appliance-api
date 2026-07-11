@@ -303,6 +303,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
               <option value="detail">细节图</option>
               <option value="scene">场景图</option>
             </select>
+            <span class="text-xs text-gray-400">拖拽/选择后先暂存，提交产品时一并上传</span>
           </div>
           <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors cursor-pointer" onclick="document.getElementById('file-input').click()">
             <input type="file" id="file-input" multiple accept="image/*" class="hidden" onchange="handleFileSelect(this.files)">
@@ -310,18 +311,8 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
               <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
               </svg>
-              <p class="text-sm">点击或拖拽图片到此处上传</p>
+              <p class="text-sm">点击或拖拽图片到此处（先暂存，提交时上传）</p>
               <p class="text-xs text-gray-400 mt-1">支持 JPG、PNG、GIF、WebP，最大 5MB</p>
-            </div>
-          </div>
-
-          <!-- 上传进度 -->
-          <div id="upload-progress" class="hidden mt-3">
-            <div class="flex items-center gap-3">
-              <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div id="progress-bar" class="h-full bg-primary-600 transition-all" style="width: 0%"></div>
-              </div>
-              <span id="progress-text" class="text-sm text-gray-500">0%</span>
             </div>
           </div>
         </div>
@@ -437,7 +428,10 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         if (e.key === 'Escape') closeImageModal()
       })
 
-      // 拖拽上传
+      // ====== 暂存图片(前端, 提交时才上传) ======
+      const pendingImages = []
+      let pendingSeq = 0
+
       const uploadArea = document.getElementById('upload-area')
       uploadArea.addEventListener('dragover', (e) => {
         e.preventDefault()
@@ -454,80 +448,99 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         }
       })
 
-      // 处理文件选择
-      async function handleFileSelect(files) {
-        const productId = ${product?.id || 'null'}
-        if (!productId) {
-          alert('请先保存产品后再上传图片')
-          return
-        }
-
-        const progress = document.getElementById('upload-progress')
-        const progressBar = document.getElementById('progress-bar')
-        const progressText = document.getElementById('progress-text')
-        progress.classList.remove('hidden')
-
-        const total = files.length
-        let uploaded = 0
-
+      // 选择文件 -> 只暂存(本地预览), 不上传
+      function handleFileSelect(files) {
+        const imageType = document.getElementById('upload-image-type').value
         for (const file of files) {
           if (!file.type.startsWith('image/')) continue
           if (file.size > 5 * 1024 * 1024) {
             alert(file.name + ' 超过 5MB 限制')
             continue
           }
-
-          const formData = new FormData()
-          formData.append('file', file)
-          formData.append('product_id', productId)
-          // 使用用户选择的图片类型(批量上传时都用同一类型)
-          formData.append('image_type', document.getElementById('upload-image-type').value)
-          formData.append('sort_order', uploaded)
-
-          try {
-            const res = await fetch('/api/admin/upload/image', {
-              method: 'POST',
-              body: formData
-            })
-            const data = await res.json()
-
-            if (data.code === 0) {
-              addImageToList(data.data)
-              uploaded++
-            } else {
-              alert(data.message || '上传失败')
-            }
-          } catch (err) {
-            alert('上传失败: ' + err.message)
-          }
-
-          const percent = Math.round((uploaded / total) * 100)
-          progressBar.style.width = percent + '%'
-          progressText.textContent = percent + '%'
+          const seq = pendingSeq++
+          const previewUrl = URL.createObjectURL(file)
+          pendingImages.push({ seq, file, imageType, previewUrl, sort: pendingImages.length })
+          addPendingToDOM(seq, previewUrl, imageType)
         }
-
-        setTimeout(() => progress.classList.add('hidden'), 1000)
         document.getElementById('file-input').value = ''
       }
 
-      // 添加图片到列表
-      function addImageToList(image) {
+      // 暂存图加到列表(虚线边框 + 待上传标记 + 类型可改 + 删除)
+      function addPendingToDOM(seq, previewUrl, imageType) {
         const list = document.getElementById('image-list')
         const div = document.createElement('div')
         div.className = 'relative group'
-        div.dataset.imageId = image.id
-        div.innerHTML = '<img src="' + image.url + '" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="previewImage(this.src)">' +
-          '<select onchange="changeImageType(' + image.id + ', this)" class="absolute top-2 left-2 px-1 py-0.5 text-xs bg-black/50 text-white rounded border-none cursor-pointer" title="点击修改图片类型">' +
-          '<option value="main" ' + (image.image_type === 'main' ? 'selected' : '') + '>主图</option>' +
-          '<option value="display" ' + (image.image_type === 'display' ? 'selected' : '') + '>展示图</option>' +
-          '<option value="detail" ' + (image.image_type === 'detail' ? 'selected' : '') + '>细节图</option>' +
-          '<option value="scene" ' + (image.image_type === 'scene' ? 'selected' : '') + '>场景图</option>' +
+        div.dataset.pendingSeq = seq
+        div.innerHTML =
+          '<img src="' + previewUrl + '" alt="待上传" class="w-full h-32 object-cover rounded-lg border-2 border-dashed border-primary-400">' +
+          '<span class="absolute top-7 left-2 px-2 py-0.5 text-xs bg-primary-500 text-white rounded">待上传</span>' +
+          '<select onchange="setPendingType(' + seq + ', this.value)" class="absolute top-2 left-2 px-1 py-0.5 text-xs bg-black/50 text-white rounded border-none cursor-pointer" title="修改类型">' +
+          '<option value="main" ' + (imageType === 'main' ? 'selected' : '') + '>主图</option>' +
+          '<option value="display" ' + (imageType === 'display' ? 'selected' : '') + '>展示图</option>' +
+          '<option value="detail" ' + (imageType === 'detail' ? 'selected' : '') + '>细节图</option>' +
+          '<option value="scene" ' + (imageType === 'scene' ? 'selected' : '') + '>场景图</option>' +
           '</select>' +
-          '<button type="button" onclick="deleteImage(' + image.id + ', this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>'
+          '<button type="button" onclick="removePending(' + seq + ', this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>'
         list.appendChild(div)
       }
 
-      // 修改图片类型
+      function setPendingType(seq, type) {
+        const p = pendingImages.find(x => x.seq === seq)
+        if (p) p.imageType = type
+      }
+
+      function removePending(seq, btn) {
+        const idx = pendingImages.findIndex(x => x.seq === seq)
+        if (idx >= 0) {
+          URL.revokeObjectURL(pendingImages[idx].previewUrl)
+          pendingImages.splice(idx, 1)
+        }
+        btn.parentElement.remove()
+      }
+
+      // ====== 表单提交: 先上传暂存图, 再提交 ======
+      const productForm = document.querySelector('form[method="POST"]')
+      productForm.addEventListener('submit', async function(e) {
+        if (pendingImages.length === 0) return  // 无暂存图, 正常提交
+        e.preventDefault()
+        const submitBtn = productForm.querySelector('button[type="submit"]')
+        const origText = submitBtn.textContent
+        submitBtn.disabled = true
+        submitBtn.textContent = '正在上传图片...'
+
+        try {
+          for (const p of pendingImages) {
+            const fd = new FormData()
+            fd.append('file', p.file)
+            fd.append('image_type', p.imageType)
+            fd.append('sort_order', p.sort)
+            const res = await fetch('/api/admin/upload/image', { method: 'POST', body: fd })
+            const data = await res.json()
+            if (data.code !== 0) {
+              alert('图片上传失败: ' + (data.message || ''))
+              submitBtn.disabled = false
+              submitBtn.textContent = origText
+              return
+            }
+            // 上传成功, 把图片信息存到隐藏字段提交给后端
+            const hidden = document.createElement('input')
+            hidden.type = 'hidden'
+            hidden.name = 'new_image_' + p.seq
+            hidden.value = JSON.stringify({ url: data.data.url, image_type: p.imageType, sort_order: p.sort })
+            productForm.appendChild(hidden)
+          }
+          // 全部上传完, 移除拦截, 重新提交表单
+          productForm.removeEventListener('submit', arguments.callee)
+          submitBtn.textContent = '保存中...'
+          productForm.requestSubmit()
+        } catch (err) {
+          alert('上传失败: ' + err.message)
+          submitBtn.disabled = false
+          submitBtn.textContent = origText
+        }
+      })
+
+      // 已有图片(编辑时): 改类型
       async function changeImageType(id, select) {
         const newType = select.value
         try {
@@ -545,7 +558,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         }
       }
 
-      // 删除图片
+      // 已有图片(编辑时): 删除
       async function deleteImage(id, btn) {
         if (!confirm('确定删除这张图片？')) return
 
