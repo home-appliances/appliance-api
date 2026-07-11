@@ -44,7 +44,7 @@ jobs:
 
       - name: Deploy to FC
         env:
-          DB_HOST: pgm-wz926p594292r913.rwlb.rds.aliyuncs.com
+          DB_HOST: pgm-wz926p594292r913zo.rwlb.rds.aliyuncs.com
           DB_NAME: appliance_db
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_PORT: "5432"
