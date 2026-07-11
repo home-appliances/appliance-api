@@ -214,7 +214,7 @@ export const productsPage = (products: Product[], page: number, total: number, p
   return layout('产品管理', content, 'products', role)
 }
 
-export const productFormPage = (product?: any, error?: string, role = 'admin') => {
+export const productFormPage = (product?: any, error?: string, role = 'admin', categories: any[] = []) => {
   const isEdit = !!product
   const title = isEdit ? '编辑产品' : '新增产品'
 
@@ -246,8 +246,11 @@ export const productFormPage = (product?: any, error?: string, role = 'admin') =
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">分类</label>
-            <input type="text" name="category" value="${product?.category || ''}"
+            <select name="category_id"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
+              <option value="">请选择分类</option>
+              ${categories.map(c => `<option value="${c.id}" ${product?.categoryId === c.id || product?.category_id === c.id ? 'selected' : ''}>${c.icon || ''} ${c.displayName || c.name}</option>`).join('')}
+            </select>
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">价格</label>
@@ -255,17 +258,9 @@ export const productFormPage = (product?: any, error?: string, role = 'admin') =
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
           </div>
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">图片 URL</label>
-            <input type="text" name="image_url" id="image_url_input" value="${product?.images?.[0] || ''}" oninput="previewImage(this.value)"
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">原价</label>
+            <input type="number" name="original_price" step="0.01" value="${product?.originalPrice || product?.original_price || ''}"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
-            ${product?.images?.[0] ? `
-            <div class="mt-2">
-              <img id="image_preview" src="${product.images[0]}" alt="产品图片" class="w-24 h-24 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" onclick="showImage('${product.images[0].replace(/'/g, "\\'")}', '${(product.name || product.title || '').replace(/'/g, "\\'")}')">
-              <p class="text-xs text-gray-500 mt-1">点击可查看大图</p>
-            </div>` : `
-            <div class="mt-2">
-              <img id="image_preview" src="" alt="产品图片" class="w-24 h-24 object-cover rounded border border-gray-200 hidden">
-            </div>`}
           </div>
         </div>
         <div class="mb-6">

@@ -315,7 +315,9 @@ admin.get('/products', authMiddleware, async (c) => {
 admin.get('/products/create', authMiddleware, async (c) => {
   const adminUser = c.get('admin') as { role?: string }
   const role = adminUser?.role || 'admin'
-  return c.html(productFormPage(undefined, undefined, role))
+  const { getCategories } = await import('../db/queries.js')
+  const categories = await getCategories()
+  return c.html(productFormPage(undefined, undefined, role, categories))
 })
 
 // 新增产品处理
@@ -325,17 +327,14 @@ admin.post('/products/create', authMiddleware, async (c) => {
     const role = adminUser?.role || 'admin'
 
     const body = await c.req.parseBody()
-    const { name, brand, model, category, price, image_url, description, params_count } = body as Record<string, string>
+    const { name, brand, model, category_id, price, params_count } = body as Record<string, string>
 
     if (!name) {
       return c.html(productFormPage(undefined, '产品名称不能为空', role))
     }
 
-    const images = image_url ? [image_url] : []
-
     // 收集参数
     const params: Record<string, string> = {}
-    if (description) params.description = description
     const count = parseInt(params_count || '0')
     for (let i = 0; i < count; i++) {
       const key = body[`param_key_${i}`] as string
@@ -343,11 +342,16 @@ admin.post('/products/create', authMiddleware, async (c) => {
       if (key && value) params[key] = value
     }
 
-    await pool.query(
-      `INSERT INTO products (name, brand, model, category, price, images, params, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-      [name, brand || '未知品牌', model || null, category || null, price ? parseFloat(price) : null, images, JSON.stringify(params)]
-    )
+    const { createProduct } = await import('../db/queries.js')
+    await createProduct({
+      name,
+      brand: brand || '未知品牌',
+      model: model || null,
+      categoryId: category_id ? parseInt(category_id) : null,
+      price: price || null,
+      params,
+      sourcePlatform: 'admin',
+    })
 
     return c.redirect('/admin/products')
   } catch (error: any) {
@@ -362,23 +366,16 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
   const adminUser = c.get('admin') as { role?: string }
   const role = adminUser?.role || 'admin'
 
-  const id = c.req.param('id')
-  const result = await pool.query(
-    `SELECT p.*, i.source_url as image_source_url
-     FROM products p
-     LEFT JOIN images i ON p.image_id = i.id
-     WHERE p.id = $1`,
-    [id]
-  )
-  if (result.rows.length === 0) return c.redirect('/admin/products')
+  const id = parseInt(c.req.param('id'))
+  const { getProductById, getCategories } = await import('../db/queries.js')
+  const [product, categories] = await Promise.all([
+    getProductById(id),
+    getCategories()
+  ])
 
-  const product = result.rows[0]
-  // 如果 images 数组为空但有 image_id，使用 images 表的 source_url
-  if ((!product.images || product.images.length === 0) && product.image_source_url) {
-    product.images = [product.image_source_url]
-  }
+  if (!product) return c.redirect('/admin/products')
 
-  return c.html(productFormPage(product, undefined, role))
+  return c.html(productFormPage(product, undefined, role, categories))
 })
 
 // 编辑产品处理
@@ -387,19 +384,16 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
     const adminUser = c.get('admin') as { role?: string }
     const role = adminUser?.role || 'admin'
 
-    const id = c.req.param('id')
+    const id = parseInt(c.req.param('id'))
     const body = await c.req.parseBody()
-    const { name, brand, model, category, price, image_url, description, params_count } = body as Record<string, string>
+    const { name, brand, model, category_id, price, params_count } = body as Record<string, string>
 
     if (!name) {
-      return c.html(productFormPage({ id, name, brand, model, category, price, images: image_url ? [image_url] : [] }, '产品名称不能为空', role))
+      return c.html(productFormPage({ id, name, brand, model, category_id, price }, '产品名称不能为空', role))
     }
-
-    const images = image_url ? [image_url] : []
 
     // 收集参数
     const params: Record<string, string> = {}
-    if (description) params.description = description
     const count = parseInt(params_count || '0')
     for (let i = 0; i < count; i++) {
       const key = body[`param_key_${i}`] as string
@@ -407,10 +401,15 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
       if (key && value) params[key] = value
     }
 
-    await pool.query(
-      `UPDATE products SET name=$1, brand=$2, model=$3, category=$4, price=$5, images=$6, params=$7, updated_at=NOW() WHERE id=$8`,
-      [name, brand || '未知品牌', model || null, category || null, price ? parseFloat(price) : null, images, JSON.stringify(params), id]
-    )
+    const { updateProduct } = await import('../db/queries.js')
+    await updateProduct(id, {
+      name,
+      brand: brand || '未知品牌',
+      model: model || null,
+      categoryId: category_id ? parseInt(category_id) : null,
+      price: price || null,
+      params,
+    })
 
     return c.redirect('/admin/products')
   } catch (error: any) {
@@ -423,20 +422,12 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
 
 // 删除产品
 admin.post('/products/:id/delete', authMiddleware, async (c) => {
-  try {
-    const id = c.req.param('id')
-    const adminUser = (c as any).get('admin') as { username: string }
+  const id = parseInt(c.req.param('id'))
+  const adminUser = (c as any).get('admin') as { username: string }
 
-    // 尝试软删除（如果 deleted_at 字段存在）
-    await pool.query(
-      'UPDATE products SET deleted_at=NOW(), deleted_by=$1 WHERE id=$2',
-      [adminUser.username, id]
-    )
-  } catch (error: any) {
-    // 如果软删除失败（字段不存在），则硬删除
-    const id = c.req.param('id')
-    await pool.query('DELETE FROM products WHERE id=$1', [id])
-  }
+  const { deleteProduct } = await import('../db/queries.js')
+  await deleteProduct(id, adminUser.username)
+
   return c.redirect('/admin/products')
 })
 
