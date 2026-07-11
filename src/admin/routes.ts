@@ -396,8 +396,8 @@ admin.post('/products/create', authMiddleware, async (c) => {
       sourcePlatform: 'admin',
     })
 
-    // 关联上传好的图片(new_image_* 隐藏字段)
-    await saveProductImages(product.id, body)
+    // 处理表单里的图片文件(一次性: 传 OSS + 建关联, 一个接口完成)
+    await saveProductImageFiles(product.id, body)
 
     return c.redirect('/admin/products')
   } catch (error: any) {
@@ -407,23 +407,29 @@ admin.post('/products/create', authMiddleware, async (c) => {
   }
 })
 
-// 收集表单里的 new_image_* 字段, 保存到 product_images
-async function saveProductImages(productId: number, body: Record<string, any>) {
+// 处理表单里的图片文件: 传 OSS + 建 product_images 关联
+// 前端用 images[] (文件) + image_types[] (类型) + image_sorts[] (排序) 提交
+async function saveProductImageFiles(productId: number, body: Record<string, any>) {
   const { createProductImage } = await import('../db/queries.js')
-  for (const [key, value] of Object.entries(body)) {
-    if (key.startsWith('new_image_') && value) {
-      try {
-        const img = JSON.parse(value as string)
-        await createProductImage({
-          productId,
-          imageUrl: img.url,
-          imageType: img.image_type || 'main',
-          sortOrder: img.sort_order || 0,
-        })
-      } catch (e) {
-        console.error('保存图片失败:', key, e)
-      }
-    }
+  const { uploadImage } = await import('../utils/oss.js')
+
+  // parseBody 把同名多值字段收集成数组, 单值是字符串
+  const toArr = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
+  const files = toArr(body['images'])
+  const types = toArr(body['image_types'])
+  const sorts = toArr(body['image_sorts'])
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    if (!(file instanceof File)) continue
+    const buf = Buffer.from(await file.arrayBuffer())
+    const imageUrl = await uploadImage(buf, file.name, 'products')
+    await createProductImage({
+      productId,
+      imageUrl,
+      imageType: types[i] || 'main',
+      sortOrder: parseInt(sorts[i] || '0'),
+    })
   }
 }
 
@@ -489,8 +495,8 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
       params,
     })
 
-    // 关联新上传的图片
-    await saveProductImages(id, body)
+    // 处理新上传的图片(传 OSS + 建关联, 单接口完成)
+    await saveProductImageFiles(id, body)
 
     return c.redirect('/admin/products')
   } catch (error: any) {

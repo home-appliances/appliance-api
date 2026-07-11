@@ -498,43 +498,43 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         btn.parentElement.remove()
       }
 
-      // ====== 表单提交: 先上传暂存图, 再提交 ======
+      // ====== 表单提交: 一次性把产品资料 + 图片一起发, 后端一个接口处理 ======
       const productForm = document.querySelector('form[method="POST"]')
       productForm.addEventListener('submit', async function(e) {
-        if (pendingImages.length === 0) return  // 无暂存图, 正常提交
         e.preventDefault()
         const submitBtn = productForm.querySelector('button[type="submit"]')
         const origText = submitBtn.textContent
         submitBtn.disabled = true
-        submitBtn.textContent = '正在上传图片...'
+        submitBtn.textContent = pendingImages.length > 0 ? '正在上传...' : '保存中...'
 
         try {
-          for (const p of pendingImages) {
-            const fd = new FormData()
-            fd.append('file', p.file)
-            fd.append('image_type', p.imageType)
-            fd.append('sort_order', p.sort)
-            const res = await fetch('/api/admin/upload/image', { method: 'POST', body: fd })
+          // 用 FormData 把产品字段 + 暂存图片文件一起发
+          const fd = new FormData(productForm)
+          // 追加暂存图片文件及其类型
+          pendingImages.forEach((p, i) => {
+            fd.append('images', p.file, p.file.name)
+            fd.append('image_types', p.imageType)
+            fd.append('image_sorts', p.sort)
+          })
+
+          const res = await fetch(productForm.action, { method: 'POST', body: fd })
+          // 后端成功会返回重定向URL, 失败返回JSON
+          const ct = res.headers.get('content-type') || ''
+          if (ct.includes('application/json')) {
             const data = await res.json()
-            if (data.code !== 0) {
-              alert('图片上传失败: ' + (data.message || ''))
-              submitBtn.disabled = false
-              submitBtn.textContent = origText
-              return
-            }
-            // 上传成功, 把图片信息存到隐藏字段提交给后端
-            const hidden = document.createElement('input')
-            hidden.type = 'hidden'
-            hidden.name = 'new_image_' + p.seq
-            hidden.value = JSON.stringify({ url: data.data.url, image_type: p.imageType, sort_order: p.sort })
-            productForm.appendChild(hidden)
+            alert(data.message || '保存失败')
+            submitBtn.disabled = false
+            submitBtn.textContent = origText
+            return
           }
-          // 全部上传完, 移除拦截, 重新提交表单
-          productForm.removeEventListener('submit', arguments.callee)
-          submitBtn.textContent = '保存中...'
-          productForm.requestSubmit()
+          // 成功: 跟随后端重定向
+          if (res.redirected) {
+            window.location.href = res.url
+          } else {
+            window.location.href = '/admin/products'
+          }
         } catch (err) {
-          alert('上传失败: ' + err.message)
+          alert('保存失败: ' + err.message)
           submitBtn.disabled = false
           submitBtn.textContent = origText
         }
