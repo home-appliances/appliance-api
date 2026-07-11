@@ -6,18 +6,32 @@ import OSS from 'ali-oss';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
-// OSS 客户端配置
-const ossClient = new OSS({
-  region: 'oss-cn-shenzhen',
-  accessKeyId: process.env.ALIYUN_ACCESS_KEY_ID || '',
-  accessKeySecret: process.env.ALIYUN_ACCESS_KEY_SECRET || '',
-  bucket: 'cheapgo-assets',
-  endpoint: 'oss-cn-shenzhen.aliyuncs.com',
-  secure: true, // 使用 HTTPS
-});
-
 // CDN 域名（配置后替换）
 const CDN_DOMAIN = process.env.CDN_DOMAIN || 'https://cheapgo-assets.oss-cn-shenzhen.aliyuncs.com';
+
+// OSS 客户端懒加载
+let _ossClient: OSS | null = null;
+
+function getOssClient(): OSS {
+  if (!_ossClient) {
+    const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
+    const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
+
+    if (!accessKeyId || !accessKeySecret) {
+      throw new Error('OSS 配置缺失：请设置 ALIYUN_ACCESS_KEY_ID 和 ALIYUN_ACCESS_KEY_SECRET 环境变量');
+    }
+
+    _ossClient = new OSS({
+      region: 'oss-cn-shenzhen',
+      accessKeyId,
+      accessKeySecret,
+      bucket: 'cheapgo-assets',
+      endpoint: 'oss-cn-shenzhen.aliyuncs.com',
+      secure: true,
+    });
+  }
+  return _ossClient;
+}
 
 /**
  * 上传图片到 OSS
@@ -31,12 +45,14 @@ export async function uploadImage(
   originalName: string,
   folder: string = 'products'
 ): Promise<string> {
+  const client = getOssClient();
+
   // 生成唯一文件名
   const ext = path.extname(originalName).toLowerCase() || '.jpg';
   const fileName = `${folder}/${uuidv4()}${ext}`;
 
   // 上传文件
-  const result = await ossClient.put(fileName, file, {
+  await client.put(fileName, file, {
     headers: {
       'Content-Type': getContentType(ext),
       'Cache-Control': 'max-age=31536000', // 缓存1年
@@ -53,9 +69,10 @@ export async function uploadImage(
  */
 export async function deleteImage(url: string): Promise<void> {
   try {
+    const client = getOssClient();
     // 从 URL 提取文件名
     const fileName = url.replace(CDN_DOMAIN + '/', '');
-    await ossClient.delete(fileName);
+    await client.delete(fileName);
   } catch (error) {
     console.error('删除 OSS 文件失败:', error);
   }
