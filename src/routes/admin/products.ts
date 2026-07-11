@@ -18,7 +18,7 @@ products.get('/api/admin/products', async (c) => {
     const limit = parseInt(c.req.query('limit') || '20');
     const keyword = c.req.query('keyword') || '';
     const brand = c.req.query('brand') || '';
-    const category = c.req.query('category') || '';
+    const categoryId = c.req.query('category_id') || '';
 
     const offset = (page - 1) * limit;
 
@@ -27,41 +27,21 @@ products.get('/api/admin/products', async (c) => {
     const params: any[] = [];
     let paramIndex = 1;
 
-    // 英文品牌名到中文的映射
-    const brandMap: Record<string, string> = {
-      'gree': '格力', 'haier': '海尔', 'midea': '美的', 'aux': '奥克斯',
-      'hisense': '海信', 'tcl': 'tcl', 'panasonic': '松下', 'daikin': '大金',
-      'mitsubishi': '三菱', 'kelon': '科龙', 'chigo': '志高', 'changhong': '长虹',
-      'yangzi': '扬子', 'whirlpool': '惠而浦', 'fujitsu': '富士通', 'hitachi': '日立',
-      'konka': '康佳', 'philips': '飞利浦', 'tongshuai': '统帅', 'xiaomi': '小米',
-    };
-
     if (keyword) {
-      // 尝试品牌名映射
-      const lowerKeyword = keyword.toLowerCase().trim();
-      const mappedBrand = brandMap[lowerKeyword];
-
-      if (mappedBrand) {
-        // 匹配中文品牌名或英文名称
-        conditions.push(`(name ILIKE $${paramIndex} OR model ILIKE $${paramIndex} OR brand = $${paramIndex + 1})`);
-        params.push(`%${keyword}%`, mappedBrand);
-        paramIndex += 2;
-      } else {
-        conditions.push(`(name ILIKE $${paramIndex} OR model ILIKE $${paramIndex} OR brand ILIKE $${paramIndex})`);
-        params.push(`%${keyword}%`);
-        paramIndex++;
-      }
+      conditions.push(`(p.name ILIKE $${paramIndex} OR p.model ILIKE $${paramIndex} OR p.brand ILIKE $${paramIndex})`);
+      params.push(`%${keyword}%`);
+      paramIndex++;
     }
 
     if (brand) {
-      conditions.push(`brand = $${paramIndex}`);
+      conditions.push(`p.brand = $${paramIndex}`);
       params.push(brand);
       paramIndex++;
     }
 
-    if (category) {
-      conditions.push(`category = $${paramIndex}`);
-      params.push(category);
+    if (categoryId) {
+      conditions.push(`p.category_id = $${paramIndex}`);
+      params.push(categoryId);
       paramIndex++;
     }
 
@@ -69,17 +49,19 @@ products.get('/api/admin/products', async (c) => {
 
     // 查询总数
     const countResult = await pool.query(
-      `SELECT COUNT(*) FROM products ${whereClause}`,
+      `SELECT COUNT(*) FROM products p ${whereClause}`,
       params
     );
     const total = parseInt(countResult.rows[0].count);
 
-    // 查询数据
+    // 查询数据（关联 categories 表获取分类信息）
     const dataResult = await pool.query(
-      `SELECT id, name, brand, category, model, price, rating, images, created_at, updated_at
-       FROM products
+      `SELECT p.id, p.name, p.brand, p.category_id, c.name as category_name, c.code as category_code,
+              p.model, p.price, p.original_price, p.rating, p.review_count, p.params, p.created_at, p.updated_at
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
        ${whereClause}
-       ORDER BY created_at DESC
+       ORDER BY p.created_at DESC
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, limit, offset]
     );
@@ -108,17 +90,17 @@ products.get('/api/admin/products', async (c) => {
  */
 products.post('/api/admin/products', async (c) => {
   try {
-    const { name, brand, category, model, price, rating, params } = await c.req.json();
+    const { name, brand, category_id, model, price, original_price, rating, review_count, params } = await c.req.json();
 
     if (!name || !brand) {
       return c.json({ code: 400, message: '产品名称和品牌为必填项' }, 400);
     }
 
     const result = await pool.query(
-      `INSERT INTO products (name, brand, category, model, price, rating, params, source_platform)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'admin')
-       RETURNING id, name, brand, category, model, price, rating, created_at`,
-      [name, brand, category || null, model || null, price || null, rating || null, params || '{}']
+      `INSERT INTO products (name, brand, category_id, model, price, original_price, rating, review_count, params, source_platform)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'admin')
+       RETURNING id, name, brand, category_id, model, price, original_price, rating, review_count, created_at`,
+      [name, brand, category_id || null, model || null, price || null, original_price || null, rating || null, review_count || 0, params || '{}']
     );
 
     return c.json({ code: 0, data: result.rows[0], message: '产品创建成功' });
@@ -137,7 +119,10 @@ products.get('/api/admin/products/:id', async (c) => {
     const id = c.req.param('id');
 
     const result = await pool.query(
-      'SELECT * FROM products WHERE id = $1',
+      `SELECT p.*, c.name as category_name, c.code as category_code
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.id = $1`,
       [id]
     );
 
@@ -145,7 +130,19 @@ products.get('/api/admin/products/:id', async (c) => {
       return c.json({ code: 404, message: '产品不存在' }, 404);
     }
 
-    return c.json({ code: 0, data: result.rows[0] });
+    // 获取产品图片
+    const images = await pool.query(
+      `SELECT * FROM product_images WHERE product_id = $1 ORDER BY image_type, sort_order`,
+      [id]
+    );
+
+    return c.json({
+      code: 0,
+      data: {
+        ...result.rows[0],
+        images: images.rows
+      }
+    });
   } catch (error) {
     console.error('获取产品详情失败:', error);
     return c.json({ code: 500, message: '获取产品详情失败' }, 500);
@@ -159,22 +156,22 @@ products.get('/api/admin/products/:id', async (c) => {
 products.put('/api/admin/products/:id', async (c) => {
   try {
     const id = c.req.param('id');
-    const body = await c.req.json();
-
-    const { name, brand, category, model, price, rating, params: productParams } = body;
+    const { name, brand, category_id, model, price, original_price, rating, review_count, params: productParams } = await c.req.json();
 
     const result = await pool.query(
       `UPDATE products
        SET name = COALESCE($1, name),
            brand = COALESCE($2, brand),
-           category = COALESCE($3, category),
+           category_id = $3,
            model = COALESCE($4, model),
-           price = COALESCE($5, price),
-           rating = COALESCE($6, rating),
-           params = COALESCE($7, params)
-       WHERE id = $8
-       RETURNING id, name, brand, category, model, price, rating, params, updated_at`,
-      [name, brand, category, model, price, rating, productParams ? JSON.stringify(productParams) : null, id]
+           price = $5,
+           original_price = $6,
+           rating = $7,
+           review_count = COALESCE($8, review_count),
+           params = COALESCE($9, params)
+       WHERE id = $10
+       RETURNING id, name, brand, category_id, model, price, original_price, rating, review_count, params, updated_at`,
+      [name, brand, category_id, model, price, original_price, rating, review_count, productParams ? JSON.stringify(productParams) : null, id]
     );
 
     if (result.rows.length === 0) {
@@ -256,26 +253,6 @@ products.get('/api/admin/brands', async (c) => {
   } catch (error) {
     console.error('获取品牌列表失败:', error);
     return c.json({ code: 500, message: '获取品牌列表失败' }, 500);
-  }
-});
-
-/**
- * 获取所有类别列表（用于筛选下拉）
- * GET /api/admin/categories
- */
-products.get('/api/admin/categories', async (c) => {
-  try {
-    const result = await pool.query(
-      'SELECT DISTINCT category FROM products WHERE category IS NOT NULL ORDER BY category'
-    );
-
-    return c.json({
-      code: 0,
-      data: result.rows.map((r) => r.category),
-    });
-  } catch (error) {
-    console.error('获取类别列表失败:', error);
-    return c.json({ code: 500, message: '获取类别列表失败' }, 500);
   }
 });
 

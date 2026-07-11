@@ -782,6 +782,8 @@ export async function getCategories(): Promise<Array<{
   id: number;
   code: string;
   name: string;
+  display_name: string;
+  icon: string;
   parent_id: number | null;
   product_count: number;
 }>> {
@@ -790,12 +792,14 @@ export async function getCategories(): Promise<Array<{
       c.id,
       c.code,
       c.name,
+      c.display_name,
+      c.icon,
       c.parent_id,
       COUNT(p.id) as product_count
     FROM categories c
     LEFT JOIN products p ON p.category_id = c.id
     WHERE c.is_active = true
-    GROUP BY c.id, c.code, c.name, c.parent_id
+    GROUP BY c.id, c.code, c.name, c.display_name, c.icon, c.parent_id
     ORDER BY c.sort_order, c.name
   `);
 
