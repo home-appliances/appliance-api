@@ -10,6 +10,10 @@ interface Product {
   brand: string | null
   model: string | null
   category: string | null
+  price?: number | string | null
+  original_price?: number | string | null
+  rating?: number | string | null
+  review_count?: number | null
   created_at: string | null
   image_url?: string | null
 }
@@ -46,18 +50,22 @@ export const productsPage = (products: Product[], page: number, total: number, p
 
   const rows = products.map(p => `
     <tr class="hover:bg-gray-50 transition-colors">
-      <td class="px-4 py-3 text-sm text-gray-700">${p.id}</td>
-      <td class="px-4 py-3">
+      <td class="px-3 py-3 text-sm text-gray-700">${p.id}</td>
+      <td class="px-3 py-3">
         ${p.image_url
           ? `<img src="${p.image_url}" alt="${p.title}" class="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity" onclick="showImage('${p.image_url}', '${p.title.replace(/'/g, "\\'")}')" title="点击查看大图">`
           : '<div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">无</div>'}
       </td>
-      <td class="px-4 py-3 text-sm font-medium text-gray-900">${p.title}</td>
-      <td class="px-4 py-3 text-sm text-gray-700">${p.brand || '-'}</td>
-      <td class="px-4 py-3 text-sm text-gray-700">${p.model || '-'}</td>
-      <td class="px-4 py-3 text-sm text-gray-700">${p.category || '-'}</td>
-      <td class="px-4 py-3 text-sm text-gray-700">${p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '-'}</td>
-      <td class="px-4 py-3 text-right">
+      <td class="px-3 py-3 text-sm font-medium text-gray-900 max-w-[200px] truncate" title="${p.title}">${p.title}</td>
+      <td class="px-3 py-3 text-sm text-gray-700">${p.brand || '-'}</td>
+      <td class="px-3 py-3 text-sm text-gray-700">${p.model || '-'}</td>
+      <td class="px-3 py-3 text-sm text-gray-700">${p.category || '-'}</td>
+      <td class="px-3 py-3 text-sm text-gray-700 text-right">${p.price ? '¥' + Number(p.price).toFixed(0) : '-'}</td>
+      <td class="px-3 py-3 text-sm text-gray-400 text-right line-through">${p.original_price ? '¥' + Number(p.original_price).toFixed(0) : ''}</td>
+      <td class="px-3 py-3 text-sm text-gray-700 text-center">${p.rating ? '⭐' + p.rating : '-'}</td>
+      <td class="px-3 py-3 text-sm text-gray-500 text-center">${p.review_count || 0}</td>
+      <td class="px-3 py-3 text-sm text-gray-500">${p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '-'}</td>
+      <td class="px-3 py-3 text-right">
         <div class="flex items-center justify-end gap-2">
           <a href="/admin/products/${p.id}/edit" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑</a>
           <form method="POST" action="/admin/products/${p.id}/delete" class="inline" onsubmit="return confirm('确定删除该产品？')">
@@ -139,14 +147,18 @@ export const productsPage = (products: Product[], page: number, total: number, p
         <table class="w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">图片</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">产品名称</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">品牌</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">型号</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">分类</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">创建时间</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">操作</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">图片</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">产品名称</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">品牌</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">型号</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">分类</th>
+              <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">价格</th>
+              <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">原价</th>
+              <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">评分</th>
+              <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">评价</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">创建时间</th>
+              <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">操作</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
