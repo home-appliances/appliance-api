@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.11.0",
+    "ali-oss": "^6.23.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
@@ -47,14 +48,17 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.12.0",
     "pinyin-pro": "^3.28.1",
+    "uuid": "^14.0.1",
     "winston": "^3.13.0"
   },
   "devDependencies": {
     "@alicloud/fc2": "^2.6.6",
+    "@types/ali-oss": "^6.23.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.20.0",
+    "@types/uuid": "^10.0.0",
     "adm-zip": "^0.5.17",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.15.0",

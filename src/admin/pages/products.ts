@@ -275,6 +275,45 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
           </div>
         </div>
+
+        <!-- 图片上传区域 -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-3">产品图片</label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4" id="image-list">
+            ${product?.images ? product.images.map((img: any, idx: number) => `
+              <div class="relative group" data-image-id="${img.id || ''}">
+                <img src="${img.imageUrl || img.url}" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="previewImage(this.src)">
+                <div class="absolute top-2 left-2 flex gap-1">
+                  <span class="px-2 py-0.5 text-xs bg-black/50 text-white rounded">${img.imageType === 'main' ? '主图' : img.imageType === 'display' ? '展示' : img.imageType === 'detail' ? '细节' : '场景'}</span>
+                </div>
+                <button type="button" onclick="deleteImage(${img.id}, this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>
+              </div>
+            `).join('') : ''}
+          </div>
+
+          <!-- 上传区域 -->
+          <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors cursor-pointer" onclick="document.getElementById('file-input').click()">
+            <input type="file" id="file-input" multiple accept="image/*" class="hidden" onchange="handleFileSelect(this.files)">
+            <div class="text-gray-400">
+              <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              <p class="text-sm">点击或拖拽图片到此处上传</p>
+              <p class="text-xs text-gray-400 mt-1">支持 JPG、PNG、GIF、WebP，最大 5MB</p>
+            </div>
+          </div>
+
+          <!-- 上传进度 -->
+          <div id="upload-progress" class="hidden mt-3">
+            <div class="flex items-center gap-3">
+              <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div id="progress-bar" class="h-full bg-primary-600 transition-all" style="width: 0%"></div>
+              </div>
+              <span id="progress-text" class="text-sm text-gray-500">0%</span>
+            </div>
+          </div>
+        </div>
+
         <div class="mb-6">
           <label class="block text-sm font-medium text-gray-700 mb-1.5">产品描述</label>
           <textarea name="description" rows="3"
@@ -385,6 +424,109 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeImageModal()
       })
+
+      // 拖拽上传
+      const uploadArea = document.getElementById('upload-area')
+      uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault()
+        uploadArea.classList.add('border-primary-500', 'bg-primary-50')
+      })
+      uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('border-primary-500', 'bg-primary-50')
+      })
+      uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault()
+        uploadArea.classList.remove('border-primary-500', 'bg-primary-50')
+        if (e.dataTransfer.files.length > 0) {
+          handleFileSelect(e.dataTransfer.files)
+        }
+      })
+
+      // 处理文件选择
+      async function handleFileSelect(files) {
+        const productId = ${product?.id || 'null'}
+        if (!productId) {
+          alert('请先保存产品后再上传图片')
+          return
+        }
+
+        const progress = document.getElementById('upload-progress')
+        const progressBar = document.getElementById('progress-bar')
+        const progressText = document.getElementById('progress-text')
+        progress.classList.remove('hidden')
+
+        const total = files.length
+        let uploaded = 0
+
+        for (const file of files) {
+          if (!file.type.startsWith('image/')) continue
+          if (file.size > 5 * 1024 * 1024) {
+            alert(file.name + ' 超过 5MB 限制')
+            continue
+          }
+
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('product_id', productId)
+          formData.append('image_type', uploaded === 0 ? 'main' : 'display')
+          formData.append('sort_order', uploaded)
+
+          try {
+            const res = await fetch('/api/admin/upload/image', {
+              method: 'POST',
+              body: formData
+            })
+            const data = await res.json()
+
+            if (data.code === 0) {
+              addImageToList(data.data)
+              uploaded++
+            } else {
+              alert(data.message || '上传失败')
+            }
+          } catch (err) {
+            alert('上传失败: ' + err.message)
+          }
+
+          const percent = Math.round((uploaded / total) * 100)
+          progressBar.style.width = percent + '%'
+          progressText.textContent = percent + '%'
+        }
+
+        setTimeout(() => progress.classList.add('hidden'), 1000)
+        document.getElementById('file-input').value = ''
+      }
+
+      // 添加图片到列表
+      function addImageToList(image) {
+        const list = document.getElementById('image-list')
+        const div = document.createElement('div')
+        div.className = 'relative group'
+        div.dataset.imageId = image.id
+        div.innerHTML = '<img src="' + image.url + '" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="previewImage(this.src)">' +
+          '<div class="absolute top-2 left-2 flex gap-1">' +
+          '<span class="px-2 py-0.5 text-xs bg-black/50 text-white rounded">' + (image.image_type === 'main' ? '主图' : '展示') + '</span></div>' +
+          '<button type="button" onclick="deleteImage(' + image.id + ', this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>'
+        list.appendChild(div)
+      }
+
+      // 删除图片
+      async function deleteImage(id, btn) {
+        if (!confirm('确定删除这张图片？')) return
+
+        try {
+          const res = await fetch('/api/admin/upload/image/' + id, { method: 'DELETE' })
+          const data = await res.json()
+
+          if (data.code === 0) {
+            btn.parentElement.remove()
+          } else {
+            alert(data.message || '删除失败')
+          }
+        } catch (err) {
+          alert('删除失败: ' + err.message)
+        }
+      }
     </script>
   `
 
