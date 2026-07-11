@@ -116,7 +116,7 @@ export async function getProducts(options: {
     .from(products)
     .where(whereClause);
 
-  // 查询数据
+  // 查询数据（关联 categories 取分类名 + 子查询取主图）
   const data = await db
     .select({
       id: products.id,
@@ -133,6 +133,15 @@ export async function getProducts(options: {
       params: products.params,
       createdAt: products.createdAt,
       updatedAt: products.updatedAt,
+      imageUrl: sql<string>`(
+        SELECT ${productImages.imageUrl}
+        FROM ${productImages}
+        WHERE ${productImages.productId} = ${products.id}
+        ORDER BY
+          CASE ${productImages.imageType} WHEN 'main' THEN 0 ELSE 1 END,
+          ${productImages.sortOrder}
+        LIMIT 1
+      )`.as('image_url'),
     })
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))

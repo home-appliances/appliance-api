@@ -343,7 +343,7 @@ admin.get('/products', authMiddleware, async (c) => {
       rating: p.rating,
       review_count: p.reviewCount,
       created_at: p.createdAt ? p.createdAt.toISOString() : null,
-      image_url: null,
+      image_url: p.imageUrl || null,
     })),
     page,
     result.total,
