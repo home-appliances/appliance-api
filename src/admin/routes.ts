@@ -95,21 +95,60 @@ admin.get('/', authMiddleware, async (c) => {
   const role = adminUser?.role || 'admin'
 
   try {
-    const [products, brands, categories, searches] = await Promise.all([
-      pool.query('SELECT COUNT(*) FROM products WHERE deleted_at IS NULL'),
-      pool.query('SELECT COUNT(DISTINCT brand) FROM products WHERE deleted_at IS NULL'),
-      pool.query('SELECT COUNT(*) FROM categories'),
-      pool.query('SELECT COUNT(*) FROM search_logs'),
-    ])
+    const { getDashboardStats, getCategories } = await import('../db/queries.js')
+
+    // 获取基础统计
+    const stats = await getDashboardStats()
+
+    // 获取分类统计（每个分类的产品数）
+    const categories = await getCategories()
+    const categoryStats = categories.map(cat => ({
+      id: cat.id,
+      code: cat.code,
+      name: cat.displayName || cat.name,
+      icon: cat.icon,
+      product_count: 0, // TODO: 从 products 表统计
+    }))
+
+    // 获取最近添加的产品
+    const { pool } = await import('../db/index.js')
+    const recentProductsResult = await pool.query(`
+      SELECT p.id, p.name, p.brand, c.name as category_name, p.created_at
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.deleted_at IS NULL
+      ORDER BY p.created_at DESC
+      LIMIT 5
+    `)
+
+    // 获取热门搜索
+    const hotSearchesResult = await pool.query(`
+      SELECT keyword, search_count
+      FROM search_logs
+      ORDER BY search_count DESC
+      LIMIT 10
+    `)
 
     return c.html(dashboardPage({
-      totalProducts: parseInt(products.rows[0].count),
-      totalBrands: parseInt(brands.rows[0].count),
-      totalCategories: parseInt(categories.rows[0].count),
-      totalSearches: parseInt(searches.rows[0].count),
+      totalProducts: stats.totalProducts,
+      totalBrands: stats.totalBrands,
+      totalCategories: stats.totalCategories,
+      totalSearches: stats.totalSearches,
+      categoryStats,
+      recentProducts: recentProductsResult.rows,
+      hotSearches: hotSearchesResult.rows,
     }, role))
   } catch (error: any) {
-    return c.html(dashboardPage({ totalProducts: 0, totalBrands: 0, totalCategories: 0, totalSearches: 0 }, role))
+    console.error('仪表盘加载失败:', error)
+    return c.html(dashboardPage({
+      totalProducts: 0,
+      totalBrands: 0,
+      totalCategories: 0,
+      totalSearches: 0,
+      categoryStats: [],
+      recentProducts: [],
+      hotSearches: [],
+    }, role))
   }
 })
 
