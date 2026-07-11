@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { pool } from '../../db/index.js';
 import { authMiddleware } from '../../middleware/auth.js';
+import * as queries from '../../db/queries.js';
 
 const categories = new Hono();
 
@@ -14,20 +14,13 @@ categories.use('/api/admin/categories', authMiddleware);
  */
 categories.get('/api/admin/categories', async (c) => {
   try {
-    const result = await pool.query(`
-      SELECT c.*,
-        (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count,
-        (SELECT COUNT(*) FROM category_params WHERE category_id = c.id) as param_count
-      FROM categories c
-      ORDER BY c.sort_order, c.name
-    `);
+    const allCategories = await queries.getCategories();
 
     // 构建树形结构
-    const rows = result.rows;
-    const rootCategories = rows.filter(r => !r.parent_id);
+    const rootCategories = allCategories.filter(cat => !cat.parentId);
     const tree = rootCategories.map(root => ({
       ...root,
-      children: rows.filter(r => r.parent_id === root.id)
+      children: allCategories.filter(cat => cat.parentId === root.id),
     }));
 
     return c.json({ code: 0, data: tree });
@@ -43,14 +36,14 @@ categories.get('/api/admin/categories', async (c) => {
  */
 categories.get('/api/admin/categories/:id', async (c) => {
   try {
-    const id = c.req.param('id');
-    const result = await pool.query('SELECT * FROM categories WHERE id = $1', [id]);
+    const id = parseInt(c.req.param('id'));
+    const category = await queries.getCategoryById(id);
 
-    if (result.rows.length === 0) {
+    if (!category) {
       return c.json({ code: 404, message: '分类不存在' }, 404);
     }
 
-    return c.json({ code: 0, data: result.rows[0] });
+    return c.json({ code: 0, data: category });
   } catch (error) {
     console.error('获取分类详情失败:', error);
     return c.json({ code: 500, message: '获取分类详情失败' }, 500);
@@ -69,14 +62,17 @@ categories.post('/api/admin/categories', async (c) => {
       return c.json({ code: 400, message: '分类编码和名称为必填项' }, 400);
     }
 
-    const result = await pool.query(
-      `INSERT INTO categories (code, name, display_name, icon, parent_id, sort_order, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [code, name, display_name || name, icon || null, parent_id || null, sort_order || 0, is_active !== false]
-    );
+    const result = await queries.createCategory({
+      code,
+      name,
+      displayName: display_name || name,
+      icon: icon || null,
+      parentId: parent_id || null,
+      sortOrder: sort_order || 0,
+      isActive: is_active !== false,
+    });
 
-    return c.json({ code: 0, data: result.rows[0], message: '分类创建成功' });
+    return c.json({ code: 0, data: result, message: '分类创建成功' });
   } catch (error: any) {
     if (error.code === '23505') {
       return c.json({ code: 400, message: '分类编码已存在' }, 400);
@@ -92,28 +88,24 @@ categories.post('/api/admin/categories', async (c) => {
  */
 categories.put('/api/admin/categories/:id', async (c) => {
   try {
-    const id = c.req.param('id');
+    const id = parseInt(c.req.param('id'));
     const { code, name, display_name, icon, parent_id, sort_order, is_active } = await c.req.json();
 
-    const result = await pool.query(
-      `UPDATE categories
-       SET code = COALESCE($1, code),
-           name = COALESCE($2, name),
-           display_name = COALESCE($3, display_name),
-           icon = COALESCE($4, icon),
-           parent_id = $5,
-           sort_order = COALESCE($6, sort_order),
-           is_active = COALESCE($7, is_active)
-       WHERE id = $8
-       RETURNING *`,
-      [code, name, display_name, icon, parent_id, sort_order, is_active, id]
-    );
+    const result = await queries.updateCategory(id, {
+      code,
+      name,
+      displayName: display_name,
+      icon,
+      parentId: parent_id,
+      sortOrder: sort_order,
+      isActive: is_active,
+    });
 
-    if (result.rows.length === 0) {
+    if (!result) {
       return c.json({ code: 404, message: '分类不存在' }, 404);
     }
 
-    return c.json({ code: 0, data: result.rows[0], message: '更新成功' });
+    return c.json({ code: 0, data: result, message: '更新成功' });
   } catch (error: any) {
     if (error.code === '23505') {
       return c.json({ code: 400, message: '分类编码已存在' }, 400);
@@ -129,23 +121,10 @@ categories.put('/api/admin/categories/:id', async (c) => {
  */
 categories.delete('/api/admin/categories/:id', async (c) => {
   try {
-    const id = c.req.param('id');
+    const id = parseInt(c.req.param('id'));
+    const result = await queries.deleteCategory(id);
 
-    // 检查是否有子分类
-    const children = await pool.query('SELECT COUNT(*) FROM categories WHERE parent_id = $1', [id]);
-    if (parseInt(children.rows[0].count) > 0) {
-      return c.json({ code: 400, message: '请先删除子分类' }, 400);
-    }
-
-    // 检查是否有产品
-    const products = await pool.query('SELECT COUNT(*) FROM products WHERE category_id = $1', [id]);
-    if (parseInt(products.rows[0].count) > 0) {
-      return c.json({ code: 400, message: '该分类下还有产品，无法删除' }, 400);
-    }
-
-    const result = await pool.query('DELETE FROM categories WHERE id = $1 RETURNING id', [id]);
-
-    if (result.rows.length === 0) {
+    if (!result) {
       return c.json({ code: 404, message: '分类不存在' }, 404);
     }
 
@@ -153,29 +132,6 @@ categories.delete('/api/admin/categories/:id', async (c) => {
   } catch (error) {
     console.error('删除分类失败:', error);
     return c.json({ code: 500, message: '删除分类失败' }, 500);
-  }
-});
-
-/**
- * 批量更新分类排序
- * PUT /api/admin/categories/batch/sort
- */
-categories.put('/api/admin/categories/batch/sort', async (c) => {
-  try {
-    const { items } = await c.req.json();
-
-    if (!items || !Array.isArray(items)) {
-      return c.json({ code: 400, message: '参数错误' }, 400);
-    }
-
-    for (const item of items) {
-      await pool.query('UPDATE categories SET sort_order = $1 WHERE id = $2', [item.sort_order, item.id]);
-    }
-
-    return c.json({ code: 0, message: '排序更新成功' });
-  } catch (error) {
-    console.error('批量更新排序失败:', error);
-    return c.json({ code: 500, message: '批量更新排序失败' }, 500);
   }
 });
 

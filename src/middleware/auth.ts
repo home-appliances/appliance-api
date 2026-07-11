@@ -49,3 +49,16 @@ export async function authMiddleware(c: Context, next: Next) {
 
   await next();
 }
+
+/**
+ * 超级管理员权限中间件
+ */
+export async function superAdminMiddleware(c: Context, next: Next) {
+  const admin = c.get('admin') as AdminPayload | undefined;
+
+  if (!admin || admin.role !== 'super_admin') {
+    return c.json({ code: 403, message: '权限不足，需要超级管理员权限' }, 403);
+  }
+
+  await next();
+}

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { pool } from '../../db/index.js';
 import { authMiddleware } from '../../middleware/auth.js';
+import * as queries from '../../db/queries.js';
 
 const productImages = new Hono();
 
@@ -14,21 +14,15 @@ productImages.use('/api/admin/product-images', authMiddleware);
  */
 productImages.get('/api/admin/product-images', async (c) => {
   try {
-    const productId = c.req.query('product_id');
+    const productId = c.req.query('product_id') ? parseInt(c.req.query('product_id')!) : undefined;
 
-    let query = 'SELECT * FROM product_images';
-    const params: any[] = [];
-
-    if (productId) {
-      query += ' WHERE product_id = $1';
-      params.push(productId);
+    if (!productId) {
+      return c.json({ code: 400, message: '产品ID为必填项' }, 400);
     }
 
-    query += ' ORDER BY product_id, image_type, sort_order';
+    const images = await queries.getProductImages(productId);
 
-    const result = await pool.query(query, params);
-
-    return c.json({ code: 0, data: result.rows });
+    return c.json({ code: 0, data: images });
   } catch (error) {
     console.error('获取图片列表失败:', error);
     return c.json({ code: 500, message: '获取图片列表失败' }, 500);
@@ -41,14 +35,14 @@ productImages.get('/api/admin/product-images', async (c) => {
  */
 productImages.get('/api/admin/product-images/:id', async (c) => {
   try {
-    const id = c.req.param('id');
-    const result = await pool.query('SELECT * FROM product_images WHERE id = $1', [id]);
+    const id = parseInt(c.req.param('id'));
+    const image = await queries.getProductImageById(id);
 
-    if (result.rows.length === 0) {
+    if (!image) {
       return c.json({ code: 404, message: '图片不存在' }, 404);
     }
 
-    return c.json({ code: 0, data: result.rows[0] });
+    return c.json({ code: 0, data: image });
   } catch (error) {
     console.error('获取图片详情失败:', error);
     return c.json({ code: 500, message: '获取图片详情失败' }, 500);
@@ -67,14 +61,14 @@ productImages.post('/api/admin/product-images', async (c) => {
       return c.json({ code: 400, message: '产品ID为必填项' }, 400);
     }
 
-    const result = await pool.query(
-      `INSERT INTO product_images (product_id, image_url, image_type, sort_order)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [product_id, image_url || null, image_type || 'main', sort_order || 0]
-    );
+    const result = await queries.createProductImage({
+      productId: product_id,
+      imageUrl: image_url || null,
+      imageType: image_type || 'main',
+      sortOrder: sort_order || 0,
+    });
 
-    return c.json({ code: 0, data: result.rows[0], message: '图片添加成功' });
+    return c.json({ code: 0, data: result, message: '图片添加成功' });
   } catch (error: any) {
     if (error.code === '23505') {
       return c.json({ code: 400, message: '该排序位置已被占用' }, 400);
@@ -90,24 +84,20 @@ productImages.post('/api/admin/product-images', async (c) => {
  */
 productImages.put('/api/admin/product-images/:id', async (c) => {
   try {
-    const id = c.req.param('id');
+    const id = parseInt(c.req.param('id'));
     const { image_url, image_type, sort_order } = await c.req.json();
 
-    const result = await pool.query(
-      `UPDATE product_images
-       SET image_url = COALESCE($1, image_url),
-           image_type = COALESCE($2, image_type),
-           sort_order = COALESCE($3, sort_order)
-       WHERE id = $4
-       RETURNING *`,
-      [image_url, image_type, sort_order, id]
-    );
+    const result = await queries.updateProductImage(id, {
+      imageUrl: image_url,
+      imageType: image_type,
+      sortOrder: sort_order,
+    });
 
-    if (result.rows.length === 0) {
+    if (!result) {
       return c.json({ code: 404, message: '图片不存在' }, 404);
     }
 
-    return c.json({ code: 0, data: result.rows[0], message: '更新成功' });
+    return c.json({ code: 0, data: result, message: '更新成功' });
   } catch (error: any) {
     if (error.code === '23505') {
       return c.json({ code: 400, message: '该排序位置已被占用' }, 400);
@@ -123,10 +113,10 @@ productImages.put('/api/admin/product-images/:id', async (c) => {
  */
 productImages.delete('/api/admin/product-images/:id', async (c) => {
   try {
-    const id = c.req.param('id');
-    const result = await pool.query('DELETE FROM product_images WHERE id = $1 RETURNING id', [id]);
+    const id = parseInt(c.req.param('id'));
+    const result = await queries.deleteProductImage(id);
 
-    if (result.rows.length === 0) {
+    if (!result) {
       return c.json({ code: 404, message: '图片不存在' }, 404);
     }
 
@@ -149,9 +139,7 @@ productImages.put('/api/admin/product-images/batch/sort', async (c) => {
       return c.json({ code: 400, message: '参数错误' }, 400);
     }
 
-    for (const item of items) {
-      await pool.query('UPDATE product_images SET sort_order = $1 WHERE id = $2', [item.sort_order, item.id]);
-    }
+    await queries.updateProductImageSort(items);
 
     return c.json({ code: 0, message: '排序更新成功' });
   } catch (error) {
@@ -172,14 +160,11 @@ productImages.post('/api/admin/product-images/batch/delete', async (c) => {
       return c.json({ code: 400, message: '请选择要删除的图片' }, 400);
     }
 
-    const result = await pool.query(
-      'DELETE FROM product_images WHERE id = ANY($1) RETURNING id',
-      [ids]
-    );
+    await queries.batchDeleteProductImages(ids);
 
     return c.json({
       code: 0,
-      message: `成功删除 ${result.rowCount} 张图片`,
+      message: `成功删除 ${ids.length} 张图片`,
     });
   } catch (error) {
     console.error('批量删除失败:', error);

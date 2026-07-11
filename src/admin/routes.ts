@@ -18,6 +18,9 @@ import { loginPage } from './pages/login.js'
 import { dashboardPage } from './pages/dashboard.js'
 import { usersPage, userFormPage } from './pages/users.js'
 import { productsPage, productFormPage } from './pages/products.js'
+import { categoriesPage, categoryFormPage } from './pages/categories.js'
+import { categoryParamsPage, categoryParamFormPage } from './pages/category-params.js'
+import { productImagesPage, productImageFormPage } from './pages/product-images.js'
 import { logsPage } from './pages/logs.js'
 
 // ==================== 登录 ====================
@@ -553,6 +556,289 @@ admin.post('/products/:id/delete', authMiddleware, async (c) => {
     await pool.query('DELETE FROM products WHERE id=$1', [id])
   }
   return c.redirect('/admin/products')
+})
+
+// ==================== 分类管理 ====================
+
+// 分类列表
+admin.get('/categories', authMiddleware, async (c) => {
+  const adminUser = c.get('admin') as { role?: string }
+  const role = adminUser?.role || 'admin'
+
+  const result = await pool.query(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count,
+      (SELECT COUNT(*) FROM category_params WHERE category_id = c.id) as param_count
+    FROM categories c
+    ORDER BY c.sort_order, c.name
+  `)
+  return c.html(categoriesPage(result.rows, role))
+})
+
+// 新增分类页面
+admin.get('/categories/create', authMiddleware, async (c) => {
+  const adminUser = c.get('admin') as { role?: string }
+  const role = adminUser?.role || 'admin'
+  const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+  return c.html(categoryFormPage(undefined, categories.rows, undefined, role))
+})
+
+// 新增分类处理
+admin.post('/categories/create', authMiddleware, async (c) => {
+  try {
+    const body = await c.req.parseBody()
+    const { code, name, display_name, icon, parent_id, sort_order, is_active } = body as Record<string, string>
+
+    if (!code || !name) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      return c.html(categoryFormPage(undefined, categories.rows, '编码和名称不能为空'))
+    }
+
+    await pool.query(
+      'INSERT INTO categories (code, name, display_name, icon, parent_id, sort_order, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [code, name, display_name || name, icon || null, parent_id || null, parseInt(sort_order || '0'), is_active === 'true']
+    )
+    return c.redirect('/admin/categories')
+  } catch (error: any) {
+    const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+    return c.html(categoryFormPage(undefined, categories.rows, '创建失败: ' + error.message))
+  }
+})
+
+// 编辑分类页面
+admin.get('/categories/:id/edit', authMiddleware, async (c) => {
+  const adminUser = c.get('admin') as { role?: string }
+  const role = adminUser?.role || 'admin'
+  const id = c.req.param('id')
+  const result = await pool.query('SELECT * FROM categories WHERE id = $1', [id])
+  if (result.rows.length === 0) return c.redirect('/admin/categories')
+  const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+  return c.html(categoryFormPage(result.rows[0], categories.rows, undefined, role))
+})
+
+// 编辑分类处理
+admin.post('/categories/:id/edit', authMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id')
+    const body = await c.req.parseBody()
+    const { name, display_name, icon, parent_id, sort_order, is_active } = body as Record<string, string>
+
+    await pool.query(
+      'UPDATE categories SET name=$1, display_name=$2, icon=$3, parent_id=$4, sort_order=$5, is_active=$6 WHERE id=$7',
+      [name, display_name || name, icon || null, parent_id || null, parseInt(sort_order || '0'), is_active === 'true', id]
+    )
+    return c.redirect('/admin/categories')
+  } catch (error: any) {
+    const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+    return c.html(categoryFormPage({ id: c.req.param('id') }, categories.rows, '更新失败: ' + error.message))
+  }
+})
+
+// 删除分类
+admin.post('/categories/:id/delete', authMiddleware, async (c) => {
+  const id = c.req.param('id')
+  await pool.query('DELETE FROM categories WHERE id = $1', [id])
+  return c.redirect('/admin/categories')
+})
+
+// ==================== 参数规范管理 ====================
+
+// 参数规范列表
+admin.get('/category-params', authMiddleware, async (c) => {
+  const adminUser = c.get('admin') as { role?: string }
+  const role = adminUser?.role || 'admin'
+  const categoryId = c.req.query('category_id') ? parseInt(c.req.query('category_id')!) : undefined
+
+  let query = `
+    SELECT cp.*, c.name as category_name, c.display_name as category_display_name
+    FROM category_params cp
+    LEFT JOIN categories c ON c.id = cp.category_id
+  `
+  const params: any[] = []
+  if (categoryId) {
+    query += ' WHERE cp.category_id = $1'
+    params.push(categoryId)
+  }
+  query += ' ORDER BY cp.category_id, cp.sort_order'
+
+  const [result, categories] = await Promise.all([
+    pool.query(query, params),
+    pool.query('SELECT * FROM categories ORDER BY sort_order')
+  ])
+  return c.html(categoryParamsPage(result.rows, categories.rows, role, categoryId))
+})
+
+// 新增参数规范页面
+admin.get('/category-params/create', authMiddleware, async (c) => {
+  const adminUser = c.get('admin') as { role?: string }
+  const role = adminUser?.role || 'admin'
+  const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+  return c.html(categoryParamFormPage(undefined, categories.rows, undefined, role))
+})
+
+// 新增参数规范处理
+admin.post('/category-params/create', authMiddleware, async (c) => {
+  try {
+    const body = await c.req.parseBody()
+    const { category_id, param_key, display_name, icon, param_type, is_core, is_filter, is_sortable, enum_values, sort_order } = body as Record<string, string>
+
+    if (!category_id || !param_key || !display_name) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      return c.html(categoryParamFormPage(undefined, categories.rows, '分类、参数名和显示名不能为空'))
+    }
+
+    let enumValuesJson = null
+    if (enum_values) {
+      try { enumValuesJson = JSON.parse(enum_values) } catch { enumValuesJson = null }
+    }
+
+    await pool.query(
+      'INSERT INTO category_params (category_id, param_key, display_name, icon, param_type, is_core, is_filter, is_sortable, enum_values, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+      [category_id, param_key, display_name, icon || null, param_type || 'text', is_core === 'true', is_filter === 'true', is_sortable === 'true', enumValuesJson ? JSON.stringify(enumValuesJson) : null, parseInt(sort_order || '0')]
+    )
+    return c.redirect('/admin/category-params')
+  } catch (error: any) {
+    const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+    return c.html(categoryParamFormPage(undefined, categories.rows, '创建失败: ' + error.message))
+  }
+})
+
+// 编辑参数规范页面
+admin.get('/category-params/:id/edit', authMiddleware, async (c) => {
+  const adminUser = c.get('admin') as { role?: string }
+  const role = adminUser?.role || 'admin'
+  const id = c.req.param('id')
+  const [result, categories] = await Promise.all([
+    pool.query('SELECT * FROM category_params WHERE id = $1', [id]),
+    pool.query('SELECT * FROM categories ORDER BY sort_order')
+  ])
+  if (result.rows.length === 0) return c.redirect('/admin/category-params')
+  return c.html(categoryParamFormPage(result.rows[0], categories.rows, undefined, role))
+})
+
+// 编辑参数规范处理
+admin.post('/category-params/:id/edit', authMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id')
+    const body = await c.req.parseBody()
+    const { param_key, display_name, icon, param_type, is_core, is_filter, is_sortable, enum_values, sort_order } = body as Record<string, string>
+
+    let enumValuesJson = null
+    if (enum_values) {
+      try { enumValuesJson = JSON.parse(enum_values) } catch { enumValuesJson = null }
+    }
+
+    await pool.query(
+      'UPDATE category_params SET param_key=$1, display_name=$2, icon=$3, param_type=$4, is_core=$5, is_filter=$6, is_sortable=$7, enum_values=$8, sort_order=$9 WHERE id=$10',
+      [param_key, display_name, icon || null, param_type || 'text', is_core === 'true', is_filter === 'true', is_sortable === 'true', enumValuesJson ? JSON.stringify(enumValuesJson) : null, parseInt(sort_order || '0'), id]
+    )
+    return c.redirect('/admin/category-params')
+  } catch (error: any) {
+    const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+    return c.html(categoryParamFormPage({ id: c.req.param('id') }, categories.rows, '更新失败: ' + error.message))
+  }
+})
+
+// 删除参数规范
+admin.post('/category-params/:id/delete', authMiddleware, async (c) => {
+  const id = c.req.param('id')
+  await pool.query('DELETE FROM category_params WHERE id = $1', [id])
+  return c.redirect('/admin/category-params')
+})
+
+// ==================== 图片管理 ====================
+
+// 图片列表
+admin.get('/product-images', authMiddleware, async (c) => {
+  const adminUser = c.get('admin') as { role?: string }
+  const role = adminUser?.role || 'admin'
+  const productId = c.req.query('product_id') ? parseInt(c.req.query('product_id')!) : undefined
+
+  let query = `
+    SELECT pi.*, p.name as product_name
+    FROM product_images pi
+    LEFT JOIN products p ON p.id = pi.product_id
+  `
+  const params: any[] = []
+  if (productId) {
+    query += ' WHERE pi.product_id = $1'
+    params.push(productId)
+  }
+  query += ' ORDER BY pi.product_id, pi.image_type, pi.sort_order'
+
+  const [result, products] = await Promise.all([
+    pool.query(query, params),
+    pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
+  ])
+  return c.html(productImagesPage(result.rows, products.rows, role, productId))
+})
+
+// 新增图片页面
+admin.get('/product-images/create', authMiddleware, async (c) => {
+  const adminUser = c.get('admin') as { role?: string }
+  const role = adminUser?.role || 'admin'
+  const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
+  return c.html(productImageFormPage(undefined, products.rows, undefined, role))
+})
+
+// 新增图片处理
+admin.post('/product-images/create', authMiddleware, async (c) => {
+  try {
+    const body = await c.req.parseBody()
+    const { product_id, image_url, image_type, sort_order } = body as Record<string, string>
+
+    if (!product_id) {
+      const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
+      return c.html(productImageFormPage(undefined, products.rows, '产品不能为空'))
+    }
+
+    await pool.query(
+      'INSERT INTO product_images (product_id, image_url, image_type, sort_order) VALUES ($1, $2, $3, $4)',
+      [product_id, image_url || null, image_type || 'main', parseInt(sort_order || '0')]
+    )
+    return c.redirect('/admin/product-images')
+  } catch (error: any) {
+    const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
+    return c.html(productImageFormPage(undefined, products.rows, '创建失败: ' + error.message))
+  }
+})
+
+// 编辑图片页面
+admin.get('/product-images/:id/edit', authMiddleware, async (c) => {
+  const adminUser = c.get('admin') as { role?: string }
+  const role = adminUser?.role || 'admin'
+  const id = c.req.param('id')
+  const [result, products] = await Promise.all([
+    pool.query('SELECT * FROM product_images WHERE id = $1', [id]),
+    pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
+  ])
+  if (result.rows.length === 0) return c.redirect('/admin/product-images')
+  return c.html(productImageFormPage(result.rows[0], products.rows, undefined, role))
+})
+
+// 编辑图片处理
+admin.post('/product-images/:id/edit', authMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id')
+    const body = await c.req.parseBody()
+    const { image_url, image_type, sort_order } = body as Record<string, string>
+
+    await pool.query(
+      'UPDATE product_images SET image_url=$1, image_type=$2, sort_order=$3 WHERE id=$4',
+      [image_url || null, image_type || 'main', parseInt(sort_order || '0'), id]
+    )
+    return c.redirect('/admin/product-images')
+  } catch (error: any) {
+    const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
+    return c.html(productImageFormPage({ id: c.req.param('id') }, products.rows, '更新失败: ' + error.message))
+  }
+})
+
+// 删除图片
+admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
+  const id = c.req.param('id')
+  await pool.query('DELETE FROM product_images WHERE id = $1', [id])
+  return c.redirect('/admin/product-images')
 })
 
 // ==================== 操作日志 ====================
