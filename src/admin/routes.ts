@@ -409,44 +409,46 @@ admin.post('/products/create', authMiddleware, async (c) => {
 
 // 处理表单里的图片文件: 传 OSS + 建 product_images 关联
 // 前端用 images[] (文件) + image_types[] (类型) + image_sorts[] (排序) 提交
-async function saveProductImageFiles(productId: number, body: Record<string, any>) {
+// 返回调试信息(临时): 每张图的 buffer 首字节, 用于定位二进制损坏
+async function saveProductImageFiles(productId: number, body: Record<string, any>): Promise<any[]> {
   const { createProductImage, getProductImages } = await import('../db/queries.js')
   const { uploadImage, validateImageFile } = await import('../utils/oss.js')
 
-  // parseBody 对带 [] 后缀的字段返回数组; 兼容不带 [] 的情况
   const toArr = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
   const files = toArr(body['images[]'] ?? body['images'])
   const types = toArr(body['image_types[]'] ?? body['image_types'])
 
   console.log(`[saveProductImageFiles] 产品${productId} 收到 ${files.length} 个文件`)
-  if (files.length === 0) return
+  if (files.length === 0) return []
 
-  // 查该产品现有图片, 新图片 sort_order 从现有最大值+1 递增, 避免唯一约束冲突
   const existing = await getProductImages(productId)
   let nextSort = existing.length > 0
     ? Math.max(...existing.map(img => img.sortOrder)) + 1
     : 0
 
+  const debugInfo: any[] = []
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
     if (!(file instanceof File)) {
-      console.log(`  [${i}] 非 File 对象, 跳过`)
+      debugInfo.push({ i, error: '非 File 对象', typeof: typeof file })
       continue
     }
 
-    // 后端格式校验(大小 + 扩展名 + MIME), 不合法跳过该文件
     const validation = validateImageFile({
       size: file.size,
       originalName: file.name,
       mimeType: file.type,
     })
     if (!validation.valid) {
-      console.warn(`  [${i}] 校验失败, 跳过: ${file.name} - ${validation.error}`)
+      debugInfo.push({ i, error: validation.error, name: file.name })
       continue
     }
 
-    const buf = Buffer.from(await file.arrayBuffer())
-    console.log(`  [${i}] buffer 大小:${buf.length} 前8字节(hex):${buf.slice(0,8).toString('hex')} 首字节0x89?${buf[0] === 0x89}`)
+    const ab = await file.arrayBuffer()
+    const buf = Buffer.from(ab)
+    const firstHex = buf.slice(0, 8).toString('hex')
+    console.log(`  [${i}] name:${file.name} size:${file.size} bufSize:${buf.length} 前8字节:${firstHex}`)
+
     const imageUrl = await uploadImage(buf, file.name, 'products')
     const created = await createProductImage({
       productId,
@@ -454,8 +456,18 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
       imageType: types[i] || 'main',
       sortOrder: nextSort++,
     })
-    console.log(`  [${i}] 已保存: ${imageUrl} -> 图片记录ID ${created.id}, sort=${created.sortOrder}`)
+    debugInfo.push({
+      i,
+      name: file.name,
+      origSize: file.size,
+      bufSize: buf.length,
+      first8Hex: firstHex,
+      isPngStart: buf[0] === 0x89,
+      imageUrl,
+      imageId: created.id,
+    })
   }
+  return debugInfo
 }
 
 // 编辑产品页面
@@ -521,9 +533,11 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
     })
 
     // 处理新上传的图片(传 OSS + 建关联, 单接口完成)
-    await saveProductImageFiles(id, body)
+    const debugInfo = await saveProductImageFiles(id, body)
 
-    return c.redirect('/admin/products')
+    // 临时: 返回调试信息, 不重定向
+    return c.json({ debug: debugInfo })
+    // return c.redirect('/admin/products')
   } catch (error: any) {
     const adminUser = c.get('admin') as { role?: string }
     const role = adminUser?.role || 'admin'
