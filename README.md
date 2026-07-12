@@ -54,17 +54,31 @@ appliance-api/
 ## 本地开发
 
 ```bash
-# 安装依赖
+# 1. 安装依赖
 npm install
 
-# 配置环境变量
+# 2. 配置环境变量
 cp .env.example .env
 # 编辑 .env 填入数据库连接信息
 
-# 启动开发服务器
+# 3. 初始化数据库(首次)
+npm run db:push        # Drizzle 推送 schema 到数据库(创建所有表)
+npm run db:seed        # 灌入初始数据(分类、管理员、参数规范)
+npm run db:generate    # 生成 migration 文件(可选, 用于版本管理)
+
+# 4. 启动开发服务器
 npm run dev
 # 访问 http://localhost:3000
 ```
+
+### 数据库命令
+
+| 命令 | 说明 |
+|------|------|
+| `npm run db:push` | 直接推送 schema 到数据库(开发用, 快速) |
+| `npm run db:generate` | 从 schema 生成 migration SQL 文件 |
+| `npm run db:migrate` | 执行 migration 文件(生产用) |
+| `npm run db:seed` | 灌入初始数据(分类、管理员、参数规范) |
 
 ## API 接口
 
