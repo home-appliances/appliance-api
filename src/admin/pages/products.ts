@@ -458,8 +458,18 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
       ]
       const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 
+      // 文件转 Base64(去掉 data:xxx;base64, 前缀)
+      function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result.split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+      }
+
       // 选择文件 -> 先校验, 通过才暂存(本地预览), 不上传
-      function handleFileSelect(files) {
+      async function handleFileSelect(files) {
         const imageType = document.getElementById('upload-image-type').value
         for (const file of files) {
           // 1. 扩展名
@@ -489,9 +499,11 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
             alert(file.name + ': 超过 5MB 限制')
             continue
           }
+          // 转 Base64 用于纯文本提交(绕过 FC multipart 二进制损坏)
+          const base64 = await fileToBase64(file)
           const seq = pendingSeq++
           const previewUrl = URL.createObjectURL(file)
-          pendingImages.push({ seq, file, imageType, previewUrl, sort: pendingImages.length })
+          pendingImages.push({ seq, fileName: file.name, mimeType: file.type, base64, imageType, previewUrl, sort: pendingImages.length })
           addPendingToDOM(seq, previewUrl, imageType)
         }
         document.getElementById('file-input').value = ''
@@ -542,9 +554,11 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         try {
           // 用 FormData 把产品字段 + 暂存图片文件一起发
           const fd = new FormData(productForm)
-          // 追加暂存图片文件及其类型(用 [] 后缀, Hono parseBody 才能识别成数组)
+          // 用 Base64 纯文本提交(绕过 FC multipart 二进制损坏)
           pendingImages.forEach((p, i) => {
-            fd.append('images[]', p.file, p.file.name)
+            fd.append('image_data[]', p.base64)
+            fd.append('image_names[]', p.fileName)
+            fd.append('image_mimes[]', p.mimeType)
             fd.append('image_types[]', p.imageType)
             fd.append('image_sorts[]', String(p.sort))
           })

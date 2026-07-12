@@ -407,67 +407,49 @@ admin.post('/products/create', authMiddleware, async (c) => {
   }
 })
 
-// 处理表单里的图片文件: 传 OSS + 建 product_images 关联
-// 前端用 images[] (文件) + image_types[] (类型) + image_sorts[] (排序) 提交
-// 返回调试信息(临时): 每张图的 buffer 首字节, 用于定位二进制损坏
-async function saveProductImageFiles(productId: number, body: Record<string, any>): Promise<any[]> {
+// 处理表单里的图片: 前端用 Base64 纯文本提交, 后端解码后传 OSS + 建关联
+// 绕过 FC multipart 二进制损坏问题(0x89 等非 ASCII 字节被 UTF-8 替换)
+async function saveProductImageFiles(productId: number, body: Record<string, any>): Promise<void> {
   const { createProductImage, getProductImages } = await import('../db/queries.js')
   const { uploadImage, validateImageFile } = await import('../utils/oss.js')
 
   const toArr = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
-  const files = toArr(body['images[]'] ?? body['images'])
-  const types = toArr(body['image_types[]'] ?? body['image_types'])
+  const dataArr = toArr(body['image_data[]'])
+  const nameArr = toArr(body['image_names[]'])
+  const mimeArr = toArr(body['image_mimes[]'])
+  const typeArr = toArr(body['image_types[]'])
 
-  console.log(`[saveProductImageFiles] 产品${productId} 收到 ${files.length} 个文件`)
-  if (files.length === 0) return []
+  if (dataArr.length === 0) return
 
   const existing = await getProductImages(productId)
   let nextSort = existing.length > 0
     ? Math.max(...existing.map(img => img.sortOrder)) + 1
     : 0
 
-  const debugInfo: any[] = []
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]
-    if (!(file instanceof File)) {
-      debugInfo.push({ i, error: '非 File 对象', typeof: typeof file })
-      continue
-    }
+  for (let i = 0; i < dataArr.length; i++) {
+    const base64 = dataArr[i]
+    const fileName = nameArr[i] || 'image.png'
+    const mimeType = mimeArr[i] || 'image/png'
 
-    const validation = validateImageFile({
-      size: file.size,
-      originalName: file.name,
-      mimeType: file.type,
-    })
+    // Base64 解码为 Buffer
+    const buf = Buffer.from(base64, 'base64')
+
+    // 校验
+    const validation = validateImageFile({ size: buf.length, originalName: fileName, mimeType })
     if (!validation.valid) {
-      debugInfo.push({ i, error: validation.error, name: file.name })
+      console.warn(`  [${i}] 校验失败, 跳过: ${fileName} - ${validation.error}`)
       continue
     }
 
-    const ab = await file.arrayBuffer()
-    const buf = Buffer.from(ab)
-    const firstHex = buf.slice(0, 8).toString('hex')
-    console.log(`  [${i}] name:${file.name} size:${file.size} bufSize:${buf.length} 前8字节:${firstHex}`)
-
-    const imageUrl = await uploadImage(buf, file.name, 'products')
+    const imageUrl = await uploadImage(buf, fileName, 'products')
     const created = await createProductImage({
       productId,
       imageUrl,
-      imageType: types[i] || 'main',
+      imageType: typeArr[i] || 'main',
       sortOrder: nextSort++,
     })
-    debugInfo.push({
-      i,
-      name: file.name,
-      origSize: file.size,
-      bufSize: buf.length,
-      first8Hex: firstHex,
-      isPngStart: buf[0] === 0x89,
-      imageUrl,
-      imageId: created.id,
-    })
+    console.log(`  [${i}] 已保存: ${imageUrl} (buffer首字节:0x${buf[0].toString(16)}) -> 图片记录ID ${created.id}`)
   }
-  return debugInfo
 }
 
 // 编辑产品页面
