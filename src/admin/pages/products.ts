@@ -420,23 +420,22 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           data.data.forEach(p => {
             const div = document.createElement('div')
             div.className = 'flex items-center gap-3'
-            const key = p.param_key
+            const key = p.paramKey
             const val = existingParams[key] || ''
-            const label = '<label class="w-24 text-sm text-gray-600 text-right flex-shrink-0">' + (p.icon || '') + ' ' + p.display_name + '</label>'
+            const displayName = p.displayName || key
+            const label = '<label class="w-24 text-sm text-gray-600 text-right flex-shrink-0">' + (p.icon || '') + ' ' + displayName + '</label>'
 
             let input = ''
-            if (p.param_type === 'enum' && p.enum_values) {
+            if (p.paramType === 'enum' && p.enumValues) {
               // 枚举: 下拉选择
-              const opts = JSON.parse(typeof p.enum_values === 'string' ? p.enum_values : JSON.stringify(p.enum_values))
+              const opts = typeof p.enumValues === 'string' ? JSON.parse(p.enumValues) : p.enumValues
               input = '<select name="p_' + key + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500"><option value="">请选择</option>' +
                 opts.map(o => '<option value="' + o + '"' + (val === o ? ' selected' : '') + '>' + o + '</option>').join('') +
                 '</select>'
-            } else if (p.param_type === 'number') {
-              // 数字
-              input = '<input type="number" name="p_' + key + '" value="' + val + '" step="any" placeholder="请输入' + p.display_name + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+            } else if (p.paramType === 'number') {
+              input = '<input type="number" name="p_' + key + '" value="' + val + '" step="any" placeholder="请输入' + displayName + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
             } else {
-              // 文本
-              input = '<input type="text" name="p_' + key + '" value="' + val + '" placeholder="请输入' + p.display_name + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+              input = '<input type="text" name="p_' + key + '" value="' + val + '" placeholder="请输入' + displayName + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
             }
             div.innerHTML = label + input
             container.appendChild(div)
