@@ -25,7 +25,7 @@ resources:
         vpcId: vpc-wz9panhs3lr4y30c8cd75
         vswitchIds:
           - vsw-wz9x49y8clwt46f3086x7
-        securityGroupId: sg-wz90pjrfiebyims3jb8e
+        securityGroupId: sg-wz95y2xh9e7ajlongxaj
       environmentVariables:
         DB_HOST: ${env('DB_HOST')}
         DB_NAME: ${env('DB_NAME')}
