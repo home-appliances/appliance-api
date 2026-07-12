@@ -1,7 +1,0 @@
-{
-  "tool_name": "Read",
-  "tool_input_preview": "{\"file_path\":\"/Users/ganzhengwei/.claude/projects/-Users-ganzhengwei-Desktop-object---/ba6a1672-1112-480d-a355-066f74ead597.jsonl\",\"limit\":100}",
-  "error": "File content (60002 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
-  "timestamp": "2026-07-06T22:02:56.080Z",
-  "retry_count": 1
-}

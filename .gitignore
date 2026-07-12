@@ -33,6 +33,9 @@ src/data/
 .DS_Store
 Thumbs.db
 
+# oh-my-claudecode
+.omc/
+
 # Serverless Devs
 .s/
 code.zip
