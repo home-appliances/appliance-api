@@ -515,11 +515,9 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
     })
 
     // 处理新上传的图片(传 OSS + 建关联, 单接口完成)
-    const debugInfo = await saveProductImageFiles(id, body)
+    await saveProductImageFiles(id, body)
 
-    // 临时: 返回调试信息, 不重定向
-    return c.json({ debug: debugInfo })
-    // return c.redirect('/admin/products')
+    return c.redirect('/admin/products')
   } catch (error: any) {
     const adminUser = c.get('admin') as { role?: string }
     const role = adminUser?.role || 'admin'
