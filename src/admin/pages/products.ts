@@ -258,7 +258,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">分类</label>
-            <select name="category_id"
+            <select name="category_id" id="category-select" onchange="loadCategoryParams(this.value)"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
               <option value="">请选择分类</option>
               ${categories.map(c => `<option value="${c.id}" ${product?.categoryId === c.id || product?.category_id === c.id ? 'selected' : ''}>${c.icon || ''} ${c.displayName || c.name}</option>`).join('')}
@@ -325,41 +325,11 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
 
         <div class="mb-6">
           <label class="block text-sm font-medium text-gray-700 mb-3">产品参数</label>
-          <div id="params-container" class="space-y-2">
-            ${product?.params ? Object.entries(product.params).filter(([k]) => k !== 'description').map(([key, value], index) => `
-              <div class="flex items-center gap-2 param-row">
-                <input type="text" name="param_key_${index}" value="${key}" placeholder="参数名"
-                  class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20">
-                <input type="text" name="param_value_${index}" value="${value}" placeholder="参数值"
-                  class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20">
-                <button type="button" onclick="this.parentElement.remove()" class="px-2 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-              </div>
-            `).join('') : ''}
+          <div id="params-container" class="space-y-3">
+            <div class="text-sm text-gray-400">请先选择分类，参数将自动生成</div>
           </div>
-          <input type="hidden" id="params_count" name="params_count" value="${product?.params ? Object.keys(product.params).filter(k => k !== 'description').length : 0}">
-          <button type="button" onclick="addParam()" class="mt-2 px-3 py-1.5 text-sm border border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-primary-500 hover:text-primary-600 transition-colors">
-            + 添加参数
-          </button>
+          <!-- 所有参数值通过 p_{paramKey} 字段名提交 -->
         </div>
-
-        <script>
-          function addParam() {
-            var container = document.getElementById('params-container');
-            var countInput = document.getElementById('params_count');
-            var index = parseInt(countInput.value);
-            countInput.value = index + 1;
-
-            var div = document.createElement('div');
-            div.className = 'flex items-center gap-2 param-row';
-            var html = '<input type="text" name="param_key_' + index + '" value="" placeholder="参数名" class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20">';
-            html += '<input type="text" name="param_value_' + index + '" value="" placeholder="参数值" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20">';
-            html += '<button type="button" onclick="this.parentElement.remove()" class="px-2 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>';
-            div.innerHTML = html;
-            container.appendChild(div);
-          }
-        </script>
         <div class="flex gap-3">
           <button type="submit" class="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors cursor-pointer border-0">${isEdit ? '保存' : '创建'}</button>
           <a href="/admin/products" class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">取消</a>
@@ -427,6 +397,58 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeImageModal()
       })
+
+      // ====== 产品参数: 根据所选分类动态渲染参数输入 ======
+      // 编辑时已有值, 从 product.params 读取
+      const existingParams = ${JSON.stringify(product?.params || {})}
+
+      async function loadCategoryParams(categoryId) {
+        const container = document.getElementById('params-container')
+        if (!categoryId) {
+          container.innerHTML = '<div class="text-sm text-gray-400">请先选择分类，参数将自动生成</div>'
+          return
+        }
+        container.innerHTML = '<div class="text-sm text-gray-400">加载中...</div>'
+        try {
+          const res = await fetch('/api/admin/category-params?category_id=' + categoryId)
+          const data = await res.json()
+          if (data.code !== 0 || !data.data || data.data.length === 0) {
+            container.innerHTML = '<div class="text-sm text-gray-400">该分类暂无参数规范，可在「参数规范」中配置</div>'
+            return
+          }
+          container.innerHTML = ''
+          data.data.forEach(p => {
+            const div = document.createElement('div')
+            div.className = 'flex items-center gap-3'
+            const key = p.param_key
+            const val = existingParams[key] || ''
+            const label = '<label class="w-24 text-sm text-gray-600 text-right flex-shrink-0">' + (p.icon || '') + ' ' + p.display_name + '</label>'
+
+            let input = ''
+            if (p.param_type === 'enum' && p.enum_values) {
+              // 枚举: 下拉选择
+              const opts = JSON.parse(typeof p.enum_values === 'string' ? p.enum_values : JSON.stringify(p.enum_values))
+              input = '<select name="p_' + key + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500"><option value="">请选择</option>' +
+                opts.map(o => '<option value="' + o + '"' + (val === o ? ' selected' : '') + '>' + o + '</option>').join('') +
+                '</select>'
+            } else if (p.param_type === 'number') {
+              // 数字
+              input = '<input type="number" name="p_' + key + '" value="' + val + '" step="any" placeholder="请输入' + p.display_name + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+            } else {
+              // 文本
+              input = '<input type="text" name="p_' + key + '" value="' + val + '" placeholder="请输入' + p.display_name + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+            }
+            div.innerHTML = label + input
+            container.appendChild(div)
+          })
+        } catch (err) {
+          container.innerHTML = '<div class="text-sm text-red-500">加载参数失败: ' + err.message + '</div>'
+        }
+      }
+
+      // 页面加载时, 如果已选分类则自动加载参数(编辑模式)
+      const initCategory = document.getElementById('category-select').value
+      if (initCategory) loadCategoryParams(initCategory)
 
       // ====== 暂存图片(前端, 提交时才上传) ======
       const pendingImages = []

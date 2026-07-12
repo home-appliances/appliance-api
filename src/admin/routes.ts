@@ -370,22 +370,21 @@ admin.post('/products/create', authMiddleware, async (c) => {
     const role = adminUser?.role || 'admin'
 
     const body = await c.req.parseBody()
-    const { name, brand, model, category_id, price, params_count } = body as Record<string, string>
+    const { name, brand, model, category_id, price } = body as Record<string, string>
 
     if (!name) {
       return c.html(productFormPage(undefined, '产品名称不能为空', role))
     }
 
-    // 收集参数
+    // 收集参数: 前端用 p_{paramKey} 字段名提交, 取所有 p_ 开头的非空值
     const params: Record<string, string> = {}
-    const count = parseInt(params_count || '0')
-    for (let i = 0; i < count; i++) {
-      const key = body[`param_key_${i}`] as string
-      const value = body[`param_value_${i}`] as string
-      if (key && value) params[key] = value
+    for (const [key, value] of Object.entries(body)) {
+      if (key.startsWith('p_') && typeof value === 'string' && value.trim() !== '') {
+        params[key.slice(2)] = value.trim()  // 去掉 p_ 前缀
+      }
     }
 
-    const { createProduct, createProductImage } = await import('../db/queries.js')
+    const { createProduct } = await import('../db/queries.js')
     const product = await createProduct({
       name,
       brand: brand || '未知品牌',
@@ -489,19 +488,18 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
 
     const id = parseInt(c.req.param('id'))
     const body = await c.req.parseBody()
-    const { name, brand, model, category_id, price, params_count } = body as Record<string, string>
+    const { name, brand, model, category_id, price } = body as Record<string, string>
 
     if (!name) {
       return c.html(productFormPage({ id, name, brand, model, category_id, price }, '产品名称不能为空', role))
     }
 
-    // 收集参数
+    // 收集参数: 前端用 p_{paramKey} 字段名提交, 取所有 p_ 开头的非空值
     const params: Record<string, string> = {}
-    const count = parseInt(params_count || '0')
-    for (let i = 0; i < count; i++) {
-      const key = body[`param_key_${i}`] as string
-      const value = body[`param_value_${i}`] as string
-      if (key && value) params[key] = value
+    for (const [key, value] of Object.entries(body)) {
+      if (key.startsWith('p_') && typeof value === 'string' && value.trim() !== '') {
+        params[key.slice(2)] = value.trim()
+      }
     }
 
     const { updateProduct } = await import('../db/queries.js')
