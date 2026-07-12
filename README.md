@@ -15,7 +15,7 @@
 - **运行时**: Node.js 20
 - **框架**: [Hono](https://hono.dev/)
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/)
-- **数据库**: 阿里云 RDS PostgreSQL 18 (Serverless)
+- **数据库**: 阿里云 RDS PostgreSQL 18 (Serverless) + pg_jieba 中文分词
 - **对象存储**: 阿里云 OSS (`cheapgo-assets`)
 - **CDN**: 阿里云 CDN (`static.cheapgo.top`)
 - **部署**: 阿里云函数计算 (FC 3.0)
@@ -174,12 +174,62 @@ npm run dev
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/search?q=关键词` | 搜索产品 |
+| GET | `/api/search?keyword=关键词` | 搜索产品 (支持多字段、多关键词) |
 | GET | `/api/detail?id=xxx` | 产品详情 |
-| GET | `/api/suggest?q=关键词` | 搜索建议 |
+| GET | `/api/suggest?keyword=关键词` | 搜索建议 |
 | GET | `/api/recommend` | 推荐产品 |
 | GET | `/api/categories` | 分类列表 |
 | GET | `/api/brands` | 品牌列表 |
+
+### 搜索功能
+
+基于 PostgreSQL `pg_jieba` 中文分词扩展实现全文搜索。
+
+**搜索字段：**
+- 产品名称 (`name`)
+- 品牌 (`brand`)
+- 型号 (`model`)
+- 产品参数 (`params` JSONB) - 如"变频"、"一级能效"、"1.5匹"等
+
+**搜索逻辑：**
+- 多关键词用空格分隔，使用 AND 逻辑（所有词都要命中）
+- 每个词可以在任意字段命中
+
+**示例：**
+
+| 搜索词 | 结果 | 说明 |
+|--------|------|------|
+| `格力` | 格力云佳 | 品牌匹配 |
+| `变频` | 所有变频产品 | 参数匹配 |
+| `一级` | 所有一级能效产品 | 参数匹配 |
+| `海尔 变频` | 海尔的变频产品 | 联合搜索 |
+| `美的 一级` | 美的一级能效产品 | 联合搜索 |
+
+## 数据库设计
+
+### 核心表
+
+| 表 | 说明 |
+|----|------|
+| `products` | 产品主表 (name/brand/model/category_id/price/params JSONB + search_vector 全文索引) |
+| `categories` | 分类表 (支持层级, 带 icon) |
+| `category_params` | 品类参数规范 (定义每个品类有哪些参数、类型、是否可筛选) |
+| `product_images` | 产品图片 (支持多类型: main/display/detail/scene, 可排序) |
+| `admins` | 管理员 |
+| `search_logs` | 搜索日志 |
+| `operation_logs` | 操作日志 |
+| `system_settings` | 系统设置 |
+| `crawler_tasks` | 爬虫任务 |
+
+### 数据库命令
+
+| 命令 | 说明 |
+|------|------|
+| `npm run db:push` | 推送 schema 到数据库 (开发用, 快速) |
+| `npm run db:generate` | 从 schema 生成 migration SQL 文件 |
+| `npm run db:migrate` | 执行 migration 文件 (生产用) |
+| `npm run db:seed` | 灌入初始数据 (16 个分类、admin 账号、21 条参数规范) |
+| `npm run migrate:search-vector` | 初始化全文搜索 (pg_jieba 分词 + search_vector + GIN 索引) |
 
 ## 图片上传
 
