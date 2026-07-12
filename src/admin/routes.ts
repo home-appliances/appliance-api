@@ -410,17 +410,22 @@ admin.post('/products/create', authMiddleware, async (c) => {
 // 处理表单里的图片文件: 传 OSS + 建 product_images 关联
 // 前端用 images[] (文件) + image_types[] (类型) + image_sorts[] (排序) 提交
 async function saveProductImageFiles(productId: number, body: Record<string, any>) {
-  const { createProductImage } = await import('../db/queries.js')
+  const { createProductImage, getProductImages } = await import('../db/queries.js')
   const { uploadImage, validateImageFile } = await import('../utils/oss.js')
 
   // parseBody 对带 [] 后缀的字段返回数组; 兼容不带 [] 的情况
   const toArr = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
-  // 优先 images[], 兼容 images
   const files = toArr(body['images[]'] ?? body['images'])
   const types = toArr(body['image_types[]'] ?? body['image_types'])
-  const sorts = toArr(body['image_sorts[]'] ?? body['image_sorts'])
 
   console.log(`[saveProductImageFiles] 产品${productId} 收到 ${files.length} 个文件`)
+  if (files.length === 0) return
+
+  // 查该产品现有图片, 新图片 sort_order 从现有最大值+1 递增, 避免唯一约束冲突
+  const existing = await getProductImages(productId)
+  let nextSort = existing.length > 0
+    ? Math.max(...existing.map(img => img.sortOrder)) + 1
+    : 0
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
@@ -446,9 +451,9 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
       productId,
       imageUrl,
       imageType: types[i] || 'main',
-      sortOrder: parseInt(sorts[i] || '0'),
+      sortOrder: nextSort++,
     })
-    console.log(`  [${i}] 已保存: ${imageUrl} -> 图片记录ID ${created.id}`)
+    console.log(`  [${i}] 已保存: ${imageUrl} -> 图片记录ID ${created.id}, sort=${created.sortOrder}`)
   }
 }
 
