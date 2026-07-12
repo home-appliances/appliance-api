@@ -446,6 +446,7 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
     }
 
     const buf = Buffer.from(await file.arrayBuffer())
+    console.log(`  [${i}] buffer 大小:${buf.length} 前8字节(hex):${buf.slice(0,8).toString('hex')} 首字节0x89?${buf[0] === 0x89}`)
     const imageUrl = await uploadImage(buf, file.name, 'products')
     const created = await createProductImage({
       productId,
