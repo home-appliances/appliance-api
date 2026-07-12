@@ -14,6 +14,7 @@
     "migrate": "tsx src/db/run-migration.ts",
     "migrate:admin": "tsx src/db/run-admin-migration-v2.ts",
     "migrate:search": "tsx src/db/run-migration-search.ts",
+    "migrate:search-vector": "tsx src/db/migrate-search-vector.ts",
     "fill:pinyin": "tsx src/db/fill-pinyin.ts",
     "fix:images": "tsx scripts/fix-missing-images.ts",
     "check": "tsx src/db/check-data.ts",

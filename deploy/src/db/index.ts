@@ -220,347 +220,82 @@ export async function searchProducts(
     };
   }
 
-  // 检查是否包含产品型号（如 KFR-35GW/BP3DN8Y-PH200(B1)）
-  const modelPattern = /[A-Z]{2,}[-/][A-Z0-9]+/i;
-  const hasModel = modelPattern.test(keyword);
-
-  // 提取搜索词（中文、英文、数字）
-  const cleaned = keyword.replace(/[^一-龥a-zA-Z0-9]/g, ' ').trim();
-
-  // 智能分词：优先匹配品牌词和类别词
-  const allDictWords = [
-    // 品牌词
-    '小米', '格力', '海尔', '美的', '奥克斯', '海信', 'tcl', '松下', '大金', '三菱',
-    '科龙', '志高', '长虹', '扬子', '惠而浦', '富士通', '日立', '康佳', '飞利浦', '统帅',
-    '米家', '华凌', '卡萨帝', 'colmo', '小天鹅', '酷开',
-    // 类别词
-    '空调', '冰箱', '冰柜', '洗衣机', '热水器', '电视', '电饭煲', '取暖器',
-    '柜机', '挂机', '滚筒', '波轮', '洗烘', '燃气', '电热', '空气能',
-    '液晶', '智能', '暖风机', '油汀', '电饭锅', '压力锅', '油烟机', '吸油烟机',
-  ];
-
-  // 检查是否是英文品牌名（如 gree, haier, midea）
-  const terms: string[] = [];
-  const englishBrandPattern = /^[a-zA-Z]+$/;
-  // 纯数字或字母数字混合（如 7255, KFR35, 1.5匹）应作为完整词
-  const alphanumericPattern = /^[a-zA-Z0-9]+$/;
-
-  if (hasModel) {
-    // 包含产品型号时，提取品牌和型号
-    const brandMatch = keyword.match(/^([一-龥]+)/);
-    if (brandMatch) {
-      terms.push(brandMatch[1]); // 中文品牌名
-    }
-    // 提取完整的产品型号（保留原始格式）
-    const modelMatch = keyword.match(/([A-Z]{2,}[-/][A-Z0-9()/-]+)/i);
-    if (modelMatch) {
-      terms.push(modelMatch[1]); // 完整的产品型号
-    }
-  } else if (englishBrandPattern.test(cleaned)) {
-    // 英文品牌名直接使用完整词
-    terms.push(cleaned);
-  } else if (alphanumericPattern.test(cleaned)) {
-    // 纯数字或字母数字混合（如 7255），作为完整搜索词
-    terms.push(cleaned);
-  } else {
-    // 从长到短匹配词典
-    let remaining = cleaned;
-    allDictWords.sort((a, b) => b.length - a.length); // 按长度降序
-
-    while (remaining.length > 0) {
-      let matched = false;
-      for (const word of allDictWords) {
-        if (remaining.startsWith(word)) {
-          terms.push(word);
-          remaining = remaining.substring(word.length).trim();
-          matched = true;
-          break;
-        }
-      }
-      if (!matched) {
-        // 没有匹配到词典，取第一个字/词
-        const nextWord = remaining.charAt(0);
-        terms.push(nextWord);
-        remaining = remaining.substring(1).trim();
-      }
-    }
-  }
-
-  // 如果分词结果为空，使用简单的空格分割
-  if (terms.length === 0) {
-    terms.push(...cleaned.split(/\s+/).filter(t => t.length > 0));
-  }
+  // 提取搜索词（中文、英文、数字、点号、连字符）
+  const cleaned = keyword.replace(/[^一-龥a-zA-Z0-9.\-]/g, ' ').trim();
+  // 按空格分割多个关键词
+  const terms = cleaned.split(/\s+/).filter(t => t.length > 0);
 
   if (terms.length === 0) {
     return { products: [], total: 0, page, limit };
   }
 
-  // 将中文品牌名解析为英文品牌名
-  let brandFilter = keyword.trim();
-  const lowerKeyword = keyword.toLowerCase().trim();
-  if (brandNameMap[lowerKeyword]) {
-    brandFilter = brandNameMap[lowerKeyword];
-  } else if (brandNameMap[keyword.trim()]) {
-    brandFilter = brandNameMap[keyword.trim()];
-  }
+  console.log('搜索调试:', { keyword, terms });
 
-  // 产品大类词（搜索这些词时返回该类别的所有产品）
-  const categoryKeywords = [
-    '冰箱', '冰柜', '冷柜', '冷藏', '冷冻',
-    '空调', '柜机', '挂机', '中央空调',
-    '洗衣机', '滚筒', '波轮', '洗烘',
-    '热水器', '燃气热水器', '电热水器', '空气能',
-    '电视', '液晶电视', '智能电视',
-    '取暖器', '暖风机', '油汀',
-    '电饭煲', '电饭锅', '压力锅',
-    '油烟机', '吸油烟机'
+  // 使用 pg_jieba 分词：将每个词用 & 连接（AND 逻辑）
+  // 每个词用前缀匹配（:*）支持部分匹配
+  const tsQueryParts = terms.map(t => {
+    // 英文品牌名直接使用
+    if (/^[a-zA-Z]+$/.test(t)) {
+      return `${t.toLowerCase()}:*`;
+    }
+    // 数字+单位（如1.5匹、218L）直接使用
+    if (/^[0-9.]+[a-zA-Z一-龥]+$/.test(t)) {
+      return `${t}:*`;
+    }
+    // 中文词使用 pg_jieba 分词
+    return t;
+  });
+  const tsQuery = tsQueryParts.join(' & ');
+  console.log('tsQuery:', tsQuery);
+
+  // 查询：使用 search_vector 全文搜索，同时用 ILIKE 作为降级
+  const query = `
+    SELECT *,
+      ts_rank(search_vector, to_tsquery('jiebacfg', $1)) as rank,
+      CASE
+        WHEN name ILIKE $2 THEN 200
+        WHEN brand ILIKE $3 THEN 150
+        WHEN model ILIKE $2 THEN 100
+        ELSE ts_rank(search_vector, to_tsquery('jiebacfg', $1)) * 100
+      END as boost
+    FROM products
+    WHERE search_vector @@ to_tsquery('jiebacfg', $1)
+       OR name ILIKE $2
+       OR brand ILIKE $3
+       OR model ILIKE $2
+       OR pinyin ILIKE $2
+    ORDER BY boost DESC, created_at DESC
+    LIMIT $4 OFFSET $5
+  `;
+
+  const params = [
+    tsQuery,                    // $1: tsquery
+    `%${keyword}%`,            // $2: name/model/pinyin ILIKE
+    `%${keyword.toLowerCase()}%`, // $3: brand ILIKE
+    limit,                      // $4
+    (page - 1) * limit,        // $5
   ];
-
-  // 品牌关键词（中文 → 英文）
-  const brandKeywords: Record<string, string> = {
-    '小米': 'xiaomi', '格力': 'gree', '海尔': 'haier', '美的': 'midea',
-    '奥克斯': 'aux', '海信': 'hisense', 'tcl': 'tcl', '松下': 'panasonic',
-    '大金': 'daikin', '三菱': 'mitsubishi', '科龙': 'kelon', '志高': 'chigo',
-    '长虹': 'changhong', '扬子': 'yangzi', '惠而浦': 'whirlpool', '富士通': 'fujitsu',
-    '日立': 'hitachi', '康佳': 'konka', '飞利浦': 'philips', '统帅': 'tongshuai',
-    '米家': 'xiaomi', '华凌': 'midea', '卡萨帝': 'haier',
-  };
-
-  // 反向映射（英文 → 中文）
-  const brandEnglishToChinese: Record<string, string> = {
-    'xiaomi': '小米', 'gree': '格力', 'haier': '海尔', 'midea': '美的',
-    'aux': '奥克斯', 'hisense': '海信', 'panasonic': '松下',
-    'daikin': '大金', 'mitsubishi': '三菱', 'kelon': '科龙', 'chigo': '志高',
-    'changhong': '长虹', 'yangzi': '扬子', 'whirlpool': '惠而浦', 'fujitsu': '富士通',
-    'hitachi': '日立', 'konka': '康佳', 'philips': '飞利浦', 'tongshuai': '统帅',
-  };
-
-  let isCategorySearch = categoryKeywords.some(kw => lowerKeyword.includes(kw));
-  const hasBrandKeyword = terms.some(t =>
-    brandKeywords[t] || brandKeywords[t.toLowerCase()] ||
-    brandEnglishToChinese[t] || brandEnglishToChinese[t.toLowerCase()]
-  );
-
-  console.log('搜索调试:', { keyword, terms, isCategorySearch, hasBrandKeyword });
-
-  // 构建 tsquery：使用 | (OR) 匹配任意一个词
-  const tsQuery = terms.join(' | ');
-
-  // 全文搜索查询，按相关性排序
-  let query: string;
-  let params: any[];
-
-  // 如果同时有品牌和类别关键词，使用分词搜索
-  if (isCategorySearch && hasBrandKeyword) {
-    // 进入分词搜索逻辑（下面的 else 分支）
-    isCategorySearch = false;
-    console.log('切换到分词搜索模式');
-  }
-
-  if (isCategorySearch) {
-    // 搜索产品大类（如"洗衣机"）时，按类别过滤返回该类别的所有产品
-    // 将类别关键词映射到数据库 category 字段
-    const categoryMap: Record<string, string> = {
-      '冰箱': 'icebox', '冰柜': 'icebox', '冷柜': 'icebox', '冷藏': 'icebox', '冷冻': 'icebox',
-      '空调': 'air_condition', '柜机': 'air_condition', '挂机': 'air_condition', '中央空调': 'air_condition',
-      '洗衣机': 'washer', '滚筒': 'washer', '波轮': 'washer', '洗烘': 'washer',
-      '热水器': 'gas_water', '燃气热水器': 'gas_water', '电热水器': 'gas_water', '空气能': 'central_water',
-      '电视': 'lcd_tv', '液晶电视': 'lcd_tv', '智能电视': 'lcd_tv',
-      '取暖器': 'heater', '暖风机': 'heater', '油汀': 'heater',
-      '电饭煲': 'rice_cooker', '电饭锅': 'rice_cooker', '压力锅': 'rice_cooker',
-      '油烟机': 'rice_cooker', '吸油烟机': 'rice_cooker',
-    };
-
-    // 找到匹配的类别
-    let matchedCategory = '';
-    for (const [kw, cat] of Object.entries(categoryMap)) {
-      if (lowerKeyword.includes(kw)) {
-        matchedCategory = cat;
-        break;
-      }
-    }
-
-    if (matchedCategory) {
-      // 按类别过滤
-      query = `
-        SELECT *, 0 as rank, 0 as brand_boost
-        FROM products
-        WHERE category = $1
-        ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3
-      `;
-      params = [matchedCategory, limit, (page - 1) * limit];
-
-      const countResult = await pool.query('SELECT COUNT(*) FROM products WHERE category = $1', [matchedCategory]);
-      var total = parseInt(countResult.rows[0].count);
-    } else {
-      // 未匹配到类别，返回所有产品
-      query = `
-        SELECT *, 0 as rank, 0 as brand_boost
-        FROM products
-        ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2
-      `;
-      params = [limit, (page - 1) * limit];
-
-      const countResult = await pool.query('SELECT COUNT(*) FROM products');
-      var total = parseInt(countResult.rows[0].count);
-    }
-  } else {
-    // 普通搜索 - 支持分词搜索
-    // 将关键词分词（支持中文、英文、数字）
-    const searchTerms = terms.length > 0 ? terms : [keyword];
-
-    // 构建分词匹配条件（参数从 $5 开始）
-    const termConditions = searchTerms.map((_, i) => {
-      const idx = i + 5;
-      return `(name ILIKE $${idx} OR brand ILIKE $${idx} OR model ILIKE $${idx})`;
-    }).join(' OR ');
-
-    // 构建品牌匹配条件
-    const brandBoostParts: string[] = [];
-    const nameBoostParts: string[] = [];
-    const brandMap: Record<string, string> = {
-      '小米': 'xiaomi', '格力': 'gree', '海尔': 'haier', '美的': 'midea',
-      '奥克斯': 'aux', '海信': 'hisense', 'tcl': 'tcl', '松下': 'panasonic',
-      '大金': 'daikin', '三菱': 'mitsubishi', '科龙': 'kelon', '志高': 'chigo',
-      '长虹': 'changhong', '扬子': 'yangzi', '惠而浦': 'whirlpool', '富士通': 'fujitsu',
-      '日立': 'hitachi', '康佳': 'konka', '飞利浦': 'philips', '统帅': 'tongshuai',
-      '米家': 'xiaomi', '华凌': 'midea', '卡萨帝': 'haier',
-    };
-    for (const term of searchTerms) {
-      const mapped = brandMap[term] || brandMap[term.toLowerCase()];
-      if (mapped) {
-        brandBoostParts.push(`brand = '${mapped}'`);
-        // 子品牌需要名称匹配
-        if (term !== mapped) {
-          nameBoostParts.push(`name LIKE '%${term}%'`);
-        }
-      }
-
-      // 反向映射：英文品牌名 → 中文品牌名
-      const chineseBrand = brandEnglishToChinese[term.toLowerCase()];
-      if (chineseBrand) {
-        brandBoostParts.push(`brand = '${chineseBrand}'`);
-      }
-    }
-
-    // 构建类别匹配条件
-    const categoryBoostParts: string[] = [];
-    const categoryMap2: Record<string, string> = {
-      '空调': 'air_condition', '冰箱': 'icebox', '洗衣机': 'washer',
-      '热水器': 'gas_water', '电视': 'lcd_tv', '电饭煲': 'rice_cooker', '取暖器': 'heater',
-    };
-    for (const term of searchTerms) {
-      const cat = categoryMap2[term] || categoryMap2[term.toLowerCase()];
-      if (cat) categoryBoostParts.push(`'${cat}'`);
-    }
-
-    // 名称匹配优先级最高（120分），品牌匹配次之（100分），类别匹配（50分）
-    const nameBoostSQL = nameBoostParts.length > 0 ? `WHEN ${nameBoostParts.join(' OR ')} THEN 120` : '';
-    const brandBoostSQL = brandBoostParts.length > 0 ? `WHEN ${brandBoostParts.join(' OR ')} THEN 100` : '';
-    const categoryBoostSQL = categoryBoostParts.length > 0 ? `WHEN category IN (${categoryBoostParts.join(',')}) THEN 50` : '';
-
-    // 构建完整的 CASE 语句（至少需要一个 WHEN）
-    const caseParts = [nameBoostSQL, brandBoostSQL, categoryBoostSQL].filter(Boolean);
-    const brandBoostCase = caseParts.length > 0
-      ? `CASE ${caseParts.join(' ')} ELSE 0 END`
-      : '0';
-
-    // 主查询：$1-$4 固定，$5... searchTerms，最后 $N-1=limit, $N=offset
-    const limitIdx = 5 + searchTerms.length;
-    const offsetIdx = limitIdx + 1;
-
-    // 重新计算参数索引（从 $1 开始）
-    const termConditionsFixed = searchTerms.map((_, i) => {
-      const idx = i + 1;
-      return `(name ILIKE $${idx} OR brand ILIKE $${idx} OR model ILIKE $${idx})`;
-    }).join(' OR ');
-
-    // 收集中文品牌名（用于英文品牌搜索）
-    const chineseBrands: string[] = [];
-    for (const term of searchTerms) {
-      const chineseBrand = brandEnglishToChinese[term.toLowerCase()];
-      if (chineseBrand) {
-        chineseBrands.push(chineseBrand);
-      }
-    }
-    const chineseBrandConditions = chineseBrands.map((_, i) => {
-      const idx = i + 1 + searchTerms.length;
-      return `brand = $${idx}`;
-    }).join(' OR ');
-
-    const brandIdx = 1 + searchTerms.length + chineseBrands.length;
-    const keywordIdx = brandIdx + 1;
-    const nameIdx = keywordIdx + 1;
-    const limitIdxNew = nameIdx + 1;
-    const offsetIdxNew = limitIdxNew + 1;
-
-    const whereClause = chineseBrandConditions
-      ? `(${termConditionsFixed} OR ${chineseBrandConditions})`
-      : termConditionsFixed;
-
-    // 添加 exact 型号匹配条件（最高优先级）
-    const exactModelBoost = hasModel ? `WHEN name = '${keyword}' THEN 200` : '';
-
-    // 数字型号匹配：当搜索词是纯数字时，model 字段匹配给予高权重
-    const isNumericSearch = /^\d+$/.test(keyword.trim());
-    const modelBoostSQL = isNumericSearch ? `WHEN model ILIKE '%${keyword.trim()}%' THEN 180` : '';
-
-    // 重新构建 brandBoostCase
-    const allCaseParts = [exactModelBoost, modelBoostSQL, ...caseParts].filter(Boolean);
-    const finalBrandBoostCase = allCaseParts.length > 0
-      ? `CASE ${allCaseParts.join(' ')} ELSE 0 END`
-      : '0';
-
-    query = `
-      SELECT *,
-        ${finalBrandBoostCase} as brand_boost
-      FROM products
-      WHERE ${whereClause}
-         OR brand ILIKE $${brandIdx}
-         OR brand ILIKE $${keywordIdx}
-         OR name ILIKE $${nameIdx}
-         OR pinyin ILIKE $${nameIdx}
-      ORDER BY brand_boost DESC, created_at DESC
-      LIMIT $${limitIdxNew} OFFSET $${offsetIdxNew}
-    `;
-
-    params = [
-      ...searchTerms.map(t => `%${t}%`),
-      ...chineseBrands,
-      `%${brandFilter}%`,
-      `%${keyword}%`,
-      `%${keyword}%`,
-      limit,
-      (page - 1) * limit,
-    ];
-
-    // 计算总数（不需要 limit/offset）
-    const countQuery = `
-      SELECT COUNT(*) FROM products
-      WHERE ${whereClause}
-         OR brand ILIKE $${brandIdx}
-         OR brand ILIKE $${keywordIdx}
-         OR name ILIKE $${nameIdx}
-         OR pinyin ILIKE $${nameIdx}
-    `;
-    const countParams = [
-      ...searchTerms.map(t => `%${t}%`),
-      ...chineseBrands,
-      `%${brandFilter}%`,
-      `%${keyword}%`,
-      `%${keyword}%`,
-    ];
-    const countResult = await pool.query(countQuery, countParams);
-    var total = parseInt(countResult.rows[0].count);
-  }
 
   const result = await pool.query(query, params);
 
-  // 添加高亮标记（只处理 title，tag 由路由层根据类别动态生成）
+  // 计算总数
+  const countQuery = `
+    SELECT COUNT(*) FROM products
+    WHERE search_vector @@ to_tsquery('jiebacfg', $1)
+       OR name ILIKE $2
+       OR brand ILIKE $3
+       OR model ILIKE $2
+       OR pinyin ILIKE $2
+  `;
+  const countParams = [
+    tsQuery,
+    `%${keyword}%`,
+    `%${keyword.toLowerCase()}%`,
+  ];
+  const countResult = await pool.query(countQuery, countParams);
+  const total = parseInt(countResult.rows[0].count);
+
   const products = decodeObjectStrings(result.rows).map(p => {
-    // 处理图片：优先使用二进制数据
     let img = '/static/default_img.png';
     if (p.images_binary && p.images_binary.length > 0 && p.images_binary[0]) {
       img = `data:image/jpeg;base64,${p.images_binary[0].toString('base64')}`;

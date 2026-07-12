@@ -246,19 +246,20 @@ export async function searchProducts(
     return t;
   });
   const tsQuery = tsQueryParts.join(' & ');
+  console.log('tsQuery:', tsQuery);
 
   // 查询：使用 search_vector 全文搜索，同时用 ILIKE 作为降级
   const query = `
     SELECT *,
-      ts_rank(search_vector, to_tsquery('chinese', $1)) as rank,
+      ts_rank(search_vector, to_tsquery('jiebacfg', $1)) as rank,
       CASE
         WHEN name ILIKE $2 THEN 200
         WHEN brand ILIKE $3 THEN 150
         WHEN model ILIKE $2 THEN 100
-        ELSE ts_rank(search_vector, to_tsquery('chinese', $1)) * 100
+        ELSE ts_rank(search_vector, to_tsquery('jiebacfg', $1)) * 100
       END as boost
     FROM products
-    WHERE search_vector @@ to_tsquery('chinese', $1)
+    WHERE search_vector @@ to_tsquery('jiebacfg', $1)
        OR name ILIKE $2
        OR brand ILIKE $3
        OR model ILIKE $2
@@ -280,7 +281,7 @@ export async function searchProducts(
   // 计算总数
   const countQuery = `
     SELECT COUNT(*) FROM products
-    WHERE search_vector @@ to_tsquery('chinese', $1)
+    WHERE search_vector @@ to_tsquery('jiebacfg', $1)
        OR name ILIKE $2
        OR brand ILIKE $3
        OR model ILIKE $2
