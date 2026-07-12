@@ -411,19 +411,23 @@ admin.post('/products/create', authMiddleware, async (c) => {
 // 前端用 images[] (文件) + image_types[] (类型) + image_sorts[] (排序) 提交
 async function saveProductImageFiles(productId: number, body: Record<string, any>) {
   const { createProductImage } = await import('../db/queries.js')
-  const { uploadImage } = await import('../utils/oss.js')
+  const { uploadImage, validateImageFile } = await import('../utils/oss.js')
 
-  // parseBody 把同名多值字段收集成数组, 单值是字符串
+  // parseBody 对带 [] 后缀的字段返回数组; 兼容不带 [] 的情况
   const toArr = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
-  const files = toArr(body['images'])
-  const types = toArr(body['image_types'])
-  const sorts = toArr(body['image_sorts'])
+  // 优先 images[], 兼容 images
+  const files = toArr(body['images[]'] ?? body['images'])
+  const types = toArr(body['image_types[]'] ?? body['image_types'])
+  const sorts = toArr(body['image_sorts[]'] ?? body['image_sorts'])
 
-  const { validateImageFile } = await import('../utils/oss.js')
+  console.log(`[saveProductImageFiles] 产品${productId} 收到 ${files.length} 个文件`)
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
-    if (!(file instanceof File)) continue
+    if (!(file instanceof File)) {
+      console.log(`  [${i}] 非 File 对象, 跳过`)
+      continue
+    }
 
     // 后端格式校验(大小 + 扩展名 + MIME), 不合法跳过该文件
     const validation = validateImageFile({
@@ -432,18 +436,19 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
       mimeType: file.type,
     })
     if (!validation.valid) {
-      console.warn('图片校验失败, 跳过:', file.name, validation.error)
+      console.warn(`  [${i}] 校验失败, 跳过: ${file.name} - ${validation.error}`)
       continue
     }
 
     const buf = Buffer.from(await file.arrayBuffer())
     const imageUrl = await uploadImage(buf, file.name, 'products')
-    await createProductImage({
+    const created = await createProductImage({
       productId,
       imageUrl,
       imageType: types[i] || 'main',
       sortOrder: parseInt(sorts[i] || '0'),
     })
+    console.log(`  [${i}] 已保存: ${imageUrl} -> 图片记录ID ${created.id}`)
   }
 }
 

@@ -542,11 +542,11 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         try {
           // 用 FormData 把产品字段 + 暂存图片文件一起发
           const fd = new FormData(productForm)
-          // 追加暂存图片文件及其类型
+          // 追加暂存图片文件及其类型(用 [] 后缀, Hono parseBody 才能识别成数组)
           pendingImages.forEach((p, i) => {
-            fd.append('images', p.file, p.file.name)
-            fd.append('image_types', p.imageType)
-            fd.append('image_sorts', p.sort)
+            fd.append('images[]', p.file, p.file.name)
+            fd.append('image_types[]', p.imageType)
+            fd.append('image_sorts[]', String(p.sort))
           })
 
           const res = await fetch(productForm.action, { method: 'POST', body: fd })
