@@ -115,23 +115,53 @@ function getContentType(ext: string): string {
 
 /**
  * 验证图片文件
+ * 同时校验大小、扩展名、MIME 类型(防止改扩展名绕过)
  * @param file 文件信息
  * @returns 是否有效
  */
-export function validateImageFile(file: { size: number; originalName: string }): {
+export function validateImageFile(file: {
+  size: number;
+  originalName: string;
+  mimeType?: string;
+}): {
   valid: boolean;
   error?: string;
 } {
   const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-  const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+  const ALLOWED = [
+    { ext: '.jpg', mime: 'image/jpeg' },
+    { ext: '.jpeg', mime: 'image/jpeg' },
+    { ext: '.png', mime: 'image/png' },
+    { ext: '.gif', mime: 'image/gif' },
+    { ext: '.webp', mime: 'image/webp' },
+  ];
+  const ALLOWED_EXTS = ALLOWED.map(a => a.ext);
+  const ALLOWED_MIMES = [...new Set(ALLOWED.map(a => a.mime))];
 
+  // 1. 大小
+  if (file.size === 0) {
+    return { valid: false, error: '文件为空' };
+  }
   if (file.size > MAX_SIZE) {
     return { valid: false, error: '图片大小不能超过 5MB' };
   }
 
+  // 2. 扩展名
   const ext = path.extname(file.originalName).toLowerCase();
-  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+  if (!ALLOWED_EXTS.includes(ext)) {
     return { valid: false, error: '只支持 JPG、PNG、GIF、WebP 格式' };
+  }
+
+  // 3. MIME 类型(如果提供了)
+  if (file.mimeType) {
+    if (!ALLOWED_MIMES.includes(file.mimeType)) {
+      return { valid: false, error: '文件类型不被允许: ' + file.mimeType };
+    }
+    // 扩展名与 MIME 不一致也算非法(防止 .png 实际是 .exe)
+    const extMimes = ALLOWED.filter(a => a.ext === ext).map(a => a.mime);
+    if (!extMimes.includes(file.mimeType)) {
+      return { valid: false, error: '扩展名与文件类型不匹配' };
+    }
   }
 
   return { valid: true };

@@ -419,9 +419,23 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
   const types = toArr(body['image_types'])
   const sorts = toArr(body['image_sorts'])
 
+  const { validateImageFile } = await import('../utils/oss.js')
+
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
     if (!(file instanceof File)) continue
+
+    // 后端格式校验(大小 + 扩展名 + MIME), 不合法跳过该文件
+    const validation = validateImageFile({
+      size: file.size,
+      originalName: file.name,
+      mimeType: file.type,
+    })
+    if (!validation.valid) {
+      console.warn('图片校验失败, 跳过:', file.name, validation.error)
+      continue
+    }
+
     const buf = Buffer.from(await file.arrayBuffer())
     const imageUrl = await uploadImage(buf, file.name, 'products')
     await createProductImage({

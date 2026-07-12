@@ -29,10 +29,11 @@ upload.post('/api/admin/upload/image', async (c) => {
       return c.json({ code: 400, message: '请选择要上传的文件' }, 400);
     }
 
-    // 验证文件
+    // 验证文件(大小 + 扩展名 + MIME)
     const validation = validateImageFile({
       size: file.size,
       originalName: file.name,
+      mimeType: file.type,
     });
 
     if (!validation.valid) {
@@ -146,10 +147,11 @@ upload.post('/api/admin/upload/batch', async (c) => {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
-      // 验证文件
+      // 验证文件(大小 + 扩展名 + MIME)
       const validation = validateImageFile({
         size: file.size,
         originalName: file.name,
+        mimeType: file.type,
       });
 
       if (!validation.valid) {

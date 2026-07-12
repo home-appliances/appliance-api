@@ -448,13 +448,45 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         }
       })
 
-      // 选择文件 -> 只暂存(本地预览), 不上传
+      // 图片格式白名单(MIME + 扩展名必须同时匹配, 防止改扩展名绕过)
+      const ALLOWED = [
+        { ext: '.jpg', mime: 'image/jpeg' },
+        { ext: '.jpeg', mime: 'image/jpeg' },
+        { ext: '.png', mime: 'image/png' },
+        { ext: '.gif', mime: 'image/gif' },
+        { ext: '.webp', mime: 'image/webp' },
+      ]
+      const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+
+      // 选择文件 -> 先校验, 通过才暂存(本地预览), 不上传
       function handleFileSelect(files) {
         const imageType = document.getElementById('upload-image-type').value
         for (const file of files) {
-          if (!file.type.startsWith('image/')) continue
-          if (file.size > 5 * 1024 * 1024) {
-            alert(file.name + ' 超过 5MB 限制')
+          // 1. 扩展名
+          const dotIdx = file.name.lastIndexOf('.')
+          const ext = dotIdx >= 0 ? file.name.slice(dotIdx).toLowerCase() : ''
+          const extMatch = ALLOWED.find(a => a.ext === ext)
+          if (!extMatch) {
+            alert(file.name + ': 不支持的格式, 只支持 JPG、PNG、GIF、WebP')
+            continue
+          }
+          // 2. MIME 类型
+          if (!file.type || !ALLOWED.find(a => a.mime === file.type)) {
+            alert(file.name + ': 文件类型不被允许 (' + (file.type || '未知') + ')')
+            continue
+          }
+          // 3. 扩展名与 MIME 必须一致
+          if (file.type !== extMatch.mime) {
+            alert(file.name + ': 扩展名与文件类型不匹配')
+            continue
+          }
+          // 4. 大小
+          if (file.size === 0) {
+            alert(file.name + ': 文件为空')
+            continue
+          }
+          if (file.size > MAX_SIZE) {
+            alert(file.name + ': 超过 5MB 限制')
             continue
           }
           const seq = pendingSeq++
