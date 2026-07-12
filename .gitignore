@@ -36,6 +36,10 @@ Thumbs.db
 # oh-my-claudecode
 .omc/
 
+# Database backups
+*.dump
+*.sql
+
 # Serverless Devs
 .s/
 code.zip
