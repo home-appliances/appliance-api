@@ -49,8 +49,10 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_PORT: "5432"
           DB_USER: rwrwrw2224
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
           ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
           ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          CDN_DOMAIN: ${{ secrets.CDN_DOMAIN }}
         run: s deploy -y --use-local
 
       - name: Install Aliyun CLI
