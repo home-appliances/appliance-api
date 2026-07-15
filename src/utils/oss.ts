@@ -7,7 +7,7 @@ import path from 'path';
 import crypto from 'crypto';
 
 // CDN 域名（图片走 CDN 加速）
-const CDN_DOMAIN = process.env.CDN_DOMAIN || 'https://static.cheapgo.top';
+const CDN_DOMAIN = process.env.CDN_DOMAIN || '';
 
 // OSS 客户端懒加载
 let _ossClient: OSS | null = null;
