@@ -1,40 +1,11 @@
 import { Hono } from 'hono'
-import { getProductById, getProductParams, getProductImages, pool } from '../db/index.js'
+import { getProductById, getProductParams, getProductImages } from '../db/index.js'
 
 const detail = new Hono()
 
-// 获取产品图片（返回 base64）
+// 获取产品图片 URL 列表（过滤无效值）
 async function getProductImageUrls(product: any): Promise<string[]> {
-  const images: string[] = [];
-
-  // 1. 优先使用 image_id 从 images 表获取
-  if (product.image_id) {
-    try {
-      const result = await pool.query(
-        'SELECT image_data, mime_type FROM images WHERE id = $1',
-        [product.image_id]
-      );
-      if (result.rows.length > 0 && result.rows[0].image_data) {
-        const { image_data, mime_type } = result.rows[0];
-        // 过滤过小的图片数据（已损坏/截断的图片可能只有几字节）
-        if (image_data.length > 1024) {
-          images.push(`data:${mime_type};base64,${image_data.toString('base64')}`);
-        } else {
-          console.warn('图片数据过小，跳过:', product.image_id, image_data.length);
-        }
-      }
-    } catch (e) {
-      console.error('获取图片失败:', e);
-    }
-  }
-
-  // 2. 降级：使用旧的 getProductImages 函数（兼容旧数据）
-  if (images.length === 0) {
-    const oldImages = await getProductImages(product.id);
-    images.push(...oldImages);
-  }
-
-  // 3. 过滤无效图片
+  const images = await getProductImages(product.id);
   return images.filter(url => {
     if (!url) return false;
     if (url.startsWith('data:')) return true;

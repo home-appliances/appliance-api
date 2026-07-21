@@ -1,43 +1,7 @@
 import { Hono } from 'hono'
-import { searchProducts, logSearch, pool } from '../db/index.js'
+import { searchProducts, logSearch } from '../db/index.js'
 
 const search = new Hono()
-
-// 获取产品图片（返回 base64）
-async function getProductImageUrl(product: any): Promise<string> {
-  // 1. 优先使用 image_id 从 images 表获取
-  if (product.image_id) {
-    try {
-      const imgResult = await pool.query(
-        'SELECT image_data, mime_type FROM images WHERE id = $1',
-        [product.image_id]
-      );
-      if (imgResult.rows.length > 0 && imgResult.rows[0].image_data) {
-        const { image_data, mime_type } = imgResult.rows[0];
-        // 过滤过小的图片数据（已损坏/截断的图片可能只有几字节）
-        if (image_data.length > 1024) {
-          return `data:${mime_type};base64,${image_data.toString('base64')}`;
-        }
-        console.warn('图片数据过小，跳过:', product.image_id, image_data.length);
-      }
-    } catch (e) {
-      console.error('获取图片失败:', e);
-    }
-  }
-
-  // 2. 降级：检查 images_binary 字段（旧方式）
-  if (product.images_binary && product.images_binary.length > 0 && product.images_binary[0]) {
-    return `data:image/jpeg;base64,${product.images_binary[0].toString('base64')}`;
-  }
-
-  // 3. 降级：使用 images 数组中的 URL
-  if (product.images && product.images.length > 0 && product.images[0]) {
-    return product.images[0];
-  }
-
-  // 4. 默认图片
-  return '';
-}
 
 search.get('/api/search', async (c) => {
   const keyword = c.req.query('keyword') || ''
@@ -70,17 +34,14 @@ search.get('/api/search', async (c) => {
     }
 
     // 转换为前端需要的格式
-    const products = await Promise.all(result.products.map(async (p) => {
+    const products = result.products.map((p) => {
       const tagFields = getTagFields(p.params || {}, p.category || '')
       const tagValues = tagFields.map(field => p.params?.[field] || '').filter(Boolean)
-
-      // 获取图片 URL
-      const img = await getProductImageUrl(p);
 
       return {
         id: p.id,
         title: p.title || p.name,
-        img,
+        img: p.img || '',
         tag: [p.brand, ...tagValues].filter(Boolean),
         brand: p.brand,
         model: p.model,
@@ -88,7 +49,7 @@ search.get('/api/search', async (c) => {
         category: p.category,
         _score: p.rank || 0,
       }
-    }))
+    })
 
     return c.json({
       code: 0,
