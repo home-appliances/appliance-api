@@ -102,6 +102,19 @@ export const categoryFormPage = (category?: any, categories: any[] = [], error?:
   const isEdit = !!category
   const title = isEdit ? '编辑分类' : '新增分类'
 
+  // 计算当前分类的所有子孙 ID（避免循环引用：不能把自己或子孙设为父分类）
+  const getDescendantIds = (id: number): number[] => {
+    const ids: number[] = [id]
+    const children = categories.filter(c => c.parent_id === id)
+    for (const child of children) {
+      ids.push(...getDescendantIds(child.id))
+    }
+    return ids
+  }
+  const excludedIds = isEdit ? new Set(getDescendantIds(category.id)) : new Set<number>()
+  // 可选父分类：排除自身及子孙，只展示顶级分类（保持原有逻辑）
+  const availableParents = categories.filter(c => !c.parent_id && !excludedIds.has(c.id))
+
   const content = `
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold text-gray-900">${title}</h1>
@@ -139,10 +152,11 @@ export const categoryFormPage = (category?: any, categories: any[] = [], error?:
             <select name="parent_id"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
               <option value="">无（顶级分类）</option>
-              ${categories.filter(c => !c.parent_id).map(c => `
+              ${availableParents.map(c => `
                 <option value="${c.id}" ${category?.parent_id === c.id ? 'selected' : ''}>${c.icon || ''} ${c.display_name || c.name}</option>
               `).join('')}
             </select>
+            ${isEdit && availableParents.length === 0 ? '<p class="mt-1 text-xs text-gray-500">当前分类无可选父分类（顶级分类不能设为其他分类的子分类）</p>' : ''}
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">排序</label>

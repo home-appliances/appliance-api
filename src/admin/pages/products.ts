@@ -48,6 +48,25 @@ export const productsPage = (products: Product[], page: number, total: number, p
     'robam': '老板', 'fotile': '方太', 'vatti': '华帝',
   }
 
+  // 构建查询字符串（保留搜索和筛选参数）
+  const buildUrl = (pageNum: number) => {
+    const params = new URLSearchParams()
+    params.set('page', pageNum.toString())
+    if (filters.keyword) params.set('keyword', filters.keyword)
+    if (filters.brand) params.set('brand', filters.brand)
+    if (filters.category) params.set('category', filters.category)
+    return `/admin/products?${params.toString()}`
+  }
+
+  // 构建当前页的查询字符串（用于 return_to，包含 page/keyword/brand/category）
+  const currentQuery = new URLSearchParams()
+  currentQuery.set('page', page.toString())
+  if (filters.keyword) currentQuery.set('keyword', filters.keyword)
+  if (filters.brand) currentQuery.set('brand', filters.brand)
+  if (filters.category) currentQuery.set('category', filters.category)
+  const returnTo = `/admin/products?${currentQuery.toString()}`
+  const editUrl = (id: number) => `/admin/products/${id}/edit?return_to=${encodeURIComponent(returnTo)}`
+
   const rows = products.map(p => `
     <tr class="hover:bg-gray-50 transition-colors">
       <td class="px-3 py-3 text-sm text-gray-700">${p.id}</td>
@@ -67,7 +86,7 @@ export const productsPage = (products: Product[], page: number, total: number, p
       <td class="px-3 py-3 text-sm text-gray-500">${p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '-'}</td>
       <td class="px-3 py-3 text-right">
         <div class="flex items-center justify-end gap-2">
-          <a href="/admin/products/${p.id}/edit" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑</a>
+          <a href="${editUrl(p.id)}" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑</a>
           <form method="POST" action="/admin/products/${p.id}/delete" class="inline" onsubmit="return confirm('确定删除该产品？')">
             <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors cursor-pointer border-0">删除</button>
           </form>
@@ -75,16 +94,6 @@ export const productsPage = (products: Product[], page: number, total: number, p
       </td>
     </tr>
   `).join('')
-
-  // 构建查询字符串（保留搜索和筛选参数）
-  const buildUrl = (pageNum: number) => {
-    const params = new URLSearchParams()
-    params.set('page', pageNum.toString())
-    if (filters.keyword) params.set('keyword', filters.keyword)
-    if (filters.brand) params.set('brand', filters.brand)
-    if (filters.category) params.set('category', filters.category)
-    return `/admin/products?${params.toString()}`
-  }
 
   const pagination = totalPages > 1 ? `
     <div class="flex items-center justify-center gap-3 py-4">
@@ -226,20 +235,22 @@ export const productsPage = (products: Product[], page: number, total: number, p
   return layout('产品管理', content, 'products', role)
 }
 
-export const productFormPage = (product?: any, error?: string, role = 'admin', categories: any[] = []) => {
+export const productFormPage = (product?: any, error?: string, role = 'admin', categories: any[] = [], returnTo: string = '/admin/products') => {
   const isEdit = !!product
   const title = isEdit ? '编辑产品' : '新增产品'
+  const safeReturnTo = returnTo.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;')
 
   const content = `
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold text-gray-900">${title}</h1>
-      <a href="/admin/products" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">← 返回</a>
+      <a href="${safeReturnTo}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">← 返回</a>
     </div>
 
     ${error ? `<div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded-r-lg text-sm text-red-700">${error}</div>` : ''}
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <form method="POST" action="${isEdit ? `/admin/products/${product.id}/edit` : '/admin/products/create'}">
+        <input type="hidden" name="return_to" value="${safeReturnTo}">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">产品名称 <span class="text-red-500">*</span></label>
@@ -332,7 +343,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         </div>
         <div class="flex gap-3">
           <button type="submit" class="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors cursor-pointer border-0">${isEdit ? '保存' : '创建'}</button>
-          <a href="/admin/products" class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">取消</a>
+          <a href="${safeReturnTo}" class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">取消</a>
         </div>
       </form>
     </div>
@@ -402,6 +413,39 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
       // 编辑时已有值, 从 product.params 读取
       const existingParams = ${JSON.stringify(product?.params || {})}
 
+      // 模糊匹配参数值: 规范 key 可能与产品 params key 不完全一致
+      // 例如规范是"匹数", 产品 params 是"空调匹数"
+      function matchParamValue(specKey, params) {
+        // 1. 精确匹配
+        if (params[specKey] !== undefined) return params[specKey]
+        // 2. 规范 key 是产品 key 的后缀 (如 规范"匹数" → 产品"空调匹数")
+        for (const k in params) {
+          if (k.endsWith(specKey) || k.includes(specKey)) return params[k]
+        }
+        // 3. 产品 key 是规范 key 的后缀 (反向)
+        for (const k in params) {
+          if (specKey.endsWith(k) || specKey.includes(k)) return params[k]
+        }
+        return ''
+      }
+
+      // 归一化参数值: 把爬虫抓取的原始值转换为标准枚举格式
+      // 例如 1.5P → 1.5匹, 三级能效 → 三级, 新一级能效 → 一级
+      function normalizeValue(val) {
+        if (!val) return ''
+        let v = String(val).trim()
+        // 单位转换: 数字+P → 数字+匹 (空调匹数)
+        // 注意: 模板字符串中反斜杠需双写, \\d 输出为 \d, \\b 输出为 \b
+        v = v.replace(/(\\d+(?:\\.\\d+)?)P\\b/i, '$1匹')
+        // 去掉"能效"后缀: 三级能效 → 三级
+        v = v.replace(/能效$/, '')
+        // 去掉"新"前缀: 新一级 → 一级
+        v = v.replace(/^新/, '')
+        // 去掉多余空格
+        v = v.trim()
+        return v
+      }
+
       async function loadCategoryParams(categoryId) {
         const container = document.getElementById('params-container')
         if (!categoryId) {
@@ -411,35 +455,102 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         container.innerHTML = '<div class="text-sm text-gray-400">加载中...</div>'
         try {
           const res = await fetch('/api/admin/category-params?category_id=' + categoryId)
-          const data = await res.json()
-          if (data.code !== 0 || !data.data || data.data.length === 0) {
-            container.innerHTML = '<div class="text-sm text-gray-400">该分类暂无参数规范，可在「参数规范」中配置</div>'
-            return
+          if (!res.ok) {
+            throw new Error('请求失败 (HTTP ' + res.status + ')')
           }
+          const data = await res.json()
           container.innerHTML = ''
-          data.data.forEach(p => {
-            const div = document.createElement('div')
-            div.className = 'flex items-center gap-3'
-            const key = p.paramKey
-            const val = existingParams[key] || ''
-            const displayName = p.displayName || key
-            const label = '<label class="w-24 text-sm text-gray-600 text-right flex-shrink-0">' + (p.icon || '') + ' ' + displayName + '</label>'
 
-            let input = ''
-            if (p.paramType === 'enum' && p.enumValues) {
-              // 枚举: 下拉选择
-              const opts = typeof p.enumValues === 'string' ? JSON.parse(p.enumValues) : p.enumValues
-              input = '<select name="p_' + key + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500"><option value="">请选择</option>' +
-                opts.map(o => '<option value="' + o + '"' + (val === o ? ' selected' : '') + '>' + o + '</option>').join('') +
-                '</select>'
-            } else if (p.paramType === 'number') {
-              input = '<input type="number" name="p_' + key + '" value="' + val + '" step="any" placeholder="请输入' + displayName + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
-            } else {
-              input = '<input type="text" name="p_' + key + '" value="' + val + '" placeholder="请输入' + displayName + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+          // 渲染参数规范定义的字段
+          if (data.code === 0 && data.data && data.data.length > 0) {
+            // 编辑模式（产品已有参数）: 只显示有值的参数，空参数折叠
+            // 新增模式（无参数）: 显示全部参数
+            const hasExisting = Object.keys(existingParams).length > 0
+            let filledCount = 0
+            let emptyCount = 0
+
+            data.data.forEach(p => {
+              const div = document.createElement('div')
+              div.className = 'flex items-center gap-3'
+              const key = p.paramKey
+              const val = matchParamValue(key, existingParams)
+              const displayName = p.displayName || key
+              const label = '<label class="w-24 text-sm text-gray-600 text-right flex-shrink-0">' + (p.icon || '') + ' ' + displayName + '</label>'
+
+              let input = ''
+              if (p.paramType === 'enum' && p.enumValues) {
+                // 枚举: 下拉选择
+                const opts = typeof p.enumValues === 'string' ? JSON.parse(p.enumValues) : p.enumValues
+                // 四级匹配: 精确 → 模糊(包含关系) → 归一化匹配 → 当前值作为额外选项
+                let selectedOpt = opts.find(o => o === val)
+                if (!selectedOpt && val) {
+                  selectedOpt = opts.find(o => val.includes(o) || o.includes(val))
+                }
+                if (!selectedOpt && val) {
+                  // 归一化后匹配: 1.5P → 1.5匹, 三级能效 → 三级
+                  const normalized = normalizeValue(val)
+                  selectedOpt = opts.find(o => o === normalized || normalized.includes(o) || o.includes(normalized))
+                }
+                let optionsHtml = '<option value="">请选择</option>'
+                optionsHtml += opts.map(o => '<option value="' + o + '"' + (o === selectedOpt ? ' selected' : '') + '>' + o + '</option>').join('')
+                // 当前值不匹配任何枚举项时, 作为额外选项显示(让用户能看到原值)
+                if (val && !selectedOpt) {
+                  optionsHtml += '<option value="' + val + '" selected>' + val + ' (当前值)</option>'
+                }
+                input = '<select name="p_' + key + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">' + optionsHtml + '</select>'
+              } else if (p.paramType === 'number') {
+                input = '<input type="number" name="p_' + key + '" value="' + val + '" step="any" placeholder="请输入' + displayName + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+              } else {
+                input = '<input type="text" name="p_' + key + '" value="' + val + '" placeholder="请输入' + displayName + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+              }
+              div.innerHTML = label + input
+
+              // 编辑模式: 空值参数默认隐藏，标记为 empty-param 供切换
+              if (hasExisting && !val) {
+                div.style.display = 'none'
+                div.classList.add('empty-param')
+                emptyCount++
+              } else {
+                filledCount++
+              }
+              container.appendChild(div)
+            })
+
+            // 编辑模式下显示计数 + 切换按钮
+            if (hasExisting) {
+              // 顶部计数提示
+              const summary = document.createElement('div')
+              summary.className = 'text-xs text-gray-500 mb-2 pb-1 border-b border-gray-200'
+              summary.textContent = '已有参数（' + filledCount + ' 项）'
+              container.insertBefore(summary, container.firstChild)
+
+              // 底部展开/收起按钮（仅当有空参数时）
+              if (emptyCount > 0) {
+                const toggleDiv = document.createElement('div')
+                toggleDiv.className = 'mt-2 pt-2 border-t border-gray-100'
+                const toggleBtn = document.createElement('button')
+                toggleBtn.type = 'button'
+                toggleBtn.className = 'text-xs text-primary-600 hover:text-primary-700 hover:underline cursor-pointer'
+                toggleBtn.textContent = '+ 展开空参数（' + emptyCount + ' 项）'
+                toggleBtn.addEventListener('click', function() {
+                  const isCollapsed = this.textContent.startsWith('+')
+                  document.querySelectorAll('#params-container .empty-param').forEach(function(el) {
+                    el.style.display = isCollapsed ? '' : 'none'
+                  })
+                  this.textContent = isCollapsed
+                    ? '− 收起空参数（' + emptyCount + ' 项）'
+                    : '+ 展开空参数（' + emptyCount + ' 项）'
+                })
+                toggleDiv.appendChild(toggleBtn)
+                container.appendChild(toggleDiv)
+              }
             }
-            div.innerHTML = label + input
-            container.appendChild(div)
-          })
+          }
+
+          // 无任何参数时的提示
+          if (container.children.length === 0) {
+            container.innerHTML = '<div class="text-sm text-gray-400">该分类暂无参数规范，可在「参数规范」中配置</div>'
+          }
         } catch (err) {
           container.innerHTML = '<div class="text-sm text-red-500">加载参数失败: ' + err.message + '</div>'
         }
@@ -598,7 +709,9 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           if (res.redirected) {
             window.location.href = res.url
           } else {
-            window.location.href = '/admin/products'
+            // 从隐藏字段读取 return_to
+            const returnInput = productForm.querySelector('input[name="return_to"]')
+            window.location.href = returnInput ? returnInput.value : '/admin/products'
           }
         } catch (err) {
           alert('保存失败: ' + err.message)
