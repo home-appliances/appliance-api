@@ -393,6 +393,9 @@ const productFormPage = (product, error, role = 'admin', categories = []) => {
         container.innerHTML = '<div class="text-sm text-gray-400">加载中...</div>'
         try {
           const res = await fetch('/api/admin/category-params?category_id=' + categoryId)
+          if (!res.ok) {
+            throw new Error('请求失败 (HTTP ' + res.status + ')')
+          }
           const data = await res.json()
           if (data.code !== 0 || !data.data || data.data.length === 0) {
             container.innerHTML = '<div class="text-sm text-gray-400">该分类暂无参数规范，可在「参数规范」中配置</div>'

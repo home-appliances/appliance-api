@@ -28,7 +28,7 @@ app.route('/', search)
 app.route('/', detail)
 app.route('/', suggest)
 app.route('/', recommend)
-app.route('/api/admin', adminApi)  // 管理后台 API
+app.route('/', adminApi)  // 管理后台 API
 app.route('/admin', adminSSR)      // 管理后台 SSR 页面
 app.route('/api/air-conditioners', airConditioners)
 app.route('/', imageProxy)

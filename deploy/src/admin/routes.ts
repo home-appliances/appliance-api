@@ -95,23 +95,31 @@ admin.get('/', authMiddleware, async (c) => {
   const role = adminUser?.role || 'admin'
 
   try {
-    const { getDashboardStats, getCategories } = await import('../db/queries.js')
+    const { getDashboardStats } = await import('../db/queries.js')
+    const { pool } = await import('../db/index.js')
 
     // 获取基础统计
     const stats = await getDashboardStats()
 
     // 获取分类统计（每个分类的产品数）
-    const categories = await getCategories()
-    const categoryStats = categories.map(cat => ({
-      id: cat.id,
-      code: cat.code,
-      name: cat.displayName || cat.name,
-      icon: cat.icon,
-      product_count: 0, // TODO: 从 products 表统计
+    const categoryStatsResult = await pool.query(`
+      SELECT c.id, c.code, c.name, c.display_name, c.icon,
+             COUNT(p.id) AS product_count
+      FROM categories c
+      LEFT JOIN products p ON p.category_id = c.id AND p.deleted_at IS NULL
+      WHERE c.is_active = true
+      GROUP BY c.id, c.code, c.name, c.display_name, c.icon, c.sort_order
+      ORDER BY c.sort_order
+    `)
+    const categoryStats = categoryStatsResult.rows.map(row => ({
+      id: row.id,
+      code: row.code,
+      name: row.display_name || row.name,
+      icon: row.icon,
+      product_count: parseInt(row.product_count),
     }))
 
     // 获取最近添加的产品
-    const { pool } = await import('../db/index.js')
     const recentProductsResult = await pool.query(`
       SELECT p.id, p.name, p.brand, c.name as category_name, p.created_at
       FROM products p
@@ -295,7 +303,7 @@ admin.get('/products', authMiddleware, async (c) => {
 
   // 解析关键词，提取品牌和分类
   let searchKeyword = keyword
-  let brandSearch = brandFilter
+  let brandSearch: string | string[] = brandFilter
   let categoryCode = categoryFilter
 
   if (keyword) {
@@ -303,7 +311,7 @@ admin.get('/products', authMiddleware, async (c) => {
     // 检查是否包含品牌名
     for (const [cn, en] of Object.entries(brandNameMap)) {
       if (lower.includes(cn) || lower.includes(en)) {
-        brandSearch = en
+        brandSearch = [cn, en]
         searchKeyword = lower.replace(cn, '').replace(en, '').trim()
         break
       }
@@ -326,7 +334,7 @@ admin.get('/products', authMiddleware, async (c) => {
     limit: pageSize,
     keyword: searchKeyword || undefined,
     brand: brandSearch || undefined,
-    categoryId: categoryCode ? undefined : undefined, // 需要通过 code 查找 id
+    categoryCode: categoryCode || undefined,
   })
 
   const brands = await getBrands()

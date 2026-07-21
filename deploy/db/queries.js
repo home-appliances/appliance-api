@@ -106,7 +106,8 @@ async function getProducts(options = {}) {
         conditions.push((0, drizzle_orm_1.or)((0, drizzle_orm_1.ilike)(schema_js_1.products.name, `%${keyword}%`), (0, drizzle_orm_1.ilike)(schema_js_1.products.brand, `%${keyword}%`), (0, drizzle_orm_1.ilike)(schema_js_1.products.model, `%${keyword}%`)));
     }
     if (brand) {
-        conditions.push((0, drizzle_orm_1.eq)(schema_js_1.products.brand, brand));
+        const brands = Array.isArray(brand) ? brand : [brand];
+        conditions.push((0, drizzle_orm_1.or)(...brands.map(b => (0, drizzle_orm_1.ilike)(schema_js_1.products.brand, `%${b}%`))));
     }
     if (categoryId) {
         conditions.push((0, drizzle_orm_1.eq)(schema_js_1.products.categoryId, categoryId));
