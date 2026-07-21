@@ -78,10 +78,11 @@ export async function getProducts(options: {
   page?: number;
   limit?: number;
   keyword?: string;
-  brand?: string;
+  brand?: string | string[];
   categoryId?: number;
+  categoryCode?: string;
 } = {}) {
-  const { page = 1, limit = 20, keyword, brand, categoryId } = options;
+  const { page = 1, limit = 20, keyword, brand, categoryId, categoryCode } = options;
   const offset = (page - 1) * limit;
 
   // 构建查询条件
@@ -98,11 +99,17 @@ export async function getProducts(options: {
   }
 
   if (brand) {
-    conditions.push(eq(products.brand, brand));
+    const brands = Array.isArray(brand) ? brand : [brand];
+    conditions.push(or(...brands.map(b => ilike(products.brand, `%${b}%`))));
   }
 
   if (categoryId) {
     conditions.push(eq(products.categoryId, categoryId));
+  }
+
+  // 按分类 code 筛选（需关联 categories 表）
+  if (categoryCode) {
+    conditions.push(eq(categories.code, categoryCode));
   }
 
   // 只查询未删除的产品
@@ -114,6 +121,7 @@ export async function getProducts(options: {
   const [{ total }] = await db
     .select({ total: count() })
     .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(whereClause);
 
   // 查询数据（关联 categories 取分类名 + 子查询取主图）

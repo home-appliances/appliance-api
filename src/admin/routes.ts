@@ -95,23 +95,31 @@ admin.get('/', authMiddleware, async (c) => {
   const role = adminUser?.role || 'admin'
 
   try {
-    const { getDashboardStats, getCategories } = await import('../db/queries.js')
+    const { getDashboardStats } = await import('../db/queries.js')
+    const { pool } = await import('../db/index.js')
 
     // 获取基础统计
     const stats = await getDashboardStats()
 
     // 获取分类统计（每个分类的产品数）
-    const categories = await getCategories()
-    const categoryStats = categories.map(cat => ({
-      id: cat.id,
-      code: cat.code,
-      name: cat.displayName || cat.name,
-      icon: cat.icon,
-      product_count: 0, // TODO: 从 products 表统计
+    const categoryStatsResult = await pool.query(`
+      SELECT c.id, c.code, c.name, c.display_name, c.icon,
+             COUNT(p.id) AS product_count
+      FROM categories c
+      LEFT JOIN products p ON p.category_id = c.id AND p.deleted_at IS NULL
+      WHERE c.is_active = true
+      GROUP BY c.id, c.code, c.name, c.display_name, c.icon, c.sort_order
+      ORDER BY c.sort_order
+    `)
+    const categoryStats = categoryStatsResult.rows.map(row => ({
+      id: row.id,
+      code: row.code,
+      name: row.display_name || row.name,
+      icon: row.icon,
+      product_count: parseInt(row.product_count),
     }))
 
     // 获取最近添加的产品
-    const { pool } = await import('../db/index.js')
     const recentProductsResult = await pool.query(`
       SELECT p.id, p.name, p.brand, c.name as category_name, p.created_at
       FROM products p
@@ -295,7 +303,7 @@ admin.get('/products', authMiddleware, async (c) => {
 
   // 解析关键词，提取品牌和分类
   let searchKeyword = keyword
-  let brandSearch = brandFilter
+  let brandSearch: string | string[] = brandFilter
   let categoryCode = categoryFilter
 
   if (keyword) {
@@ -303,7 +311,7 @@ admin.get('/products', authMiddleware, async (c) => {
     // 检查是否包含品牌名
     for (const [cn, en] of Object.entries(brandNameMap)) {
       if (lower.includes(cn) || lower.includes(en)) {
-        brandSearch = en
+        brandSearch = [cn, en]
         searchKeyword = lower.replace(cn, '').replace(en, '').trim()
         break
       }
@@ -326,7 +334,7 @@ admin.get('/products', authMiddleware, async (c) => {
     limit: pageSize,
     keyword: searchKeyword || undefined,
     brand: brandSearch || undefined,
-    categoryId: categoryCode ? undefined : undefined, // 需要通过 code 查找 id
+    categoryCode: categoryCode || undefined,
   })
 
   const brands = await getBrands()
@@ -457,6 +465,11 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
   const role = adminUser?.role || 'admin'
 
   const id = parseInt(c.req.param('id'))
+  let returnTo = c.req.query('return_to') || '/admin/products'
+  if (!returnTo.startsWith('/admin/products')) {
+    returnTo = '/admin/products'
+  }
+
   const { getProductById, getCategories, getProductImages } = await import('../db/queries.js')
   const [product, categories, images] = await Promise.all([
     getProductById(id),
@@ -464,7 +477,7 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
     getProductImages(id),
   ])
 
-  if (!product) return c.redirect('/admin/products')
+  if (!product) return c.redirect(returnTo)
 
   // 拼上图片数据供表单页渲染
   const productWithImages = {
@@ -477,7 +490,7 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
     })),
   }
 
-  return c.html(productFormPage(productWithImages, undefined, role, categories))
+  return c.html(productFormPage(productWithImages, undefined, role, categories, returnTo))
 })
 
 // 编辑产品处理
@@ -490,8 +503,13 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
     const body = await c.req.parseBody()
     const { name, brand, model, category_id, price } = body as Record<string, string>
 
+    let returnTo = (body as Record<string, string>).return_to || '/admin/products'
+    if (typeof returnTo !== 'string' || !returnTo.startsWith('/admin/products')) {
+      returnTo = '/admin/products'
+    }
+
     if (!name) {
-      return c.html(productFormPage({ id, name, brand, model, category_id, price }, '产品名称不能为空', role))
+      return c.html(productFormPage({ id, name, brand, model, category_id, price }, '产品名称不能为空', role, [], returnTo))
     }
 
     // 收集参数: 前端用 p_{paramKey} 字段名提交, 取所有 p_ 开头的非空值
@@ -515,7 +533,7 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
     // 处理新上传的图片(传 OSS + 建关联, 单接口完成)
     await saveProductImageFiles(id, body)
 
-    return c.redirect('/admin/products')
+    return c.redirect(returnTo)
   } catch (error: any) {
     const adminUser = c.get('admin') as { role?: string }
     const role = adminUser?.role || 'admin'
@@ -596,9 +614,34 @@ admin.get('/categories/:id/edit', authMiddleware, async (c) => {
 // 编辑分类处理
 admin.post('/categories/:id/edit', authMiddleware, async (c) => {
   try {
-    const id = c.req.param('id')
+    const id = parseInt(c.req.param('id'))
     const body = await c.req.parseBody()
     const { name, display_name, icon, parent_id, sort_order, is_active } = body as Record<string, string>
+
+    // 校验：不能把自己设为父分类（自引用）
+    if (parent_id && parseInt(parent_id) === id) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      const current = categories.rows.find(c => c.id === id)
+      return c.html(categoryFormPage(current, categories.rows, '不能将分类设为自己的父分类（自引用会导致循环引用）'))
+    }
+
+    // 校验：不能把子孙分类设为父分类（会形成环）
+    if (parent_id) {
+      const pid = parseInt(parent_id)
+      const allCats = (await pool.query('SELECT id, parent_id FROM categories')).rows
+      let cur: number | null = pid
+      const visited = new Set<number>()
+      while (cur !== null && !visited.has(cur)) {
+        if (cur === id) {
+          const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+          const current = categories.rows.find(c => c.id === id)
+          return c.html(categoryFormPage(current, categories.rows, '不能将子孙分类设为父分类（会形成循环引用）'))
+        }
+        visited.add(cur)
+        const node = allCats.find(c => c.id === cur)
+        cur = node?.parent_id ?? null
+      }
+    }
 
     await pool.query(
       'UPDATE categories SET name=$1, display_name=$2, icon=$3, parent_id=$4, sort_order=$5, is_active=$6 WHERE id=$7',
