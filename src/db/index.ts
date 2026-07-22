@@ -470,7 +470,17 @@ export async function getProductImages(id: number): Promise<string[]> {
 export async function logSearch(keyword: string): Promise<void> {
   if (!keyword || !keyword.trim()) return;
   const trimmed = keyword.trim();
-  await pool.query(`SELECT log_search($1)`, [trimmed]);
+  await pool.query(
+    `
+    INSERT INTO search_logs (keyword, search_count, last_searched_at)
+    VALUES ($1, 1, NOW())
+    ON CONFLICT (keyword)
+    DO UPDATE SET
+      search_count = search_logs.search_count + 1,
+      last_searched_at = NOW()
+    `,
+    [trimmed]
+  );
 }
 
 // =====================================================
