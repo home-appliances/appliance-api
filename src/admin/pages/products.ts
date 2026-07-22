@@ -317,6 +317,18 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           </div>
         </div>
 
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">数据源站来源</label>
+          <input type="text" name="source_platform" value="${product?.sourcePlatform || product?.source_platform || ''}"
+            placeholder="可选，如：pconline / zol / admin"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
+          ${product?.sourceUrl || product?.source_url ? `
+          <p class="mt-1.5 text-sm text-gray-500 truncate">
+            来源链接：
+            <a href="${product.sourceUrl || product.source_url}" target="_blank" rel="noopener noreferrer" class="text-primary-600 hover:underline">${product.sourceUrl || product.source_url}</a>
+          </p>` : ''}
+        </div>
+
         <!-- 价格/原价：隐藏但保留值，后续再做处理 -->
         <input type="hidden" name="price" value="${product?.price || ''}">
         <input type="hidden" name="original_price" value="${product?.originalPrice || product?.original_price || ''}">

@@ -383,7 +383,7 @@ admin.post('/products/create', authMiddleware, async (c) => {
     const role = adminUser?.role || 'admin'
 
     const body = await c.req.parseBody()
-    const { name, brand, model, category_id, price } = body as Record<string, string>
+    const { name, brand, model, category_id, price, source_platform } = body as Record<string, string>
 
     if (!name) {
       return c.html(productFormPage(undefined, '产品名称不能为空', role))
@@ -405,7 +405,7 @@ admin.post('/products/create', authMiddleware, async (c) => {
       categoryId: category_id ? parseInt(category_id) : null,
       price: price || null,
       params,
-      sourcePlatform: 'admin',
+      sourcePlatform: source_platform?.trim() || 'admin',
     })
 
     // 处理表单里的图片文件(一次性: 传 OSS + 建关联, 一个接口完成)
@@ -536,7 +536,7 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
 
     const id = parseInt(c.req.param('id'))
     const body = await c.req.parseBody()
-    const { name, brand, model, category_id, price } = body as Record<string, string>
+    const { name, brand, model, category_id, price, source_platform } = body as Record<string, string>
 
     let returnTo = (body as Record<string, string>).return_to || '/admin/products'
     if (typeof returnTo !== 'string' || !returnTo.startsWith('/admin/products')) {
@@ -544,7 +544,7 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
     }
 
     if (!name) {
-      return c.html(productFormPage({ id, name, brand, model, category_id, price }, '产品名称不能为空', role, [], returnTo))
+      return c.html(productFormPage({ id, name, brand, model, category_id, price, sourcePlatform: source_platform }, '产品名称不能为空', role, [], returnTo))
     }
 
     // 收集参数: 前端用 p_{paramKey} 字段名提交, 取所有 p_ 开头的非空值
@@ -563,6 +563,7 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
       categoryId: category_id ? parseInt(category_id) : null,
       price: price || null,
       params,
+      sourcePlatform: source_platform?.trim() || null,
     })
 
     // 处理新上传的图片(传 OSS + 建关联, 单接口完成)
