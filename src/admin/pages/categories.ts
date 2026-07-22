@@ -50,7 +50,8 @@ export const categoriesPage = (categories: Category[], role = 'admin') => {
         <td class="px-4 py-3 text-right">
           <div class="flex items-center justify-end gap-2">
             <a href="/admin/categories/${cat.id}/edit" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑</a>
-            <form method="POST" action="/admin/categories/${cat.id}/delete" class="inline" onsubmit="return confirm('确定删除该分类？')">
+            <form method="POST" action="/admin/categories/${cat.id}/delete" class="inline delete-category-form">
+              <input type="hidden" class="category-name" value="${(cat.display_name || cat.name || '').replace(/"/g, '&quot;')}">
               <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors cursor-pointer border-0">删除</button>
             </form>
           </div>
@@ -93,6 +94,18 @@ export const categoriesPage = (categories: Category[], role = 'admin') => {
         </table>
       </div>
     </div>
+
+    <script>
+      document.querySelectorAll('.delete-category-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+          var nameInput = form.querySelector('.category-name')
+          var categoryName = nameInput && nameInput.value ? nameInput.value : '该分类'
+          if (!confirm('确定删除分类「' + categoryName + '」？')) {
+            e.preventDefault()
+          }
+        })
+      })
+    </script>
   `
 
   return layout('分类管理', content, 'categories', role)

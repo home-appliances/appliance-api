@@ -15,10 +15,11 @@ interface Product {
   rating?: number | string | null
   review_count?: number | null
   created_at: string | null
+  updated_at: string | null
   image_url?: string | null
 }
 
-export const productsPage = (products: Product[], page: number, total: number, pageSize: number, role = 'admin', filters: { keyword?: string; brand?: string; category?: string } = {}, brands: string[] = []) => {
+export const productsPage = (products: Product[], page: number, total: number, pageSize: number, role = 'admin', filters: { keyword?: string; brand?: string; category?: string; sort?: 'created_at' | 'updated_at'; order?: 'asc' | 'desc' } = {}, brands: string[] = []) => {
   const totalPages = Math.ceil(total / pageSize)
 
   // 分类选项
@@ -48,46 +49,61 @@ export const productsPage = (products: Product[], page: number, total: number, p
     'robam': '老板', 'fotile': '方太', 'vatti': '华帝',
   }
 
-  // 构建查询字符串（保留搜索和筛选参数）
-  const buildUrl = (pageNum: number) => {
+  // 构建查询字符串（保留搜索、筛选和排序参数）
+  const buildUrl = (pageNum: number, sortField?: string, orderDir?: string) => {
     const params = new URLSearchParams()
     params.set('page', pageNum.toString())
     if (filters.keyword) params.set('keyword', filters.keyword)
     if (filters.brand) params.set('brand', filters.brand)
     if (filters.category) params.set('category', filters.category)
+    const finalSort = sortField || filters.sort || 'created_at'
+    const finalOrder = orderDir || filters.order || 'desc'
+    params.set('sort', finalSort)
+    params.set('order', finalOrder)
     return `/admin/products?${params.toString()}`
   }
 
-  // 构建当前页的查询字符串（用于 return_to，包含 page/keyword/brand/category）
+  // 构建当前页的查询字符串（用于 return_to，包含 page/keyword/brand/category/sort/order）
   const currentQuery = new URLSearchParams()
   currentQuery.set('page', page.toString())
   if (filters.keyword) currentQuery.set('keyword', filters.keyword)
   if (filters.brand) currentQuery.set('brand', filters.brand)
   if (filters.category) currentQuery.set('category', filters.category)
+  if (filters.sort) currentQuery.set('sort', filters.sort)
+  if (filters.order) currentQuery.set('order', filters.order)
   const returnTo = `/admin/products?${currentQuery.toString()}`
   const editUrl = (id: number) => `/admin/products/${id}/edit?return_to=${encodeURIComponent(returnTo)}`
+
+  // 排序链接辅助函数
+  const currentSort = filters.sort || 'created_at'
+  const currentOrder = filters.order || 'desc'
+  const sortHeader = (field: 'created_at' | 'updated_at', label: string) => {
+    const isActive = currentSort === field
+    const nextOrder = isActive && currentOrder === 'desc' ? 'asc' : 'desc'
+    const arrow = isActive ? (currentOrder === 'desc' ? ' ↓' : ' ↑') : ''
+    const color = isActive ? 'text-primary-600' : 'text-gray-600'
+    return `<a href="${buildUrl(page, field, nextOrder)}" class="${color} hover:text-primary-700 transition-colors cursor-pointer">${label}${arrow}</a>`
+  }
 
   const rows = products.map(p => `
     <tr class="hover:bg-gray-50 transition-colors">
       <td class="px-3 py-3 text-sm text-gray-700">${p.id}</td>
       <td class="px-3 py-3">
         ${p.image_url
-          ? `<img src="${p.image_url}" alt="${p.title}" class="w-10 h-10 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity" onclick="showImage('${p.image_url}', '${p.title.replace(/'/g, "\\'")}')" title="点击查看大图">`
-          : '<div class="w-10 h-10 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">无</div>'}
+          ? `<img src="${p.image_url}" alt="${p.title}" class="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity" onclick="showImage('${p.image_url}', '${p.title.replace(/'/g, "\\'")}')" title="点击查看大图">`
+          : '<div class="w-20 h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">无</div>'}
       </td>
       <td class="px-3 py-3 text-sm font-medium text-gray-900 max-w-[200px] truncate" title="${p.title}">${p.title}</td>
       <td class="px-3 py-3 text-sm text-gray-700">${p.brand || '-'}</td>
       <td class="px-3 py-3 text-sm text-gray-700">${p.model || '-'}</td>
       <td class="px-3 py-3 text-sm text-gray-700">${p.category || '-'}</td>
-      <td class="px-3 py-3 text-sm text-gray-700 text-right">${p.price ? '¥' + Number(p.price).toFixed(0) : '-'}</td>
-      <td class="px-3 py-3 text-sm text-gray-400 text-right line-through">${p.original_price ? '¥' + Number(p.original_price).toFixed(0) : ''}</td>
-      <td class="px-3 py-3 text-sm text-gray-700 text-center">${p.rating ? '⭐' + p.rating : '-'}</td>
-      <td class="px-3 py-3 text-sm text-gray-500 text-center">${p.review_count || 0}</td>
       <td class="px-3 py-3 text-sm text-gray-500">${p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '-'}</td>
+      <td class="px-3 py-3 text-sm text-gray-500">${p.updated_at ? new Date(p.updated_at).toLocaleDateString('zh-CN') : '-'}</td>
       <td class="px-3 py-3 text-right">
         <div class="flex items-center justify-end gap-2">
           <a href="${editUrl(p.id)}" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑</a>
-          <form method="POST" action="/admin/products/${p.id}/delete" class="inline" onsubmit="return confirm('确定删除该产品？')">
+          <form method="POST" action="/admin/products/${p.id}/delete" class="inline delete-product-form">
+            <input type="hidden" class="product-name" value="${(p.title || '').replace(/"/g, '&quot;')}">
             <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors cursor-pointer border-0">删除</button>
           </form>
         </div>
@@ -131,6 +147,8 @@ export const productsPage = (products: Product[], page: number, total: number, p
     <!-- 搜索和筛选 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
       <form method="GET" action="/admin/products" class="flex items-center gap-4">
+        <input type="hidden" name="sort" value="${filters.sort || 'created_at'}">
+        <input type="hidden" name="order" value="${filters.order || 'desc'}">
         <div class="flex-1">
           <input type="text" name="keyword" value="${filters.keyword || ''}" placeholder="搜索产品名称、品牌、型号...（如：格力空调、美的小天鹅）"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
@@ -147,7 +165,7 @@ export const productsPage = (products: Product[], page: number, total: number, p
           </select>
         </div>
         <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors cursor-pointer border-0">搜索</button>
-        ${filters.keyword || filters.brand || filters.category ? `<a href="/admin/products" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">清除</a>` : ''}
+        ${filters.keyword || filters.brand || filters.category ? `<a href="/admin/products?sort=${filters.sort || 'created_at'}&order=${filters.order || 'desc'}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">清除</a>` : ''}
       </form>
     </div>
 
@@ -162,11 +180,8 @@ export const productsPage = (products: Product[], page: number, total: number, p
               <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">品牌</th>
               <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">型号</th>
               <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">分类</th>
-              <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">价格</th>
-              <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">原价</th>
-              <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">评分</th>
-              <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">评价</th>
-              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">创建时间</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">${sortHeader('created_at', '创建时间')}</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">${sortHeader('updated_at', '修改时间')}</th>
               <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">操作</th>
             </tr>
           </thead>
@@ -200,6 +215,17 @@ export const productsPage = (products: Product[], page: number, total: number, p
     </div>
 
     <script>
+      // 删除产品确认：用事件监听，避免 HTML 属性引号冲突，并展示产品名
+      document.querySelectorAll('.delete-product-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+          var nameInput = form.querySelector('.product-name')
+          var productName = nameInput && nameInput.value ? nameInput.value : '该产品'
+          if (!confirm('确定删除产品「' + productName + '」？')) {
+            e.preventDefault()
+          }
+        })
+      })
+
       function showImage(url, title) {
         const modal = document.getElementById('imageModal')
         const img = document.getElementById('imageModalImg')
@@ -241,6 +267,20 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
   const safeReturnTo = returnTo.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;')
 
   const content = `
+    <style>
+      /* 隐藏原生日期控件尾部图标，改用左侧自定义日历按钮 */
+      .date-input-front::-webkit-calendar-picker-indicator {
+        opacity: 0;
+        width: 0;
+        padding: 0;
+        margin: 0;
+        position: absolute;
+        pointer-events: none;
+      }
+      .date-input-front::-webkit-datetime-edit {
+        padding: 0;
+      }
+    </style>
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold text-gray-900">${title}</h1>
       <a href="${safeReturnTo}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:border-primary-500 hover:text-primary-600 transition-colors">← 返回</a>
@@ -275,49 +315,28 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
               ${categories.map(c => `<option value="${c.id}" ${product?.categoryId === c.id || product?.category_id === c.id ? 'selected' : ''}>${c.icon || ''} ${c.displayName || c.name}</option>`).join('')}
             </select>
           </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">价格</label>
-            <input type="number" name="price" step="0.01" value="${product?.price || ''}"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
-          </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">原价</label>
-            <input type="number" name="original_price" step="0.01" value="${product?.originalPrice || product?.original_price || ''}"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
-          </div>
         </div>
 
-        <!-- 图片上传区域 -->
+        <!-- 价格/原价：隐藏但保留值，后续再做处理 -->
+        <input type="hidden" name="price" value="${product?.price || ''}">
+        <input type="hidden" name="original_price" value="${product?.originalPrice || product?.original_price || ''}">
+
+        <!-- 主图区域 -->
         <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-3">产品图片</label>
+          <label class="block text-sm font-medium text-gray-700 mb-3">产品主图</label>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4" id="image-list">
-            ${product?.images ? product.images.map((img: any, idx: number) => `
+            ${product?.images && product.images.length > 0 ? product.images.map((img: any, idx: number) => `
               <div class="relative group" data-image-id="${img.id || ''}">
-                <img src="${img.imageUrl || img.url}" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="previewImage(this.src)">
-                <select onchange="changeImageType(${img.id}, this)" class="absolute top-2 left-2 px-1 py-0.5 text-xs bg-black/50 text-white rounded border-none cursor-pointer" title="点击修改图片类型">
-                  <option value="main" ${img.imageType === 'main' ? 'selected' : ''}>主图</option>
-                  <option value="display" ${img.imageType === 'display' ? 'selected' : ''}>展示图</option>
-                  <option value="detail" ${img.imageType === 'detail' ? 'selected' : ''}>细节图</option>
-                  <option value="scene" ${img.imageType === 'scene' ? 'selected' : ''}>场景图</option>
-                </select>
-                <button type="button" onclick="deleteImage(${img.id}, this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>
+                <img src="${img.imageUrl || img.url}" alt="产品主图" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="showImage(this.src, '产品主图')">
+                <span class="absolute top-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded">主图</span>
+                <button type="button" onclick="deleteMainImage(${product?.id || 0}, this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>
               </div>
             `).join('') : ''}
           </div>
 
           <!-- 上传区域 -->
-          <div class="flex items-center gap-3 mb-3">
-            <label class="text-sm text-gray-600 whitespace-nowrap">上传类型:</label>
-            <select id="upload-image-type" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">
-              <option value="main">主图</option>
-              <option value="display">展示图</option>
-              <option value="detail">细节图</option>
-              <option value="scene">场景图</option>
-            </select>
-            <span class="text-xs text-gray-400">拖拽/选择后先暂存，提交产品时一并上传</span>
-          </div>
           <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors cursor-pointer" onclick="document.getElementById('file-input').click()">
-            <input type="file" id="file-input" multiple accept="image/*" class="hidden" onchange="handleFileSelect(this.files)">
+            <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleFileSelect(this.files)">
             <div class="text-gray-400">
               <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
@@ -369,18 +388,6 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
     </div>
 
     <script>
-      function previewImage(url) {
-        const preview = document.getElementById('image_preview')
-        if (url && url.trim()) {
-          preview.src = url
-          preview.classList.remove('hidden')
-          preview.onclick = () => showImage(url, '产品图片')
-        } else {
-          preview.src = ''
-          preview.classList.add('hidden')
-        }
-      }
-
       function showImage(url, title) {
         const modal = document.getElementById('imageModal')
         const img = document.getElementById('imageModalImg')
@@ -446,6 +453,51 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         return v
       }
 
+      function escapeAttr(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+      }
+
+      // 仅纯数字才适合 type=number；3500W / 802*555*350mm 等必须用 text 才能回显
+      function isPureNumber(val) {
+        return /^-?\\d+(\\.\\d+)?$/.test(String(val).trim())
+      }
+
+      // 解析为日期选择器可用的 YYYY-MM-DD（精确到天）
+      function parseDateForInput(val) {
+        if (!val) return { mode: 'empty', value: '' }
+        const s = String(val).trim()
+        if (/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return { mode: 'date', value: s }
+        if (/^\\d{4}-\\d{2}$/.test(s)) return { mode: 'date', value: s + '-01' }
+        const m = s.match(/(\\d{4})[年.\\-/](\\d{1,2})[月.\\-/]?(\\d{1,2})?/)
+        if (m) {
+          const y = m[1]
+          const mo = m[2].padStart(2, '0')
+          const day = m[3] ? m[3].padStart(2, '0') : '01'
+          return { mode: 'date', value: y + '-' + mo + '-' + day }
+        }
+        return { mode: 'text', value: s }
+      }
+
+      // 日历图标放在日期文字前，点击打开原生选择器；隐藏尾部原生图标
+      function wrapDatePicker(type, name, value) {
+        const inputCls = 'date-input-front flex-1 min-w-0 border-0 p-0 text-sm bg-transparent focus:outline-none'
+        return (
+          '<div class="flex-1 flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">' +
+            '<button type="button" title="选择日期" class="flex-shrink-0 text-primary-600 hover:text-primary-700 cursor-pointer p-0.5" ' +
+              'onclick="(function(btn){var i=btn.parentElement.querySelector(\\'input\\');if(!i)return;i.focus();if(i.showPicker){try{i.showPicker()}catch(e){}}})(this)">' +
+              '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>' +
+              '</svg>' +
+            '</button>' +
+            '<input type="' + type + '" name="' + name + '" value="' + escapeAttr(value) + '" class="' + inputCls + '">' +
+          '</div>'
+        )
+      }
+
       async function loadCategoryParams(categoryId) {
         const container = document.getElementById('params-container')
         if (!categoryId) {
@@ -476,32 +528,58 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
               const val = matchParamValue(key, existingParams)
               const displayName = p.displayName || key
               const label = '<label class="w-24 text-sm text-gray-600 text-right flex-shrink-0">' + (p.icon || '') + ' ' + displayName + '</label>'
+              const safeVal = escapeAttr(val)
 
               let input = ''
               if (p.paramType === 'enum' && p.enumValues) {
                 // 枚举: 下拉选择
                 const opts = typeof p.enumValues === 'string' ? JSON.parse(p.enumValues) : p.enumValues
-                // 四级匹配: 精确 → 模糊(包含关系) → 归一化匹配 → 当前值作为额外选项
+                // 四级匹配: 精确 → 模糊(包含关系) → 归一化匹配 → 保留原值选项
                 let selectedOpt = opts.find(o => o === val)
                 if (!selectedOpt && val) {
                   selectedOpt = opts.find(o => val.includes(o) || o.includes(val))
                 }
                 if (!selectedOpt && val) {
-                  // 归一化后匹配: 1.5P → 1.5匹, 三级能效 → 三级
                   const normalized = normalizeValue(val)
                   selectedOpt = opts.find(o => o === normalized || normalized.includes(o) || o.includes(normalized))
                 }
                 let optionsHtml = '<option value="">请选择</option>'
-                optionsHtml += opts.map(o => '<option value="' + o + '"' + (o === selectedOpt ? ' selected' : '') + '>' + o + '</option>').join('')
-                // 当前值不匹配任何枚举项时, 作为额外选项显示(让用户能看到原值)
+                optionsHtml += opts.map(o => '<option value="' + escapeAttr(o) + '"' + (o === selectedOpt ? ' selected' : '') + '>' + escapeAttr(o) + '</option>').join('')
+                // 原值不在枚举中时仍展示，便于编辑时看到并改选标准项（不再加「当前值」尾缀）
                 if (val && !selectedOpt) {
-                  optionsHtml += '<option value="' + val + '" selected>' + val + ' (当前值)</option>'
+                  optionsHtml += '<option value="' + safeVal + '" selected>' + safeVal + '</option>'
                 }
                 input = '<select name="p_' + key + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">' + optionsHtml + '</select>'
+              } else if (p.paramType === 'enum') {
+                input = '<input type="text" name="p_' + key + '" value="' + safeVal + '" placeholder="' + escapeAttr(displayName) + '" class="flex-1 px-3 py-2 border border-red-300 rounded-lg text-sm focus:outline-none focus:border-red-500">'
+                input += '<span class="text-xs text-red-500 ml-2 whitespace-nowrap">⚠ 未配置枚举值</span>'
               } else if (p.paramType === 'number') {
-                input = '<input type="number" name="p_' + key + '" value="' + val + '" step="any" placeholder="请输入' + displayName + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+                // 纯数字 → number；带单位/尺寸等旧数据 → text，保证完整回显
+                if (val && !isPureNumber(val)) {
+                  input = '<input type="text" name="p_' + key + '" value="' + safeVal + '" placeholder="请输入数值" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+                } else {
+                  input = '<input type="number" name="p_' + key + '" value="' + safeVal + '" step="any" placeholder="请输入数值" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+                }
+              } else if (p.paramType === 'boolean') {
+                let boolHtml = '<option value="">请选择</option>'
+                boolHtml += '<option value="是"' + (val === '是' || val === 'true' || val === '有' ? ' selected' : '') + '>是</option>'
+                boolHtml += '<option value="否"' + (val === '否' || val === 'false' || val === '无' ? ' selected' : '') + '>否</option>'
+                if (val && val !== '是' && val !== '否' && val !== 'true' && val !== 'false' && val !== '有' && val !== '无') {
+                  boolHtml += '<option value="' + safeVal + '" selected>' + safeVal + '</option>'
+                }
+                input = '<select name="p_' + key + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">' + boolHtml + '</select>'
+              } else if (p.paramType === 'date') {
+                const parsed = parseDateForInput(val)
+                if (parsed.mode === 'date') {
+                  input = wrapDatePicker('date', 'p_' + key, parsed.value)
+                } else if (parsed.mode === 'text') {
+                  // 无法解析为日期时用文本完整回显，避免 type=date 空白
+                  input = '<input type="text" name="p_' + key + '" value="' + safeVal + '" placeholder="YYYY-MM-DD" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+                } else {
+                  input = wrapDatePicker('date', 'p_' + key, '')
+                }
               } else {
-                input = '<input type="text" name="p_' + key + '" value="' + val + '" placeholder="请输入' + displayName + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
+                input = '<input type="text" name="p_' + key + '" value="' + safeVal + '" placeholder="请输入' + escapeAttr(displayName) + '" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">'
               }
               div.innerHTML = label + input
 
@@ -602,7 +680,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
 
       // 选择文件 -> 先校验, 通过才暂存(本地预览), 不上传
       async function handleFileSelect(files) {
-        const imageType = document.getElementById('upload-image-type').value
+        const imageType = 'main'
         for (const file of files) {
           // 1. 扩展名
           const dotIdx = file.name.lastIndexOf('.')
@@ -635,13 +713,15 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           const base64 = await fileToBase64(file)
           const seq = pendingSeq++
           const previewUrl = URL.createObjectURL(file)
-          pendingImages.push({ seq, fileName: file.name, mimeType: file.type, base64, imageType, previewUrl, sort: pendingImages.length })
+          pendingImages.length = 0
+          document.querySelectorAll('#image-list [data-pending-seq]').forEach(el => el.remove())
+          pendingImages.push({ seq, fileName: file.name, mimeType: file.type, base64, imageType, previewUrl, sort: 0 })
           addPendingToDOM(seq, previewUrl, imageType)
         }
         document.getElementById('file-input').value = ''
       }
 
-      // 暂存图加到列表(虚线边框 + 待上传标记 + 类型可改 + 删除)
+      // 暂存图加到列表(虚线边框 + 待上传标记 + 删除)
       function addPendingToDOM(seq, previewUrl, imageType) {
         const list = document.getElementById('image-list')
         const div = document.createElement('div')
@@ -650,12 +730,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         div.innerHTML =
           '<img src="' + previewUrl + '" alt="待上传" class="w-full h-32 object-cover rounded-lg border-2 border-dashed border-primary-400">' +
           '<span class="absolute top-7 left-2 px-2 py-0.5 text-xs bg-primary-500 text-white rounded">待上传</span>' +
-          '<select onchange="setPendingType(' + seq + ', this.value)" class="absolute top-2 left-2 px-1 py-0.5 text-xs bg-black/50 text-white rounded border-none cursor-pointer" title="修改类型">' +
-          '<option value="main" ' + (imageType === 'main' ? 'selected' : '') + '>主图</option>' +
-          '<option value="display" ' + (imageType === 'display' ? 'selected' : '') + '>展示图</option>' +
-          '<option value="detail" ' + (imageType === 'detail' ? 'selected' : '') + '>细节图</option>' +
-          '<option value="scene" ' + (imageType === 'scene' ? 'selected' : '') + '>场景图</option>' +
-          '</select>' +
+          '<span class="absolute top-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded">主图</span>' +
           '<button type="button" onclick="removePending(' + seq + ', this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>'
         list.appendChild(div)
       }
@@ -720,34 +795,15 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         }
       })
 
-      // 已有图片(编辑时): 改类型
-      async function changeImageType(id, select) {
-        const newType = select.value
+      // 已有主图(编辑时): 删除（调用后端清除 products.main_image）
+      async function deleteMainImage(productId, btn) {
+        if (!confirm('确定删除主图？')) return
+        const container = btn.parentElement
         try {
-          const res = await fetch('/api/admin/product-images/' + id, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image_type: newType })
-          })
+          const res = await fetch('/api/admin/products/' + productId + '/main-image', { method: 'DELETE' })
           const data = await res.json()
-          if (data.code !== 0) {
-            alert(data.message || '修改类型失败')
-          }
-        } catch (err) {
-          alert('修改类型失败: ' + err.message)
-        }
-      }
-
-      // 已有图片(编辑时): 删除
-      async function deleteImage(id, btn) {
-        if (!confirm('确定删除这张图片？')) return
-
-        try {
-          const res = await fetch('/api/admin/upload/image/' + id, { method: 'DELETE' })
-          const data = await res.json()
-
           if (data.code === 0) {
-            btn.parentElement.remove()
+            container.remove()
           } else {
             alert(data.message || '删除失败')
           }

@@ -20,7 +20,7 @@ import { usersPage, userFormPage } from './pages/users.js'
 import { productsPage, productFormPage } from './pages/products.js'
 import { categoriesPage, categoryFormPage } from './pages/categories.js'
 import { categoryParamsPage, categoryParamFormPage } from './pages/category-params.js'
-import { productImagesPage, productImageFormPage } from './pages/product-images.js'
+import { productImagesPage } from './pages/product-images.js'
 import { logsPage } from './pages/logs.js'
 
 // ==================== 登录 ====================
@@ -282,6 +282,8 @@ admin.get('/products', authMiddleware, async (c) => {
   const keyword = c.req.query('keyword') || ''
   const brandFilter = c.req.query('brand') || ''
   const categoryFilter = c.req.query('category') || ''
+  const sort = (c.req.query('sort') || 'created_at') as 'created_at' | 'updated_at'
+  const order = (c.req.query('order') || 'desc') as 'asc' | 'desc'
 
   // 品牌别名映射
   const brandNameMap: Record<string, string> = {
@@ -335,6 +337,8 @@ admin.get('/products', authMiddleware, async (c) => {
     keyword: searchKeyword || undefined,
     brand: brandSearch || undefined,
     categoryCode: categoryCode || undefined,
+    sort,
+    order,
   })
 
   const brands = await getBrands()
@@ -351,13 +355,14 @@ admin.get('/products', authMiddleware, async (c) => {
       rating: p.rating,
       review_count: p.reviewCount,
       created_at: p.createdAt ? p.createdAt.toISOString() : null,
-      image_url: p.imageUrl || null,
+      updated_at: p.updatedAt ? p.updatedAt.toISOString() : null,
+      image_url: p.mainImage || null,
     })),
     page,
     result.total,
     pageSize,
     role,
-    { keyword, brand: brandFilter, category: categoryFilter },
+    { keyword, brand: brandFilter, category: categoryFilter, sort, order },
     brands
   ))
 })
@@ -414,11 +419,11 @@ admin.post('/products/create', authMiddleware, async (c) => {
   }
 })
 
-// 处理表单里的图片: 前端用 Base64 纯文本提交, 后端解码后传 OSS + 建关联
-// 绕过 FC multipart 二进制损坏问题(0x89 等非 ASCII 字节被 UTF-8 替换)
+// 处理表单里的图片: 上传 OSS + 存二进制到 images 表 + 建关联 + 设置 main_image
 async function saveProductImageFiles(productId: number, body: Record<string, any>): Promise<void> {
   const { createProductImage, getProductImages } = await import('../db/queries.js')
   const { uploadImage, validateImageFile } = await import('../utils/oss.js')
+  const { pool } = await import('../db/index.js')
 
   const toArr = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
   const dataArr = toArr(body['image_data[]'])
@@ -432,6 +437,8 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
   let nextSort = existing.length > 0
     ? Math.max(...existing.map(img => img.sortOrder)) + 1
     : 0
+
+  let firstImageId: number | null = null
 
   for (let i = 0; i < dataArr.length; i++) {
     const base64 = dataArr[i]
@@ -449,13 +456,42 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
     }
 
     const imageUrl = await uploadImage(buf, fileName, 'products')
+
+    let imageId: number | null = null
+    try {
+      const imgResult = await pool.query(
+        `INSERT INTO images (image_data, mime_type, file_size, created_at)
+         VALUES ($1, $2, $3, NOW())
+         RETURNING id`,
+        [buf, mimeType, buf.length]
+      )
+      imageId = imgResult.rows[0].id
+      console.log(`  [${i}] 原图已入库: images 表 ID ${imageId} (${(buf.length / 1024).toFixed(1)} KB)`)
+    } catch (e) {
+      console.warn(`  [${i}] 原图入库失败, 仅使用 OSS URL:`, e)
+    }
+
     const created = await createProductImage({
       productId,
       imageUrl,
       imageType: typeArr[i] || 'main',
       sortOrder: nextSort++,
     })
-    console.log(`  [${i}] 已保存: ${imageUrl} (buffer首字节:0x${buf[0].toString(16)}) -> 图片记录ID ${created.id}`)
+    console.log(`  [${i}] 已保存: ${imageUrl} -> 图片记录ID ${created.id}`)
+
+    if (firstImageId === null && (typeArr[i] === 'main' || i === 0)) {
+      firstImageId = imageId
+      const mainUrl = imageId !== null ? `/api/image/${imageId}` : imageUrl
+      try {
+        await pool.query(
+          'UPDATE products SET main_image = $1, image_id = $2 WHERE id = $3',
+          [mainUrl, imageId, productId]
+        )
+        console.log(`  [${i}] 已设置 main_image: ${mainUrl}`)
+      } catch (e) {
+        console.warn(`  [${i}] 设置 main_image 失败:`, e)
+      }
+    }
   }
 }
 
@@ -470,24 +506,23 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
     returnTo = '/admin/products'
   }
 
-  const { getProductById, getCategories, getProductImages } = await import('../db/queries.js')
-  const [product, categories, images] = await Promise.all([
+  const { getProductById, getCategories } = await import('../db/queries.js')
+  const [product, categories] = await Promise.all([
     getProductById(id),
     getCategories(),
-    getProductImages(id),
   ])
 
   if (!product) return c.redirect(returnTo)
 
-  // 拼上图片数据供表单页渲染
+  // 使用 mainImage 作为主图
   const productWithImages = {
     ...product,
-    images: images.map(img => ({
-      id: img.id,
-      imageUrl: img.imageUrl,
-      imageType: img.imageType,
-      sortOrder: img.sortOrder,
-    })),
+    images: product.mainImage ? [{
+      id: product.imageId || 0,
+      imageUrl: product.mainImage,
+      imageType: 'main',
+      sortOrder: 0,
+    }] : [],
   }
 
   return c.html(productFormPage(productWithImages, undefined, role, categories, returnTo))
@@ -562,7 +597,7 @@ admin.get('/categories', authMiddleware, async (c) => {
 
   const result = await pool.query(`
     SELECT c.*,
-      (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count,
+      (SELECT COUNT(*) FROM products WHERE category_id = c.id AND deleted_at IS NULL) as product_count,
       (SELECT COUNT(*) FROM category_params WHERE category_id = c.id) as param_count
     FROM categories c
     ORDER BY c.sort_order, c.name
@@ -767,97 +802,93 @@ admin.post('/category-params/:id/delete', authMiddleware, async (c) => {
 })
 
 // ==================== 图片管理 ====================
+// 管理 products.main_image
 
-// 图片列表
+// 图片列表：展示有主图的产品
 admin.get('/product-images', authMiddleware, async (c) => {
   const adminUser = c.get('admin') as { role?: string }
   const role = adminUser?.role || 'admin'
   const productId = c.req.query('product_id') ? parseInt(c.req.query('product_id')!) : undefined
+  const page = Math.max(1, parseInt(c.req.query('page') || '1'))
+  const pageSize = 50
+  const offset = (page - 1) * pageSize
 
-  let query = `
-    SELECT pi.*, p.name as product_name
-    FROM product_images pi
-    LEFT JOIN products p ON p.id = pi.product_id
-  `
+  // 查询有主图的产品（支持按产品筛选）
+  let whereClause = 'WHERE p.deleted_at IS NULL AND p.main_image IS NOT NULL'
   const params: any[] = []
   if (productId) {
-    query += ' WHERE pi.product_id = $1'
+    whereClause += ' AND p.id = $1'
     params.push(productId)
   }
-  query += ' ORDER BY pi.product_id, pi.image_type, pi.sort_order'
 
-  const [result, products] = await Promise.all([
-    pool.query(query, params),
-    pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
+  // 并行查询：主图列表 + 总数 + 全部产品（用于筛选下拉）
+  // 用别名转为驼峰命名，与页面接口字段对齐
+  const listQuery = `
+    SELECT p.id, p.name, p.brand, p.model,
+           p.main_image AS "mainImage",
+           p.image_id AS "imageId",
+           p.updated_at AS "updatedAt"
+    FROM products p
+    ${whereClause}
+    ORDER BY p.updated_at DESC
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+  `
+  const countQuery = `SELECT COUNT(*) FROM products p ${whereClause}`
+
+  const [listResult, countResult, allProducts] = await Promise.all([
+    pool.query(listQuery, [...params, pageSize, offset]),
+    pool.query(countQuery, params),
+    pool.query('SELECT id, name FROM products WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 200'),
   ])
-  return c.html(productImagesPage(result.rows, products.rows, role, productId))
+
+  const total = parseInt(countResult.rows[0]?.count || '0')
+
+  return c.html(productImagesPage(
+    listResult.rows,
+    allProducts.rows,
+    role,
+    productId,
+    total,
+    page,
+    pageSize,
+  ))
 })
 
-// 新增图片页面
-admin.get('/product-images/create', authMiddleware, async (c) => {
-  const adminUser = c.get('admin') as { role?: string }
-  const role = adminUser?.role || 'admin'
-  const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-  return c.html(productImageFormPage(undefined, products.rows, undefined, role))
-})
+// 删除产品主图（清除 products.main_image 和 image_id，并清理 images 表二进制数据）
+admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
+  const productId = parseInt(c.req.param('id'))
 
-// 新增图片处理
-admin.post('/product-images/create', authMiddleware, async (c) => {
   try {
-    const body = await c.req.parseBody()
-    const { product_id, image_url, image_type, sort_order } = body as Record<string, string>
+    const productResult = await pool.query(
+      'SELECT image_id FROM products WHERE id = $1',
+      [productId]
+    )
 
-    if (!product_id) {
-      const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-      return c.html(productImageFormPage(undefined, products.rows, '产品不能为空'))
+    if (productResult.rows.length === 0) {
+      return c.redirect('/admin/product-images')
     }
 
-    await pool.query(
-      'INSERT INTO product_images (product_id, image_url, image_type, sort_order) VALUES ($1, $2, $3, $4)',
-      [product_id, image_url || null, image_type || 'main', parseInt(sort_order || '0')]
-    )
-    return c.redirect('/admin/product-images')
-  } catch (error: any) {
-    const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-    return c.html(productImageFormPage(undefined, products.rows, '创建失败: ' + error.message))
-  }
-})
-
-// 编辑图片页面
-admin.get('/product-images/:id/edit', authMiddleware, async (c) => {
-  const adminUser = c.get('admin') as { role?: string }
-  const role = adminUser?.role || 'admin'
-  const id = c.req.param('id')
-  const [result, products] = await Promise.all([
-    pool.query('SELECT * FROM product_images WHERE id = $1', [id]),
-    pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-  ])
-  if (result.rows.length === 0) return c.redirect('/admin/product-images')
-  return c.html(productImageFormPage(result.rows[0], products.rows, undefined, role))
-})
-
-// 编辑图片处理
-admin.post('/product-images/:id/edit', authMiddleware, async (c) => {
-  try {
-    const id = c.req.param('id')
-    const body = await c.req.parseBody()
-    const { image_url, image_type, sort_order } = body as Record<string, string>
+    const imageId = productResult.rows[0].image_id
 
     await pool.query(
-      'UPDATE product_images SET image_url=$1, image_type=$2, sort_order=$3 WHERE id=$4',
-      [image_url || null, image_type || 'main', parseInt(sort_order || '0'), id]
+      'UPDATE products SET main_image = NULL, image_id = NULL, updated_at = NOW() WHERE id = $1',
+      [productId]
     )
-    return c.redirect('/admin/product-images')
-  } catch (error: any) {
-    const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-    return c.html(productImageFormPage({ id: c.req.param('id') }, products.rows, '更新失败: ' + error.message))
-  }
-})
 
-// 删除图片
-admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
-  const id = c.req.param('id')
-  await pool.query('DELETE FROM product_images WHERE id = $1', [id])
+    if (imageId) {
+      try {
+        await pool.query('DELETE FROM images WHERE id = $1', [imageId])
+        console.log(`[图片管理] 已清理产品 #${productId} 的主图二进制数据 (images.id=${imageId})`)
+      } catch (e) {
+        console.warn(`[图片管理] 清理 images 表失败（不影响主流程）:`, e)
+      }
+    }
+
+    console.log(`[图片管理] 已删除产品 #${productId} 的主图`)
+  } catch (error: any) {
+    console.error('[图片管理] 删除主图失败:', error)
+  }
+
   return c.redirect('/admin/product-images')
 })
 
