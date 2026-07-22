@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { serveStatic } from '@hono/node-server/serve-static'
 import fs from 'fs'
 import path from 'path'
 import search from './routes/search.js'
 import detail from './routes/detail.js'
 import suggest from './routes/suggest.js'
+import hot from './routes/hot.js'
 import adminApi from './routes/admin/index.js'
 import adminSSR from './admin/routes.js'
 import airConditioners from './routes/air-conditioners.js'
@@ -26,6 +26,7 @@ app.use('*', cors({
 app.route('/', search)
 app.route('/', detail)
 app.route('/', suggest)
+app.route('/', hot)
 app.route('/', adminApi)  // 管理后台 API（路由有 /api/admin 前缀了）
 app.route('/admin', adminSSR)      // 管理后台 SSR 页面
 app.route('/api/air-conditioners', airConditioners)

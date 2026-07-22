@@ -474,6 +474,24 @@ export async function logSearch(keyword: string): Promise<void> {
 }
 
 // =====================================================
+// 获取热门搜索词
+// =====================================================
+export async function getHotSearches(limit: number = 10): Promise<string[]> {
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
+  const result = await pool.query(
+    `
+    SELECT keyword
+    FROM search_logs
+    WHERE char_length(trim(keyword)) >= 2
+    ORDER BY search_count DESC, last_searched_at DESC
+    LIMIT $1
+    `,
+    [safeLimit]
+  );
+  return result.rows.map((row) => row.keyword as string);
+}
+
+// =====================================================
 // 获取搜索建议（输入联想）
 // =====================================================
 export async function getSuggestions(keyword: string, limit: number = 8): Promise<string[]> {
