@@ -52,7 +52,7 @@ appliance-api/
 │   │       ├── upload.ts     # 图片上传 API
 │   │       ├── auth.ts       # 认证 API
 │   │       └── stats.ts      # 统计 API
-│   ├── db/                   # 数据库
+│   ├── db/                   # 数据库（运行时 + 迁移/运维脚本，见 src/db/README.md）
 │   │   ├── schema.ts         # Drizzle schema 定义
 │   │   ├── drizzle.ts        # Drizzle 客户端
 │   │   ├── queries.ts        # 类型安全查询函数
@@ -64,9 +64,11 @@ appliance-api/
 │   │   └── auth.ts           # JWT 认证中间件
 │   ├── fc-handler.ts         # FC 3.0 入口
 │   └── index.ts              # 本地开发入口
+├── scripts/                  # 打包与数据导入脚本（见 scripts/README.md）
 ├── drizzle/                  # Drizzle migration 文件
 ├── s.yaml                    # Serverless Devs 配置
 ├── drizzle.config.ts         # Drizzle Kit 配置
+├── IMAGE_API_SUMMARY.md      # 图片存储与相关脚本说明
 ├── .github/workflows/
 │   ├── deploy.yml            # 代码部署
 │   └── renew-ssl.yml         # SSL 证书续签
