@@ -224,11 +224,11 @@ export async function searchProducts(
 }> {
   if (!keyword || !keyword.trim()) {
     // 无关键词时，返回所有产品
-    const countResult = await pool.query('SELECT COUNT(*) FROM products');
+    const countResult = await pool.query('SELECT COUNT(*) FROM products WHERE deleted_at IS NULL');
     const total = parseInt(countResult.rows[0].count);
 
     const result = await pool.query(
-      'SELECT * FROM products ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+      'SELECT id, name, brand, model, price, rating, review_count, params, category, category_id, pinyin, main_image, created_at FROM products WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT $1 OFFSET $2',
       [limit, (page - 1) * limit]
     );
 
@@ -304,10 +304,10 @@ export async function searchProducts(
   const boostParam = '$2';
 
   // 查询：全文搜索 + ILIKE 降级 + 分类名匹配
-  // LATERAL JOIN 获取主图 URL + 分类名
+  // 直接从 products.main_image 取主图 URL（原图已存储在 images 表）
   const query = `
     SELECT p.*,
-      pi.image_url as main_image,
+      p.main_image,
       c.name as category_name,
       ts_rank(p.search_vector, to_tsquery('jiebacfg', $1)) as rank,
       CASE
@@ -319,14 +319,9 @@ export async function searchProducts(
       END as boost
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
-    LEFT JOIN LATERAL (
-      SELECT image_url FROM product_images
-      WHERE product_id = p.id
-      ORDER BY CASE image_type WHEN 'main' THEN 0 ELSE 1 END, sort_order, id
-      LIMIT 1
-    ) pi ON true
-    WHERE p.search_vector @@ to_tsquery('jiebacfg', $1)
-       OR ${ilikeCond}
+    WHERE (p.search_vector @@ to_tsquery('jiebacfg', $1)
+       OR ${ilikeCond})
+       AND p.deleted_at IS NULL
     ORDER BY boost DESC, p.created_at DESC
     LIMIT $${limitIdx} OFFSET $${offsetIdx}
   `;
@@ -344,8 +339,9 @@ export async function searchProducts(
   const countQuery = `
     SELECT COUNT(*) FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
-    WHERE p.search_vector @@ to_tsquery('jiebacfg', $1)
-       OR ${ilikeCond}
+    WHERE (p.search_vector @@ to_tsquery('jiebacfg', $1)
+       OR ${ilikeCond})
+       AND p.deleted_at IS NULL
   `;
   const countResult = await pool.query(countQuery, [tsQuery, ...ilikeParams]);
   const total = parseInt(countResult.rows[0].count);
@@ -370,7 +366,7 @@ export async function searchProducts(
 // 获取产品详情
 // =====================================================
 export async function getProductById(id: number): Promise<any | null> {
-  const result = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
+  const result = await pool.query('SELECT * FROM products WHERE id = $1 AND deleted_at IS NULL', [id]);
   return result.rows[0] ? decodeObjectStrings(result.rows[0]) : null;
 }
 
@@ -425,6 +421,17 @@ export async function getProductParams(id: number): Promise<Record<string, strin
 // 获取产品图片
 // =====================================================
 export async function getProductImages(id: number): Promise<string[]> {
+  // 0. 优先使用 products.main_image
+  try {
+    const pResult = await pool.query('SELECT main_image FROM products WHERE id = $1', [id]);
+    if (pResult.rows.length > 0 && pResult.rows[0].main_image) {
+      return [pResult.rows[0].main_image];
+    }
+  } catch (e) {
+    // 静默跳过
+  }
+
+  // 1. 从 product_images 表获取图片 URL
   try {
     const piResult = await pool.query(
       `SELECT image_url FROM product_images
@@ -442,25 +449,16 @@ export async function getProductImages(id: number): Promise<string[]> {
   }
 
   // 2. 降级：从 images 表获取二进制图片（通过 products.image_id 关联）
-  //    注意：products 表可能没有 image_id 列，用 try-catch 保护
   try {
     const pResult = await pool.query('SELECT image_id FROM products WHERE id = $1', [id]);
     if (pResult.rows.length > 0) {
       const imageId = pResult.rows[0].image_id;
       if (imageId) {
-        const imgResult = await pool.query('SELECT image_data, mime_type FROM images WHERE id = $1', [imageId]);
-        if (imgResult.rows.length > 0 && imgResult.rows[0].image_data) {
-          const img = imgResult.rows[0];
-          if (img.image_data.length > 1024) {
-            const base64 = img.image_data.toString('base64');
-            return [`data:${img.mime_type};base64,${base64}`];
-          }
-          console.warn('getProductImages 图片数据过小，跳过:', imageId, img.image_data.length);
-        }
+        return [`/api/image/${imageId}`];
       }
     }
   } catch (e) {
-    // products 表无 image_id 列属于正常情况（当前 schema），静默跳过
+    // 静默跳过
   }
 
   return [];
@@ -508,11 +506,12 @@ export async function getSuggestions(keyword: string, limit: number = 8): Promis
     }
   }
 
-  // 2. 从品牌中匹配（支持中英文）
+  // 2. 从品牌中匹配（支持中英文，排除已软删除产品）
   if (suggestions.length < limit) {
     const brandMatches = await pool.query(`
       SELECT DISTINCT brand FROM products
       WHERE brand ILIKE $1
+        AND deleted_at IS NULL
       LIMIT $2
     `, [`%${trimmed}%`, limit - suggestions.length]);
 
@@ -526,11 +525,12 @@ export async function getSuggestions(keyword: string, limit: number = 8): Promis
     }
   }
 
-  // 3. 从产品名称中匹配
+  // 3. 从产品名称中匹配（排除已软删除产品）
   if (suggestions.length < limit) {
     const nameMatches = await pool.query(`
       SELECT DISTINCT name FROM products
       WHERE name ILIKE $1
+        AND deleted_at IS NULL
       LIMIT $2
     `, [`%${trimmed}%`, limit - suggestions.length]);
 
@@ -589,22 +589,16 @@ export async function getProductsByCategoryId(
   limit: number;
 }> {
   const countResult = await pool.query(
-    'SELECT COUNT(*) FROM products WHERE category_id = $1',
+    'SELECT COUNT(*) FROM products WHERE category_id = $1 AND deleted_at IS NULL',
     [categoryId]
   );
   const total = parseInt(countResult.rows[0].count);
 
   const result = await pool.query(`
-    SELECT p.*, c.name as category_name, pi.image_url as main_image
+    SELECT p.*, c.name as category_name, p.main_image
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
-    LEFT JOIN LATERAL (
-      SELECT image_url FROM product_images
-      WHERE product_id = p.id
-      ORDER BY CASE image_type WHEN 'main' THEN 0 ELSE 1 END, sort_order, id
-      LIMIT 1
-    ) pi ON true
-    WHERE p.category_id = $1
+    WHERE p.category_id = $1 AND p.deleted_at IS NULL
     ORDER BY p.created_at DESC
     LIMIT $2 OFFSET $3
   `, [categoryId, limit, (page - 1) * limit]);
@@ -641,7 +635,22 @@ export async function getProductImagesList(id: number): Promise<Array<{
 }>> {
   const images: Array<{ id: number; url: string; mime_type: string }> = [];
 
-  // 1. 优先从 product_images 表获取图片 URL
+  // 0. 优先使用 products.main_image
+  try {
+    const pResult = await pool.query('SELECT main_image, image_id FROM products WHERE id = $1', [id]);
+    if (pResult.rows.length > 0 && pResult.rows[0].main_image) {
+      images.push({
+        id: pResult.rows[0].image_id || 0,
+        url: pResult.rows[0].main_image,
+        mime_type: 'image/main',
+      });
+      return images;
+    }
+  } catch (e) {
+    // 静默跳过
+  }
+
+  // 1. 从 product_images 表获取图片 URL
   try {
     const piResult = await pool.query(
       `SELECT id, image_url, image_type FROM product_images
@@ -668,7 +677,7 @@ export async function getProductImagesList(id: number): Promise<Array<{
   // 2. 降级：从 images 表获取二进制图片（通过 products.image_id 关联）
   try {
     const imageResult = await pool.query(`
-      SELECT i.id, i.image_data, i.mime_type
+      SELECT i.id, i.mime_type
       FROM products p
       JOIN images i ON p.image_id = i.id
       WHERE p.id = $1
@@ -676,16 +685,14 @@ export async function getProductImagesList(id: number): Promise<Array<{
 
     if (imageResult.rows.length > 0) {
       const img = imageResult.rows[0];
-      if (img.image_data && img.image_data.length > 1024) {
-        images.push({
-          id: img.id,
-          url: `data:${img.mime_type};base64,${img.image_data.toString('base64')}`,
-          mime_type: img.mime_type,
-        });
-      }
+      images.push({
+        id: img.id,
+        url: `/api/image/${img.id}`,
+        mime_type: img.mime_type,
+      });
     }
   } catch (e) {
-    // products 表无 image_id 列属于正常情况（当前 schema），静默跳过
+    // 静默跳过
   }
 
   return images;

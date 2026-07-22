@@ -5,17 +5,7 @@
 
 import { eq, desc, asc, like, ilike, sql, and, or, count, isNull, isNotNull, inArray } from 'drizzle-orm';
 import { db } from './drizzle.js';
-import {
-  categories,
-  products,
-  productImages,
-  categoryParams,
-  admins,
-  searchLogs,
-  operationLogs,
-  systemSettings,
-  crawlerTasks,
-} from './schema.js';
+import {categories,products,productImages,images,categoryParams,admins,searchLogs,operationLogs,systemSettings,crawlerTasks} from './schema.js';
 
 // =====================================================
 // 分类查询
@@ -81,8 +71,10 @@ export async function getProducts(options: {
   brand?: string | string[];
   categoryId?: number;
   categoryCode?: string;
+  sort?: 'created_at' | 'updated_at';
+  order?: 'asc' | 'desc';
 } = {}) {
-  const { page = 1, limit = 20, keyword, brand, categoryId, categoryCode } = options;
+  const { page = 1, limit = 20, keyword, brand, categoryId, categoryCode, sort = 'created_at', order = 'desc' } = options;
   const offset = (page - 1) * limit;
 
   // 构建查询条件
@@ -124,7 +116,10 @@ export async function getProducts(options: {
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(whereClause);
 
-  // 查询数据（关联 categories 取分类名 + 子查询取主图）
+  // 查询数据（关联 categories 取分类名，直接从 products.main_image 取主图 URL）
+  const sortColumn = sort === 'updated_at' ? products.updatedAt : products.createdAt;
+  const orderFn = order === 'asc' ? asc : desc;
+
   const data = await db
     .select({
       id: products.id,
@@ -139,22 +134,15 @@ export async function getProducts(options: {
       rating: products.rating,
       reviewCount: products.reviewCount,
       params: products.params,
+      mainImage: products.mainImage,
+      imageId: products.imageId,
       createdAt: products.createdAt,
       updatedAt: products.updatedAt,
-      imageUrl: sql<string>`(
-        SELECT ${productImages.imageUrl}
-        FROM ${productImages}
-        WHERE ${productImages.productId} = ${products.id}
-        ORDER BY
-          CASE ${productImages.imageType} WHEN 'main' THEN 0 ELSE 1 END,
-          ${productImages.sortOrder}
-        LIMIT 1
-      )`.as('image_url'),
     })
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(whereClause)
-    .orderBy(desc(products.createdAt))
+    .orderBy(orderFn(sortColumn))
     .limit(limit)
     .offset(offset);
 
@@ -182,6 +170,8 @@ export async function getProductById(id: number) {
       rating: products.rating,
       reviewCount: products.reviewCount,
       params: products.params,
+      mainImage: products.mainImage,
+      imageId: products.imageId,
       sourceUrl: products.sourceUrl,
       sourcePlatform: products.sourcePlatform,
       createdAt: products.createdAt,

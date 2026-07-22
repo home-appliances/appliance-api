@@ -3,7 +3,30 @@
  * 全品类家电产品数据库
  */
 
-import { pgTable, bigint, text, numeric, integer, boolean, timestamp, jsonb, unique } from 'drizzle-orm/pg-core';
+import { pgTable, bigint, text, numeric, integer, boolean, timestamp, jsonb, unique, customType } from 'drizzle-orm/pg-core';
+
+// =====================================================
+// bytea 自定义类型（PostgreSQL 二进制数据）
+// =====================================================
+const bytea = customType<{ data: Buffer; default: false }>({
+  dataType() {
+    return 'bytea';
+  },
+});
+
+// =====================================================
+// 图片表（存储原图二进制数据）
+// =====================================================
+export const images = pgTable('images', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  imageData: bytea('image_data'),
+  mimeType: text('mime_type'),
+  fileSize: integer('file_size'),
+  width: integer('width'),
+  height: integer('height'),
+  sourceUrl: text('source_url').unique(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
 // =====================================================
 // 分类表
@@ -37,6 +60,8 @@ export const products = pgTable('products', {
   searchVector: text('search_vector'),
   pinyin: text('pinyin'),
   pinyinInitials: text('pinyin_initials'),
+  mainImage: text('main_image'),
+  imageId: bigint('image_id', { mode: 'number' }),
   sourceUrl: text('source_url').unique(),
   sourcePlatform: text('source_platform').default('pconline'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
