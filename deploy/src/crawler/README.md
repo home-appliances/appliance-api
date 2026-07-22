@@ -107,7 +107,7 @@ npx tsx src/crawler/index.ts --clear
 ## 文件结构
 
 ```
-hono/src/crawler/
+src/crawler/
 ├── index.ts              # 爬虫主入口
 ├── config.ts             # 配置（环境变量）
 ├── pconline-client.ts    # PConline API 客户端

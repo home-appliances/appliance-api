@@ -552,7 +552,7 @@ admin.get('/categories', authMiddleware, async (c) => {
 
   const result = await pool.query(`
     SELECT c.*,
-      (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count,
+      (SELECT COUNT(*) FROM products WHERE category_id = c.id AND deleted_at IS NULL) as product_count,
       (SELECT COUNT(*) FROM category_params WHERE category_id = c.id) as param_count
     FROM categories c
     ORDER BY c.sort_order, c.name

@@ -555,7 +555,7 @@ export async function getProductsByCategoryId(
   limit: number;
 }> {
   const countResult = await pool.query(
-    'SELECT COUNT(*) FROM products WHERE category_id = $1',
+    'SELECT COUNT(*) FROM products WHERE category_id = $1 AND deleted_at IS NULL',
     [categoryId]
   );
   const total = parseInt(countResult.rows[0].count);
@@ -564,7 +564,7 @@ export async function getProductsByCategoryId(
     SELECT p.*, c.name as category_name
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
-    WHERE p.category_id = $1
+    WHERE p.category_id = $1 AND p.deleted_at IS NULL
     ORDER BY p.created_at DESC
     LIMIT $2 OFFSET $3
   `, [categoryId, limit, (page - 1) * limit]);
