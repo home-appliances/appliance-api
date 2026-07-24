@@ -6,6 +6,7 @@ import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import {normalizeParams,type ParamDefMeta} from '../src/utils/normalize-param-value.js';
 
 dotenv.config();
 
@@ -19,6 +20,16 @@ const DEFAULT_DATA_DIR = path.join(
 
 const CATEGORY_CODE = 'air_condition';
 const SOURCE_PLATFORM = 'zol';
+
+/**
+ * ZOL 字段 → 系统 param_key 映射。
+ * 未列出的字段若与系统 param_key 同名则直接保留；
+ * 映射后仍不在 category_params 白名单内的一律丢弃，不自动扩参。
+ */
+const PARAM_MAP: Record<string, string> = {
+  // 示例（当前 ZOL 与系统同名，暂无别名）:
+  // '净化功能': '空气净化',
+};
 
 // 品牌字典（用于从产品名中提取品牌）
 const BRAND_DICTIONARY = [
@@ -100,6 +111,7 @@ function resolveBrand(jsonBrand: string | undefined, name: string): string {
 // 参数解析
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
+const NORMALIZE_EXISTING = args.includes('--normalize-existing');
 const dirArgIdx = args.indexOf('--dir');
 const DATA_DIR = dirArgIdx >= 0 ? args[dirArgIdx + 1] : DEFAULT_DATA_DIR;
 
@@ -170,15 +182,167 @@ function cleanParams(params: Record<string, string>): Record<string, string> {
   return cleaned;
 }
 
+/**
+ * 按系统定义映射并过滤参数。
+ * - 先走 PARAM_MAP（外站名 → 系统名）
+ * - 再白名单过滤：只保留 category_params 中已定义的 key
+ * - 最后按 param_type / enum_values 做值归一化
+ */
+function mapFilterAndNormalizeParams(
+  raw: Record<string, string>,
+  allowedKeys: Set<string>,
+  paramDefs: Map<string, ParamDefMeta>,
+  discarded: Map<string, number>,
+  valueChangeCounts: Map<string, number>
+): Record<string, string> {
+  const cleaned = cleanParams(raw);
+  const mapped: Record<string, string> = {};
+
+  for (const [sourceKey, value] of Object.entries(cleaned)) {
+    const systemKey = PARAM_MAP[sourceKey] ?? sourceKey;
+    if (!allowedKeys.has(systemKey)) {
+      discarded.set(sourceKey, (discarded.get(sourceKey) || 0) + 1);
+      continue;
+    }
+    mapped[systemKey] = value;
+  }
+
+  const { params, changes } = normalizeParams(mapped, paramDefs);
+  for (const c of changes) {
+    const label = `${c.key}: ${c.from} → ${c.to}`;
+    valueChangeCounts.set(label, (valueChangeCounts.get(label) || 0) + 1);
+  }
+  return params;
+}
+
+async function loadParamDefs(categoryId: number | string): Promise<{
+  allowedKeys: Set<string>;
+  paramDefs: Map<string, ParamDefMeta>;
+}> {
+  const paramDefResult = await pool.query(
+    `SELECT param_key, param_type, enum_values
+     FROM category_params WHERE category_id = $1`,
+    [categoryId]
+  );
+  const allowedKeys = new Set<string>();
+  const paramDefs = new Map<string, ParamDefMeta>();
+  for (const row of paramDefResult.rows as Array<{
+    param_key: string;
+    param_type: string;
+    enum_values: string[] | null;
+  }>) {
+    allowedKeys.add(row.param_key);
+    paramDefs.set(row.param_key, {
+      paramType: row.param_type || 'text',
+      enumValues: row.enum_values,
+    });
+  }
+  return { allowedKeys, paramDefs };
+}
+
+/** 只归一化库内已有 ZOL 产品的 params */
+async function normalizeExistingProducts(
+  categoryId: number | string,
+  paramDefs: Map<string, ParamDefMeta>
+) {
+  console.log('🔄 回刷模式: 只归一化已入库 params，不重导图片\n');
+  const res = await pool.query(
+    `SELECT id, params FROM products
+     WHERE category_id = $1 AND source_platform = $2 AND deleted_at IS NULL`,
+    [categoryId, SOURCE_PLATFORM]
+  );
+
+  let updated = 0;
+  let unchanged = 0;
+  const sampleChanges: string[] = [];
+  const valueChangeCounts = new Map<string, number>();
+
+  for (const row of res.rows as Array<{ id: number; params: Record<string, string> }>) {
+    const rawParams = (row.params || {}) as Record<string, string>;
+    const filtered: Record<string, string> = {};
+    for (const [k, v] of Object.entries(rawParams)) {
+      if (paramDefs.has(k) && v != null && String(v).trim()) {
+        filtered[k] = String(v).trim();
+      }
+    }
+    const { params, changed, changes } = normalizeParams(filtered, paramDefs);
+    const keysDropped = Object.keys(rawParams).length !== Object.keys(filtered).length;
+    if (!changed && !keysDropped) {
+      unchanged++;
+      continue;
+    }
+    for (const c of changes) {
+      const label = `${c.key}: ${c.from} → ${c.to}`;
+      valueChangeCounts.set(label, (valueChangeCounts.get(label) || 0) + 1);
+      if (sampleChanges.length < 15) sampleChanges.push(`#${row.id} ${label}`);
+    }
+    if (!DRY_RUN) {
+      await pool.query(
+        `UPDATE products SET params = $1, updated_at = NOW() WHERE id = $2`,
+        [JSON.stringify(params), row.id]
+      );
+    }
+    updated++;
+  }
+
+  console.log(`📊 产品总数: ${res.rows.length}`);
+  console.log(`✅ 需要更新: ${updated}${DRY_RUN ? '（预览未写入）' : ''}`);
+  console.log(`⏭️  无需变更: ${unchanged}`);
+  if (sampleChanges.length) {
+    console.log('\n📝 变更样例:');
+    sampleChanges.forEach((s) => console.log(`   ${s}`));
+  }
+  if (valueChangeCounts.size) {
+    console.log('\n📈 高频值变换 (Top 20):');
+    [...valueChangeCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .forEach(([label, n]) => console.log(`   ${n}× ${label}`));
+  }
+}
+
 // 主流程
 async function main() {
   console.log('🚀 ZOL 空调数据导入工具');
   console.log('='.repeat(60));
-  console.log(`📁 数据目录: ${DATA_DIR}`);
   console.log(`🏷️  分类: ${CATEGORY_CODE}`);
   console.log(`📦 来源: ${SOURCE_PLATFORM}`);
+  if (NORMALIZE_EXISTING) {
+    console.log('🔄 模式: 回刷已入库 params（值归一化）');
+  } else {
+    console.log(`📁 数据目录: ${DATA_DIR}`);
+  }
   console.log(`${DRY_RUN ? '🔍 [预览模式] 只解析不写入' : '💾 [写入模式] 数据将写入数据库'}`);
   console.log('');
+
+  const catResult = await pool.query(
+    'SELECT id FROM categories WHERE code = $1',
+    [CATEGORY_CODE]
+  );
+  if (catResult.rows.length === 0) {
+    console.error(`❌ 数据库中找不到分类: ${CATEGORY_CODE}`);
+    process.exit(1);
+  }
+  const categoryId = catResult.rows[0].id;
+  console.log(`📂 分类 ID: ${categoryId} (${CATEGORY_CODE})\n`);
+
+  const { allowedKeys, paramDefs } = await loadParamDefs(categoryId);
+  if (allowedKeys.size === 0) {
+    console.error('❌ 该分类尚未配置 category_params，拒绝导入（避免无规范入库）');
+    process.exit(1);
+  }
+  console.log(`🧭 系统参数白名单: ${allowedKeys.size} 个`);
+  if (Object.keys(PARAM_MAP).length > 0) {
+    console.log(`🔗 显式映射: ${Object.keys(PARAM_MAP).length} 条`);
+  }
+  console.log('');
+
+  if (NORMALIZE_EXISTING) {
+    await normalizeExistingProducts(categoryId, paramDefs);
+    await pool.end();
+    console.log('\n✨ 回刷完成！');
+    return;
+  }
 
   if (!fs.existsSync(DATA_DIR)) {
     console.error(`❌ 数据目录不存在: ${DATA_DIR}`);
@@ -193,17 +357,6 @@ async function main() {
     process.exit(0);
   }
 
-  const catResult = await pool.query(
-    'SELECT id FROM categories WHERE code = $1',
-    [CATEGORY_CODE]
-  );
-  if (catResult.rows.length === 0) {
-    console.error(`❌ 数据库中找不到分类: ${CATEGORY_CODE}`);
-    process.exit(1);
-  }
-  const categoryId = catResult.rows[0].id;
-  console.log(`📂 分类 ID: ${categoryId} (${CATEGORY_CODE})\n`);
-
   console.log('📦 解析产品数据...');
   const products: Array<{
     name: string;
@@ -217,6 +370,8 @@ async function main() {
     filePath: string;
   }> = [];
   const parseErrors: string[] = [];
+  const discardedKeys = new Map<string, number>();
+  const valueChangeCounts = new Map<string, number>();
 
   for (const file of jsonFiles) {
     try {
@@ -238,7 +393,13 @@ async function main() {
         brand: resolveBrand(data.brand, data.name),
         model: extractModel(data),
         price: parsePrice(data.price),
-        params: cleanParams(data.parameters || {}),
+        params: mapFilterAndNormalizeParams(
+          data.parameters || {},
+          allowedKeys,
+          paramDefs,
+          discardedKeys,
+          valueChangeCounts
+        ),
         sourceUrl: data.catalog_url,
         mainImage: data.main_image || null,
         images: allImages,
@@ -252,6 +413,31 @@ async function main() {
   console.log(`✅ 解析完成: ${products.length} 成功, ${parseErrors.length} 失败`);
   if (parseErrors.length > 0 && parseErrors.length < 20) {
     parseErrors.forEach(e => console.log(`   ⚠️  ${e}`));
+  }
+
+  const keptKeyCounts = new Map<string, number>();
+  for (const p of products) {
+    for (const key of Object.keys(p.params)) {
+      keptKeyCounts.set(key, (keptKeyCounts.get(key) || 0) + 1);
+    }
+  }
+  console.log(`\n📌 将入库的系统参数: ${keptKeyCounts.size} 种`);
+  if (discardedKeys.size > 0) {
+    console.log(`🗑️  已丢弃（不在系统定义内）: ${discardedKeys.size} 种`);
+    [...discardedKeys.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([key, count]) => console.log(`   - ${key}: ${count} 次`));
+  } else {
+    console.log('🗑️  已丢弃: 无（外站字段均在白名单或已映射）');
+  }
+  if (valueChangeCounts.size > 0) {
+    console.log(`🔧 值归一化变换 (Top 20):`);
+    [...valueChangeCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .forEach(([label, count]) => console.log(`   ${count}× ${label}`));
+  } else {
+    console.log('🔧 值归一化: 无需变换');
   }
   console.log('');
 
@@ -354,17 +540,9 @@ async function main() {
 
   console.log(`✅ 图片关联完成: ${imgInserted} 写入, ${imgSkipped} 失败\n`);
 
-  console.log('🔍 更新搜索向量...');
-  try {
-    await pool.query(`
-      UPDATE products SET search_vector =
-        to_tsvector('jiebacfg', coalesce(name, '') || ' ' || coalesce(brand, '') || ' ' || coalesce(model, ''))
-      WHERE source_platform = $1 AND deleted_at IS NULL
-    `, [SOURCE_PLATFORM]);
-    console.log('✅ 搜索向量更新完成\n');
-  } catch (err) {
-    console.log(`⚠️  搜索向量更新跳过（可能未安装 pg_jieba）: ${(err as Error).message}\n`);
-  }
+  // search_vector 由 DB 触发器 products_search_vector_trigger 在 INSERT/UPDATE 时自动维护
+  // （name + brand + model + params），无需在此手写覆盖
+  console.log('🔍 搜索向量：由数据库触发器自动维护（含 params），跳过手写回写\n');
 
   const stats = await pool.query(`
     SELECT

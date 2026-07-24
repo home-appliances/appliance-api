@@ -434,16 +434,13 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
 
       // 模糊匹配参数值: 规范 key 可能与产品 params key 不完全一致
       // 例如规范是"匹数", 产品 params 是"空调匹数"
+      // 注意: 不能用 includes —— "电辅加热" 会误匹配到 "电辅加热功率"
       function matchParamValue(specKey, params) {
         // 1. 精确匹配
         if (params[specKey] !== undefined) return params[specKey]
-        // 2. 规范 key 是产品 key 的后缀 (如 规范"匹数" → 产品"空调匹数")
+        // 2. 仅后缀匹配: 规范 key 是产品 key 的后缀（匹数 → 空调匹数）
         for (const k in params) {
-          if (k.endsWith(specKey) || k.includes(specKey)) return params[k]
-        }
-        // 3. 产品 key 是规范 key 的后缀 (反向)
-        for (const k in params) {
-          if (specKey.endsWith(k) || specKey.includes(k)) return params[k]
+          if (k !== specKey && k.endsWith(specKey)) return params[k]
         }
         return ''
       }

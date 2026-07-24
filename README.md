@@ -162,27 +162,29 @@ Authorization header，没有则读 Cookie。
 
 基于 PostgreSQL `pg_jieba` 中文分词扩展实现全文搜索。
 
-**搜索字段：**
+**搜索字段（当前实现）：**
 
 - 产品名称 (`name`)
 - 品牌 (`brand`)
 - 型号 (`model`)
-- 产品参数 (`params` JSONB) - 如"变频"、"一级能效"、"1.5匹"等
+- 产品参数 (`params`) — 如「变频」「一级」「1.5匹」
+- 分类名、拼音等（见搜索 SQL / ILIKE 兜底）
+
+> `search_vector` 由触发器 `products_search_vector_trigger` 在写入时自动维护（
+`name + brand + model + params`）。导入脚本不再手写覆盖该字段。
 
 **搜索逻辑：**
 
 - 多关键词用空格分隔，使用 AND 逻辑（所有词都要命中）
-- 每个词可以在任意字段命中
+- 每个词可在名称/品牌/型号/参数等字段命中
 
 **示例：**
 
-| 搜索词     | 结果       | 说明   |
-|---------|----------|------|
-| `格力`    | 格力云佳     | 品牌匹配 |
-| `变频`    | 所有变频产品   | 参数匹配 |
-| `一级`    | 所有一级能效产品 | 参数匹配 |
-| `海尔 变频` | 海尔的变频产品  | 联合搜索 |
-| `美的 一级` | 美的一级能效产品 | 联合搜索 |
+| 搜索词     | 结果       | 说明           |
+|---------|----------|--------------|
+| `格力`    | 格力相关产品   | 品牌/名称匹配      |
+| `变频`    | 变频空调等    | 参数匹配（params） |
+| `美的 一级` | 美的一级能效产品 | 联合搜索         |
 
 ## 图片存储
 
@@ -211,12 +213,36 @@ Authorization header，没有则读 Cookie。
 
 ### 运维脚本
 
+#### ZOL 空调导入
+
+脚本：`scripts/import-zol-air-condition.ts`（值归一化：`src/utils/normalize-param-value.ts`）
+
+```bash
+# 从爬虫 JSON 导入（默认 ~/Desktop/crawler_test/data；含白名单 + 值归一化）
+npm run import:zol-ac
+
+# 预览导入，不写库
+npx tsx scripts/import-zol-air-condition.ts --dry-run
+
+# 指定数据目录
+npx tsx scripts/import-zol-air-condition.ts --dir /path/to/data
+
+# 只回刷库内 params（值归一化），不重导图片
+npx tsx scripts/import-zol-air-condition.ts --normalize-existing
+
+# 回刷前预览
+npx tsx scripts/import-zol-air-condition.ts --normalize-existing --dry-run
+```
+
+规则简述：`category_params` 白名单 → `PARAM_MAP` 翻译字段名 → 丢弃未定义字段 → 值归一化（如
+`1.5P→1.5匹`）。设计说明见知识库「家电 · 项目总览」。
+
 **scripts/**
 
 | 脚本                            | 说明                       | 命令                                      |
 |-------------------------------|--------------------------|-----------------------------------------|
 | `package.js`                  | 打包部署产物                   | `npm run package`                       |
-| `import-zol-air-condition.ts` | 导入 ZOL 空调爬虫数据            | `npm run import:zol-ac`                 |
+| `import-zol-air-condition.ts` | 导入 ZOL 空调 / 回刷 params    | 见上方「ZOL 空调导入」                           |
 | `import-main-images.ts`       | 批量下载产品主图入库               | `npx tsx scripts/import-main-images.ts` |
 | `migrate-main-image.ts`       | 补全 main_image / image_id | `npm run migrate:main-image`            |
 | `fix-unknown-brands.ts`       | 修复未知品牌                   | `npm run fix:unknown-brands`            |
