@@ -4,11 +4,11 @@
 
 ## 线上地址
 
-| 服务 | 地址 |
-|------|------|
-| API | https://appliance-api.cheapgo.top |
+| 服务   | 地址                                      |
+|------|-----------------------------------------|
+| API  | https://appliance-api.cheapgo.top       |
 | 管理后台 | https://appliance-api.cheapgo.top/admin |
-| 静态资源 | https://static.cheapgo.top (CDN) |
+| 静态资源 | https://static.cheapgo.top (CDN)        |
 
 ## 技术栈
 
@@ -68,37 +68,11 @@ appliance-api/
 ├── drizzle/                  # Drizzle migration 文件
 ├── s.yaml                    # Serverless Devs 配置
 ├── drizzle.config.ts         # Drizzle Kit 配置
-├── IMAGE_API_SUMMARY.md      # 图片存储与相关脚本说明
 ├── .github/workflows/
 │   ├── deploy.yml            # 代码部署
 │   └── renew-ssl.yml         # SSL 证书续签
 └── package.json
 ```
-
-## 数据库设计
-
-### 核心表
-
-| 表 | 说明 |
-|----|------|
-| `products` | 产品主表 (name/brand/model/category_id/price/params JSONB) |
-| `categories` | 分类表 (支持层级, 带 icon) |
-| `category_params` | 品类参数规范 (定义每个品类有哪些参数、类型、是否可筛选) |
-| `product_images` | 产品图片 (支持多类型: main/display/detail/scene, 可排序) |
-| `admins` | 管理员 |
-| `search_logs` | 搜索日志 |
-| `operation_logs` | 操作日志 |
-| `system_settings` | 系统设置 |
-| `crawler_tasks` | 爬虫任务 |
-
-### 数据库命令
-
-| 命令 | 说明 |
-|------|------|
-| `npm run db:push` | 推送 schema 到数据库 (开发用, 快速) |
-| `npm run db:generate` | 从 schema 生成 migration SQL 文件 |
-| `npm run db:migrate` | 执行 migration 文件 (生产用) |
-| `npm run db:seed` | 灌入初始数据 (16 个分类、admin 账号、21 条参数规范) |
 
 ## 本地开发
 
@@ -121,17 +95,17 @@ npm run dev
 
 ### 环境变量
 
-| 变量名 | 说明 | 必填 |
-|--------|------|------|
-| `DB_HOST` | 数据库地址 | ✅ |
-| `DB_PORT` | 数据库端口 (默认 5432) | |
-| `DB_NAME` | 数据库名 | ✅ |
-| `DB_USER` | 数据库用户 | ✅ |
-| `DB_PASSWORD` | 数据库密码 | ✅ |
-| `JWT_SECRET` | JWT 密钥 | ✅ |
-| `ALIYUN_ACCESS_KEY_ID` | 阿里云 AK (图片上传) | ✅ |
-| `ALIYUN_ACCESS_KEY_SECRET` | 阿里云 SK (图片上传) | ✅ |
-| `CDN_DOMAIN` | CDN 域名 (默认 https://static.cheapgo.top) | |
+| 变量名                        | 说明                                     | 必填 |
+|----------------------------|----------------------------------------|----|
+| `DB_HOST`                  | 数据库地址                                  | ✅  |
+| `DB_PORT`                  | 数据库端口 (默认 5432)                        |    |
+| `DB_NAME`                  | 数据库名                                   | ✅  |
+| `DB_USER`                  | 数据库用户                                  | ✅  |
+| `DB_PASSWORD`              | 数据库密码                                  | ✅  |
+| `JWT_SECRET`               | JWT 密钥                                 | ✅  |
+| `ALIYUN_ACCESS_KEY_ID`     | 阿里云 AK (图片上传)                          | ✅  |
+| `ALIYUN_ACCESS_KEY_SECRET` | 阿里云 SK (图片上传)                          | ✅  |
+| `CDN_DOMAIN`               | CDN 域名 (默认 https://static.cheapgo.top) |    |
 
 ## 管理后台
 
@@ -139,123 +113,133 @@ npm run dev
 
 ### 功能模块
 
-| 模块 | 说明 |
-|------|------|
-| 📊 仪表盘 | 数据概览、分类统计、热门搜索、最近产品 |
-| 📦 产品管理 | CRUD + 图片上传 (拖拽暂存, 提交时传 OSS) |
-| 📂 分类管理 | 16 个家电分类, 支持层级, 带 icon |
-| ⚙️ 参数规范 | 定义每个品类的参数 (enum/number/text, 可筛选/排序) |
-| 🖼️ 图片管理 | 查看/编辑/删除产品图片, 支持按类型筛选 |
-| 👥 用户管理 | 超级管理员专属 |
-| 📋 操作日志 | 记录登录、增删改操作 |
+| 模块       | 说明                                   |
+|----------|--------------------------------------|
+| 📊 仪表盘   | 数据概览、分类统计、热门搜索、最近产品                  |
+| 📦 产品管理  | CRUD + 图片上传 (拖拽暂存, 提交时传 OSS)         |
+| 📂 分类管理  | 16 个家电分类, 支持层级, 带 icon               |
+| ⚙️ 参数规范  | 定义每个品类的参数 (enum/number/text, 可筛选/排序) |
+| 🖼️ 图片管理 | 查看/编辑/删除产品图片, 支持按类型筛选                |
+| 👥 用户管理  | 超级管理员专属                              |
+| 📋 操作日志  | 记录登录、增删改操作                           |
 
 ### 管理后台 API
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/admin/login` | 登录 (返回 JWT + Cookie) |
-| GET | `/api/admin/products` | 产品列表 |
-| POST | `/api/admin/products` | 新增产品 |
-| PUT | `/api/admin/products/:id` | 编辑产品 |
-| DELETE | `/api/admin/products/:id` | 删除产品 (软删除) |
-| GET | `/api/admin/categories` | 分类列表 (树形) |
-| POST/PUT/DELETE | `/api/admin/categories/:id` | 分类 CRUD |
-| GET | `/api/admin/category-params?category_id=X` | 品类参数规范 |
-| POST/PUT/DELETE | `/api/admin/category-params/:id` | 参数规范 CRUD |
-| GET | `/api/admin/product-images?product_id=X` | 产品图片列表 |
-| POST/PUT/DELETE | `/api/admin/product-images/:id` | 图片 CRUD |
-| POST | `/api/admin/upload/image` | 上传图片到 OSS |
-| GET | `/api/admin/stats/overview` | 统计概览 |
-| GET | `/api/admin/logs` | 操作日志 |
+| 方法              | 路径                                         | 说明                   |
+|-----------------|--------------------------------------------|----------------------|
+| POST            | `/api/admin/login`                         | 登录 (返回 JWT + Cookie) |
+| GET             | `/api/admin/products`                      | 产品列表                 |
+| POST            | `/api/admin/products`                      | 新增产品                 |
+| PUT             | `/api/admin/products/:id`                  | 编辑产品                 |
+| DELETE          | `/api/admin/products/:id`                  | 删除产品 (软删除)           |
+| GET             | `/api/admin/categories`                    | 分类列表 (树形)            |
+| POST/PUT/DELETE | `/api/admin/categories/:id`                | 分类 CRUD              |
+| GET             | `/api/admin/category-params?category_id=X` | 品类参数规范               |
+| POST/PUT/DELETE | `/api/admin/category-params/:id`           | 参数规范 CRUD            |
+| GET             | `/api/admin/product-images?product_id=X`   | 产品图片列表               |
+| POST/PUT/DELETE | `/api/admin/product-images/:id`            | 图片 CRUD              |
+| POST            | `/api/admin/upload/image`                  | 上传图片到 OSS            |
+| GET             | `/api/admin/stats/overview`                | 统计概览                 |
+| GET             | `/api/admin/logs`                          | 操作日志                 |
 
 ### 认证机制
 
-后台 SSR 页面用 Cookie (`admin_token`, path `/`)，API 接口支持 Bearer Token 和 Cookie 两种方式，认证中间件优先读 Authorization header，没有则读 Cookie。
+后台 SSR 页面用 Cookie (`admin_token`, path `/`)，API 接口支持 Bearer Token 和 Cookie 两种方式，认证中间件优先读
+Authorization header，没有则读 Cookie。
 
 ## 公开 API
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/search?keyword=关键词` | 搜索产品 (支持多字段、多关键词) |
-| GET | `/api/detail?id=xxx` | 产品详情 |
-| GET | `/api/suggest?keyword=关键词` | 搜索建议 |
-| GET | `/api/recommend` | 推荐产品 |
-| GET | `/api/categories` | 分类列表 |
-| GET | `/api/brands` | 品牌列表 |
+| 方法  | 路径                         | 说明                |
+|-----|----------------------------|-------------------|
+| GET | `/api/search?keyword=关键词`  | 搜索产品 (支持多字段、多关键词) |
+| GET | `/api/detail?id=xxx`       | 产品详情              |
+| GET | `/api/suggest?keyword=关键词` | 搜索建议              |
+| GET | `/api/recommend`           | 推荐产品              |
+| GET | `/api/categories`          | 分类列表              |
+| GET | `/api/brands`              | 品牌列表              |
 
 ### 搜索功能
 
 基于 PostgreSQL `pg_jieba` 中文分词扩展实现全文搜索。
 
 **搜索字段：**
+
 - 产品名称 (`name`)
 - 品牌 (`brand`)
 - 型号 (`model`)
 - 产品参数 (`params` JSONB) - 如"变频"、"一级能效"、"1.5匹"等
 
 **搜索逻辑：**
+
 - 多关键词用空格分隔，使用 AND 逻辑（所有词都要命中）
 - 每个词可以在任意字段命中
 
 **示例：**
 
-| 搜索词 | 结果 | 说明 |
-|--------|------|------|
-| `格力` | 格力云佳 | 品牌匹配 |
-| `变频` | 所有变频产品 | 参数匹配 |
-| `一级` | 所有一级能效产品 | 参数匹配 |
-| `海尔 变频` | 海尔的变频产品 | 联合搜索 |
+| 搜索词     | 结果       | 说明   |
+|---------|----------|------|
+| `格力`    | 格力云佳     | 品牌匹配 |
+| `变频`    | 所有变频产品   | 参数匹配 |
+| `一级`    | 所有一级能效产品 | 参数匹配 |
+| `海尔 变频` | 海尔的变频产品  | 联合搜索 |
 | `美的 一级` | 美的一级能效产品 | 联合搜索 |
 
-## 数据库设计
+## 图片存储
 
-### 核心表
+产品图片以两种方式并存：
 
-| 表 | 说明 |
-|----|------|
-| `products` | 产品主表 (name/brand/model/category_id/price/params JSONB + search_vector 全文索引) |
-| `categories` | 分类表 (支持层级, 带 icon) |
-| `category_params` | 品类参数规范 (定义每个品类有哪些参数、类型、是否可筛选) |
-| `product_images` | 产品图片 (支持多类型: main/display/detail/scene, 可排序) |
-| `admins` | 管理员 |
-| `search_logs` | 搜索日志 |
-| `operation_logs` | 操作日志 |
-| `system_settings` | 系统设置 |
-| `crawler_tasks` | 爬虫任务 |
+1. **库内二进制**（`images` 表）→ 通过 `/api/image/:id` 读取
+2. **OSS + CDN**（管理后台上传）→ `https://static.cheapgo.top/...`
 
-### 数据库命令
+### 图片 API
 
-| 命令 | 说明 |
-|------|------|
-| `npm run db:push` | 推送 schema 到数据库 (开发用, 快速) |
-| `npm run db:generate` | 从 schema 生成 migration SQL 文件 |
-| `npm run db:migrate` | 执行 migration 文件 (生产用) |
-| `npm run db:seed` | 灌入初始数据 (16 个分类、admin 账号、21 条参数规范) |
-| `npm run migrate:search-vector` | 初始化全文搜索 (pg_jieba 分词 + search_vector + GIN 索引) |
+| 方法     | 路径                              | 说明                  |
+|--------|---------------------------------|---------------------|
+| GET    | `/api/image/:id`                | 按 `images.id` 返回二进制 |
+| GET    | `/api/image/product/:productId` | 产品关联图片列表            |
+| POST   | `/api/image/download`           | 从 URL 下载并入库         |
+| POST   | `/api/image/upload`             | 上传本地文件入库            |
+| DELETE | `/api/image/:id`                | 删除图片                |
 
-## 图片上传
+### 管理后台上传 (OSS)
 
-图片上传到阿里云 OSS (`cheapgo-assets` bucket)，通过 CDN (`static.cheapgo.top`) 分发。
+1. 后台选择/拖拽图片 → Base64 暂存（绕过 FC multipart 问题）
+2. 提交产品时上传 OSS（`cheapgo-assets`）
+3. CDN：`static.cheapgo.top`
 
-### 上传流程
+校验：扩展名与 MIME 白名单（jpg/jpeg/png/gif/webp）、≤ 5MB。
 
-1. 前端拖拽/选择图片 → 转 Base64 暂存 (绕过 FC multipart 二进制损坏问题)
-2. 提交产品表单时，图片 Base64 随产品数据一起提交
-3. 后端 Base64 解码 → 校验 (大小/格式/MIME) → 上传 OSS → 建 product_images 关联记录
+### 运维脚本
 
-### 图片格式校验 (前后端一致)
+**scripts/**
 
-- 扩展名白名单: `.jpg` `.jpeg` `.png` `.gif` `.webp`
-- MIME 白名单: `image/jpeg` `image/png` `image/gif` `image/webp`
-- 扩展名与 MIME 必须匹配 (防止改扩展名绕过)
-- 大小 ≤ 5MB，非空
+| 脚本                            | 说明                       | 命令                                      |
+|-------------------------------|--------------------------|-----------------------------------------|
+| `package.js`                  | 打包部署产物                   | `npm run package`                       |
+| `import-zol-air-condition.ts` | 导入 ZOL 空调爬虫数据            | `npm run import:zol-ac`                 |
+| `import-main-images.ts`       | 批量下载产品主图入库               | `npx tsx scripts/import-main-images.ts` |
+| `migrate-main-image.ts`       | 补全 main_image / image_id | `npm run migrate:main-image`            |
+| `fix-unknown-brands.ts`       | 修复未知品牌                   | `npm run fix:unknown-brands`            |
 
-### OSS Bucket 配置
+**src/db/**
 
-- Bucket: `cheapgo-assets` (cn-shenzhen)
-- ACL: public-read
-- 自定义域名: `static.cheapgo.top` (CDN 加速)
-- CORS: 允许 `admin.cheapgo.top` (后台上传)
+| 脚本                         | 说明                 | 命令                                        |
+|----------------------------|--------------------|-------------------------------------------|
+| `seed.ts`                  | 分类/管理员/参数规范种子数据    | `npm run db:seed`                         |
+| `migrate-search-vector.ts` | search_vector 全文索引 | `npm run migrate:search-vector`           |
+| `import-images.ts`         | URL 图片入库（旧版）       | `npx tsx src/db/import-images.ts`         |
+| `check-data.ts`            | 数据概况检查             | `npm run check`                           |
+| `update-admin-password.ts` | 更新管理员密码            | `npx tsx src/db/update-admin-password.ts` |
+
+## 数据库命令
+
+| 命令                              | 说明                          |
+|---------------------------------|-----------------------------|
+| `npm run db:push`               | 推送 schema 到数据库 (开发用)        |
+| `npm run db:generate`           | 生成 migration SQL 文件         |
+| `npm run db:migrate`            | 执行 migration 文件 (生产用)       |
+| `npm run db:seed`               | 灌入初始数据                      |
+| `npm run migrate:search-vector` | 初始化全文搜索 (pg_jieba + GIN 索引) |
 
 ## 部署
 
@@ -282,17 +266,17 @@ git push origin main
 
 ## 基础设施
 
-| 资源 | 说明 |
-|------|------|
-| RDS 实例 | `pgm-wz926p594292r913` (cn-shenzhen, Serverless) |
-| OSS Bucket | `cheapgo-assets` (cn-shenzhen, public-read) |
-| CDN 域名 | `static.cheapgo.top` (源站 OSS) |
-| FC 函数 | `appliance-api` (cn-shenzhen, Node.js 20) |
-| 域名 | `cheapgo.top` (阿里云云解析 DNS) |
-| SSL 证书 | `*.cheapgo.top` (Let's Encrypt 通配符) |
+| 资源         | 说明                                               |
+|------------|--------------------------------------------------|
+| RDS 实例     | `pgm-wz926p594292r913` (cn-shenzhen, Serverless) |
+| OSS Bucket | `cheapgo-assets` (cn-shenzhen, public-read)      |
+| CDN 域名     | `static.cheapgo.top` (源站 OSS)                    |
+| FC 函数      | `appliance-api` (cn-shenzhen, Node.js 20)        |
+| 域名         | `cheapgo.top` (阿里云云解析 DNS)                       |
+| SSL 证书     | `*.cheapgo.top` (Let's Encrypt 通配符)              |
 
 ## 相关仓库
 
-| 仓库 | 说明 |
-|------|------|
+| 仓库                                                                                | 说明           |
+|-----------------------------------------------------------------------------------|--------------|
 | [home-appliances/appliance-web](https://github.com/home-appliances/appliance-web) | 前端 (Taro H5) |
