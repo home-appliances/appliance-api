@@ -44,7 +44,6 @@
     "winston": "^3.13.0"
   },
   "devDependencies": {
-    "@alicloud/fc2": "^2.6.6",
     "@types/ali-oss": "^6.23.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.6",
