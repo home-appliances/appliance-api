@@ -1,12 +1,5 @@
 /**
  * 导入 ZOL 空调爬虫数据到本地数据库
- *
- * 数据源: ~/Desktop/crawler_test/data/ 目录下的 JSON 文件（按品牌分目录）
- * 目标表: products + product_images
- *
- * 运行: npx tsx scripts/import-zol-air-condition.ts
- *   可选参数: --dry-run  只解析不写入
- *             --dir <path>  自定义数据目录
  */
 
 import pg from 'pg';
@@ -16,10 +9,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// ════════════════════════════════════════════════════════════
 // 配置
-// ════════════════════════════════════════════════════════════
-
 const DEFAULT_DATA_DIR = path.join(
   process.env.HOME || '/Users/liuhui',
   'Desktop',
@@ -30,12 +20,7 @@ const DEFAULT_DATA_DIR = path.join(
 const CATEGORY_CODE = 'air_condition';
 const SOURCE_PLATFORM = 'zol';
 
-// ════════════════════════════════════════════════════════════
 // 品牌字典（用于从产品名中提取品牌）
-// ════════════════════════════════════════════════════════════
-
-// 已知品牌（中文优先）。长的放前面，避免短名误匹配。
-// 例如 "三菱电机" 必须在 "三菱" 之前匹配。
 const BRAND_DICTIONARY = [
   // 4字品牌
   '三菱电机', '三菱重工', '富士通将军',
@@ -47,17 +32,17 @@ const BRAND_DICTIONARY = [
   '夏普', '东芝', '云米', '夏新', '酷开', '现代', '深松', '申花', '帝智',
   '乐京', '东宝', '新飞', '先科', '米家', '小米', '飞利浦', '惠而浦',
   '伊莱克斯',
-  // 英文品牌（保留原名）
+  // 英文品牌
   'COLMO', 'Midea', 'Leader', 'JHS', 'TCL', 'LG',
 ];
 
-// 英文品牌 → 中文映射（更友好的展示）
+// 英文品牌 → 中文映射
 const ENG_TO_CHN: Record<string, string> = {
   Midea: '美的',
   Leader: '统帅',
 };
 
-// 品牌归一化映射（合并重复品牌）
+// 品牌归一化映射
 const BRAND_NORMALIZE: Record<string, string> = {
   '大金空调': '大金',
   '富士通将军': '富士通',
@@ -71,7 +56,6 @@ const BRAND_NORMALIZE: Record<string, string> = {
 function extractBrandFromName(name: string): string | null {
   if (!name) return null;
 
-  // 1. 优先匹配中文括号内的品牌："Midea（美的）智弧..." → "美的"
   const parenMatch = name.match(/[（(]\s*([^（）()]{2,8})\s*[）)]/);
   if (parenMatch) {
     const inner = parenMatch[1].trim();
@@ -80,7 +64,6 @@ function extractBrandFromName(name: string): string | null {
     }
   }
 
-  // 2. 从 name 开头匹配品牌字典（长名优先）
   const sortedBrands = [...BRAND_DICTIONARY].sort((a, b) => b.length - a.length);
   for (const brand of sortedBrands) {
     if (name.startsWith(brand)) {
@@ -88,7 +71,6 @@ function extractBrandFromName(name: string): string | null {
     }
   }
 
-  // 3. 英文品牌名开头："Leader KFR-72GW/..." → "统帅"
   const engMatch = name.match(/^([A-Za-z]{2,})[\s\/]/);
   if (engMatch) {
     const eng = engMatch[1];
@@ -115,19 +97,13 @@ function resolveBrand(jsonBrand: string | undefined, name: string): string {
   return extracted || '未知品牌';
 }
 
-// ════════════════════════════════════════════════════════════
 // 参数解析
-// ════════════════════════════════════════════════════════════
-
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
 const dirArgIdx = args.indexOf('--dir');
 const DATA_DIR = dirArgIdx >= 0 ? args[dirArgIdx + 1] : DEFAULT_DATA_DIR;
 
-// ════════════════════════════════════════════════════════════
 // 数据库连接
-// ════════════════════════════════════════════════════════════
-
 const pool = new pg.Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
@@ -136,10 +112,7 @@ const pool = new pg.Pool({
   password: process.env.DB_PASSWORD || 'postgres123',
 });
 
-// ════════════════════════════════════════════════════════════
 // ZOL JSON 数据结构
-// ════════════════════════════════════════════════════════════
-
 interface ZolProduct {
   id: string;
   catalog_url: string;
@@ -153,10 +126,7 @@ interface ZolProduct {
   crawled_at: string;
 }
 
-// ════════════════════════════════════════════════════════════
 // 工具函数
-// ════════════════════════════════════════════════════════════
-
 /** 递归读取目录下所有 JSON 文件 */
 function getAllJsonFiles(dir: string): string[] {
   const files: string[] = [];
@@ -174,9 +144,7 @@ function getAllJsonFiles(dir: string): string[] {
 
 /** 从产品名或参数中提取型号 */
 function extractModel(data: ZolProduct): string | null {
-  // 优先用 parameters 中的产品型号
   if (data.parameters['产品型号']) return data.parameters['产品型号'];
-  // 从名称中提取（常见格式：品牌+型号，如"格力KFR-26GW/..."）
   const nameMatch = data.name.match(/([A-Z]{2,}[\w\-/()]+)/);
   if (nameMatch) return nameMatch[1];
   return null;
@@ -187,7 +155,6 @@ function parsePrice(raw: string): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (['无', '即将上市', '停产', '报价取消', '暂无报价'].includes(trimmed)) return null;
-  // 提取第一个数字（含小数）
   const match = trimmed.match(/(\d+(?:\.\d+)?)/);
   return match ? match[1] : null;
 }
@@ -203,10 +170,7 @@ function cleanParams(params: Record<string, string>): Record<string, string> {
   return cleaned;
 }
 
-// ════════════════════════════════════════════════════════════
 // 主流程
-// ════════════════════════════════════════════════════════════
-
 async function main() {
   console.log('🚀 ZOL 空调数据导入工具');
   console.log('='.repeat(60));
@@ -216,7 +180,6 @@ async function main() {
   console.log(`${DRY_RUN ? '🔍 [预览模式] 只解析不写入' : '💾 [写入模式] 数据将写入数据库'}`);
   console.log('');
 
-  // 1. 读取所有 JSON 文件
   if (!fs.existsSync(DATA_DIR)) {
     console.error(`❌ 数据目录不存在: ${DATA_DIR}`);
     process.exit(1);
@@ -230,7 +193,6 @@ async function main() {
     process.exit(0);
   }
 
-  // 2. 获取分类 ID
   const catResult = await pool.query(
     'SELECT id FROM categories WHERE code = $1',
     [CATEGORY_CODE]
@@ -242,7 +204,6 @@ async function main() {
   const categoryId = catResult.rows[0].id;
   console.log(`📂 分类 ID: ${categoryId} (${CATEGORY_CODE})\n`);
 
-  // 3. 解析所有产品数据
   console.log('📦 解析产品数据...');
   const products: Array<{
     name: string;
@@ -262,7 +223,6 @@ async function main() {
       const content = fs.readFileSync(file, 'utf-8');
       const data: ZolProduct = JSON.parse(content);
 
-      // 跳过无效数据
       if (!data.name) {
         parseErrors.push(`${file}: 无产品名`);
         continue;
@@ -295,7 +255,6 @@ async function main() {
   }
   console.log('');
 
-  // 品牌分布统计
   const brandDist: Record<string, number> = {};
   for (const p of products) {
     brandDist[p.brand] = (brandDist[p.brand] || 0) + 1;
@@ -306,19 +265,17 @@ async function main() {
     .forEach(([brand, count]) => console.log(`   ${brand}: ${count} 个`));
   console.log('');
 
-  // 预览模式：到此结束
   if (DRY_RUN) {
     console.log('🔍 [预览模式] 未写入数据库');
     await pool.end();
     return;
   }
 
-  // 4. 写入产品数据
   console.log('💾 写入产品数据...');
   let inserted = 0;
   let skipped = 0;
   let failed = 0;
-  const productIdMap = new Map<string, number>(); // sourceUrl -> dbId
+  const productIdMap = new Map<string, number>();
 
   for (let i = 0; i < products.length; i++) {
     const p = products[i];
@@ -362,7 +319,6 @@ async function main() {
       }
     }
 
-    // 进度
     if ((i + 1) % 50 === 0 || i + 1 === products.length) {
       console.log(`   ⌛ 进度: ${i + 1}/${products.length} (插入 ${inserted}, 跳过 ${skipped}, 失败 ${failed})`);
     }
@@ -370,7 +326,6 @@ async function main() {
 
   console.log(`✅ 产品写入完成: 新增 ${inserted}, 更新 ${skipped}, 失败 ${failed}\n`);
 
-  // 5. 写入图片关联
   console.log('🖼️  写入图片关联...');
   let imgInserted = 0;
   let imgSkipped = 0;
@@ -399,7 +354,6 @@ async function main() {
 
   console.log(`✅ 图片关联完成: ${imgInserted} 写入, ${imgSkipped} 失败\n`);
 
-  // 6. 更新搜索向量（如果有 search_vector 列）
   console.log('🔍 更新搜索向量...');
   try {
     await pool.query(`
@@ -412,7 +366,6 @@ async function main() {
     console.log(`⚠️  搜索向量更新跳过（可能未安装 pg_jieba）: ${(err as Error).message}\n`);
   }
 
-  // 7. 最终统计
   const stats = await pool.query(`
     SELECT
       COUNT(*) as total,
@@ -437,7 +390,6 @@ async function main() {
   console.log(`   图片数量: ${imgStats.rows[0].total}`);
   console.log('='.repeat(60));
 
-  // 品牌统计
   const brandStats = await pool.query(`
     SELECT brand, COUNT(*) as count
     FROM products

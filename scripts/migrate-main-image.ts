@@ -1,16 +1,5 @@
 /**
  * 迁移脚本：为现有产品补全 main_image 字段
- *
- * 策略（优先级从高到低）：
- *   1. products.main_image 已有值 → 跳过
- *   2. products.image_id 有值且 images 表有对应记录 → 设置 main_image = /api/image/:imageId
- *   3. product_images 表有主图 URL → 下载原图存入 images 表，设置 image_id + main_image
- *   4. product_images 表有任意图片 URL → 同上
- *
- * 用法：
- *   npx tsx scripts/migrate-main-image.ts           # 全量迁移
- *   npx tsx scripts/migrate-main-image.ts --dry      # 试运行（不写库）
- *   npx tsx scripts/migrate-main-image.ts --limit 50 # 只处理前 50 个
  */
 
 import pg from 'pg';
@@ -35,7 +24,6 @@ const LIMIT = (() => {
   return idx >= 0 ? parseInt(process.argv[idx + 1]) : 0;
 })();
 
-// ─── 确保 images 表存在 ──────────────────────
 async function ensureTable() {
   const tableCheck = await pool.query(`
     SELECT table_name FROM information_schema.tables
@@ -59,7 +47,6 @@ async function ensureTable() {
   }
 }
 
-// ─── 确保 main_image 列存在 ───────────────────────────
 async function ensureColumn() {
   const colCheck = await pool.query(`
     SELECT column_name FROM information_schema.columns
@@ -82,7 +69,6 @@ async function ensureColumn() {
   }
 }
 
-// ─── 下载图片 ─────────────────────────────────────────
 async function downloadImage(url: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
   if (!url || url.startsWith('data:')) return null;
 
@@ -120,7 +106,6 @@ async function downloadImage(url: string): Promise<{ buffer: Buffer; mimeType: s
   }
 }
 
-// ─── 主流程 ───────────────────────────────────────────
 async function main() {
   console.log(`🚀 main_image 迁移脚本启动 ${DRY_RUN ? '(试运行)' : ''}`);
   if (LIMIT > 0) console.log(`📊 限制处理前 ${LIMIT} 条`);
@@ -128,7 +113,6 @@ async function main() {
   await ensureTable();
   await ensureColumn();
 
-  // 1. 找出 main_image 为空的产品
   let query = `
     SELECT p.id, p.name, p.image_id
     FROM products p
@@ -151,7 +135,6 @@ async function main() {
   let failCount = 0;
 
   for (const product of products) {
-    // 2a. 如果 image_id 已有值且 images 表有记录 → 直接设置
     if (product.image_id) {
       const imgCheck = await pool.query(
         'SELECT id FROM images WHERE id = $1',
@@ -171,7 +154,6 @@ async function main() {
       }
     }
 
-    // 2b. 从 product_images 表找主图 URL
     const piResult = await pool.query(
       `SELECT image_url FROM product_images
        WHERE product_id = $1 AND image_url IS NOT NULL AND image_url != ''
@@ -191,7 +173,6 @@ async function main() {
       continue;
     }
 
-    // 3. 下载图片并存储到 images 表
     console.log(`📥 [${product.id}] ${product.name}: 下载 ${imageUrl.substring(0, 80)}...`);
     const imageData = await downloadImage(imageUrl);
 
@@ -208,7 +189,6 @@ async function main() {
     }
 
     if (!DRY_RUN) {
-      // 存入 images 表
       const imgResult = await pool.query(
         `INSERT INTO images (image_data, mime_type, file_size, source_url, created_at)
          VALUES ($1, $2, $3, $4, NOW())
@@ -218,7 +198,6 @@ async function main() {
       );
       const imageId = imgResult.rows[0].id;
 
-      // 设置 products.main_image 和 image_id
       await pool.query(
         'UPDATE products SET main_image = $1, image_id = $2 WHERE id = $3',
         [`/api/image/${imageId}`, imageId, product.id]
@@ -228,7 +207,6 @@ async function main() {
     console.log(`   ✅ 已下载 ${(imageData.buffer.length / 1024).toFixed(1)} KB 并入库`);
     downloadCount++;
 
-    // 延迟，避免请求过快
     await new Promise(r => setTimeout(r, 300));
   }
 
@@ -240,7 +218,6 @@ async function main() {
   console.log(`  - 下载失败(使用原始URL): ${failCount}`);
   console.log(`  - 总计: ${products.length}`);
 
-  // 最终统计
   const totalResult = await pool.query('SELECT COUNT(*) FROM products WHERE deleted_at IS NULL');
   const withImageResult = await pool.query(
     'SELECT COUNT(*) FROM products WHERE deleted_at IS NULL AND main_image IS NOT NULL AND main_image != \'\''
