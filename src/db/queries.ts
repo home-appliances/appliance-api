@@ -539,14 +539,14 @@ export async function getDashboardStats() {
     .from(categories);
 
   const [searchCount] = await db
-    .select({ count: count() })
+    .select({ count: sql<number>`COALESCE(SUM(${searchLogs.searchCount}), 0)` })
     .from(searchLogs);
 
   return {
     totalProducts: productCount.count,
     totalBrands: brandCount.count,
     totalCategories: categoryCount.count,
-    totalSearches: searchCount.count,
+    totalSearches: Number(searchCount.count),
   };
 }
 
