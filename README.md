@@ -64,7 +64,7 @@ appliance-api/
 │   │   └── auth.ts           # JWT 认证中间件
 │   ├── fc-handler.ts         # FC 3.0 入口
 │   └── index.ts              # 本地开发入口
-├── scripts/                  # 打包与数据导入脚本（见 scripts/README.md）
+├── scripts/                  # 打包与数据导入脚本
 ├── drizzle/                  # Drizzle migration 文件
 ├── s.yaml                    # Serverless Devs 配置
 ├── drizzle.config.ts         # Drizzle Kit 配置
@@ -254,9 +254,9 @@ git push origin main
 
 ### 部署流程 (deploy.yml)
 
-1. `npm ci` + `npm run build` (TypeScript 编译)
-2. 打包 `code.zip` (dist + src + SQL + node_modules)
-3. `s deploy` (Serverless Devs 部署到 FC)
+1. `npm ci` + `npm run build`（TypeScript 编译到 `dist/`）
+2. `npm run package`（`dist/` + 生产依赖 → `code.zip`，与本地一致）
+3. `s deploy`（Serverless Devs 部署到 FC）
 
 ### SSL 证书
 
