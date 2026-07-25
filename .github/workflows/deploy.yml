@@ -43,29 +43,30 @@ jobs:
           CDN_DOMAIN: ${{ secrets.CDN_DOMAIN }}
         run: s deploy -y --use-local
 
-      - name: Run database migration
-        run: |
-          # 等 FC 部署生效
-          sleep 10
-          # 调迁移接口（走 FC 公网 -> VPC 内网连 DB）
-          RESPONSE=$(curl -s -X POST "https://appliance-api.cheapgo.top/api/admin/db/migrate" \
-            -H "X-Migrate-Secret: ${{ secrets.MIGRATE_SECRET }}" \
-            -H "Content-Type: application/json")
-          echo "迁移响应: $RESPONSE"
-          # 检查是否成功（code=0）
-          CODE=$(echo "$RESPONSE" | jq -r '.code // 1')
-          if [ "$CODE" != "0" ]; then
-            echo "❌ 数据库迁移失败，部署标记为失败"
-            exit 1
-          fi
-          echo "✅ 数据库迁移完成"
-
       - name: Install Aliyun CLI
         run: |
           curl -fsSL https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz | tar xz
           sudo mv aliyun /usr/local/bin/
 
       - name: Configure VPC for FC
+        # Serverless-Devs 部署会清掉 VPC 配置，必须每次部署后重新配
+        # 迁移接口依赖 FC 通过 VPC 连 DB，所以这步必须在迁移之前
         run: |
           aliyun configure set --mode AK --region cn-shenzhen --access-key-id ${{ secrets.ALIYUN_ACCESS_KEY_ID }} --access-key-secret ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
           aliyun fc UpdateFunction --functionName api --body '{"functionName":"api","vpcConfig":{"vpcId":"vpc-wz9panhs3lr4y30c8cd75","vswitchIds":["vsw-wz9x49y8clwt46f3086x7"],"securityGroupId":"sg-wz95y2xh9e7ajlongxaj"}}' --region cn-shenzhen
+
+      - name: Run database migration
+        # 调迁移接口（FC 走 VPC 内网连 DB 执行 migration）
+        run: |
+          # 等 VPC 配置生效
+          sleep 10
+          RESPONSE=$(curl -s -X POST "https://appliance-api.cheapgo.top/api/admin/db/migrate" \
+            -H "X-Migrate-Secret: ${{ secrets.MIGRATE_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "迁移响应: $RESPONSE"
+          CODE=$(echo "$RESPONSE" | jq -r '.code // 1')
+          if [ "$CODE" != "0" ]; then
+            echo "❌ 数据库迁移失败，部署标记为失败"
+            exit 1
+          fi
+          echo "✅ 数据库迁移完成"
