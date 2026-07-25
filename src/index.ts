@@ -1,18 +1,18 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { serveStatic } from '@hono/node-server/serve-static'
 import fs from 'fs'
 import path from 'path'
 import search from './routes/search.js'
 import detail from './routes/detail.js'
 import suggest from './routes/suggest.js'
-import recommend from './routes/recommend.js'
+import hot from './routes/hot.js'
 import adminApi from './routes/admin/index.js'
 import adminSSR from './admin/routes.js'
 import airConditioners from './routes/air-conditioners.js'
 import imageProxy from './routes/image-proxy.js'
 import category from './routes/category.js'
 import image from './routes/image.js'
+import localImages from './routes/local-images.js'
 
 const app = new Hono()
 
@@ -27,13 +27,14 @@ app.use('*', cors({
 app.route('/', search)
 app.route('/', detail)
 app.route('/', suggest)
-app.route('/', recommend)
-app.route('/api/admin', adminApi)  // 管理后台 API
+app.route('/', hot)
+app.route('/', adminApi)  // 管理后台 API（路由有 /api/admin 前缀了）
 app.route('/admin', adminSSR)      // 管理后台 SSR 页面
 app.route('/api/air-conditioners', airConditioners)
 app.route('/', imageProxy)
 app.route('/', category)
 app.route('/', image)
+app.route('/', localImages)
 
 // 管理后台 CSS 静态文件（SSR 页面需要）
 app.get('/admin/css/*', async (c) => {

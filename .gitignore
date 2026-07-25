@@ -1,48 +1,48 @@
-# Dependencies
+# 依赖项
 node_modules/
 
-# Build output
+# 构建输出
 dist/
 
-# Environment variables
+# 环境变量
 .env
 .env.local
 .env.*.local
 
-# Logs
+# 日志
 logs/
 *.log
 
-# Crawler state
-crawler-state/
-
-# Local data
+# 本地数据
 data/
 src/data/
+scripts/output/
 
 # TypeScript
 *.tsbuildinfo
 
-# IDE
+# 集成开发环境
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
+# 操作系统
 .DS_Store
 Thumbs.db
 
 # oh-my-claudecode
 .omc/
 
-# Database backups
+# 数据库备份
 *.dump
 *.sql
 
-# Serverless Devs
+# Serverless Devs / FC 打包产物
 .s/
+deploy/
 code.zip
+code-powershell.zip
 fc-deploy/
 fc-test/
 fc-deploy.zip

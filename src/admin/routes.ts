@@ -20,8 +20,39 @@ import { usersPage, userFormPage } from './pages/users.js'
 import { productsPage, productFormPage } from './pages/products.js'
 import { categoriesPage, categoryFormPage } from './pages/categories.js'
 import { categoryParamsPage, categoryParamFormPage } from './pages/category-params.js'
-import { productImagesPage, productImageFormPage } from './pages/product-images.js'
+import { productImagesPage } from './pages/product-images.js'
 import { logsPage } from './pages/logs.js'
+import { validateAdminParams, type AdminParamDef } from '../utils/validate-param-input.js'
+
+/** 按分类参数规范校验后台提交的 p_* 值 */
+async function validateProductParamsInput(
+  categoryId: number,
+  params: Record<string, string>
+) {
+  const { getCategoryParams } = await import('../db/queries.js')
+  const rows = await getCategoryParams(categoryId)
+  const defs: AdminParamDef[] = rows.map((r) => {
+    let enumValues: string[] | null = null
+    const raw = r.enumValues as unknown
+    if (Array.isArray(raw)) {
+      enumValues = raw.map(String)
+    } else if (typeof raw === 'string' && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) enumValues = parsed.map(String)
+      } catch {
+        enumValues = null
+      }
+    }
+    return {
+      paramKey: r.paramKey,
+      paramType: r.paramType || 'text',
+      enumValues,
+      displayName: r.displayName || r.paramKey,
+    }
+  })
+  return validateAdminParams(defs, params)
+}
 
 // ==================== 登录 ====================
 
@@ -95,23 +126,31 @@ admin.get('/', authMiddleware, async (c) => {
   const role = adminUser?.role || 'admin'
 
   try {
-    const { getDashboardStats, getCategories } = await import('../db/queries.js')
+    const { getDashboardStats } = await import('../db/queries.js')
+    const { pool } = await import('../db/index.js')
 
     // 获取基础统计
     const stats = await getDashboardStats()
 
     // 获取分类统计（每个分类的产品数）
-    const categories = await getCategories()
-    const categoryStats = categories.map(cat => ({
-      id: cat.id,
-      code: cat.code,
-      name: cat.displayName || cat.name,
-      icon: cat.icon,
-      product_count: 0, // TODO: 从 products 表统计
+    const categoryStatsResult = await pool.query(`
+      SELECT c.id, c.code, c.name, c.display_name, c.icon,
+             COUNT(p.id) AS product_count
+      FROM categories c
+      LEFT JOIN products p ON p.category_id = c.id AND p.deleted_at IS NULL
+      WHERE c.is_active = true
+      GROUP BY c.id, c.code, c.name, c.display_name, c.icon, c.sort_order
+      ORDER BY c.sort_order
+    `)
+    const categoryStats = categoryStatsResult.rows.map(row => ({
+      id: row.id,
+      code: row.code,
+      name: row.display_name || row.name,
+      icon: row.icon,
+      product_count: parseInt(row.product_count),
     }))
 
     // 获取最近添加的产品
-    const { pool } = await import('../db/index.js')
     const recentProductsResult = await pool.query(`
       SELECT p.id, p.name, p.brand, c.name as category_name, p.created_at
       FROM products p
@@ -121,11 +160,12 @@ admin.get('/', authMiddleware, async (c) => {
       LIMIT 5
     `)
 
-    // 获取热门搜索
+    // 获取热门搜索（与 /api/hot 一致：次数优先，同分看最近搜索）
     const hotSearchesResult = await pool.query(`
       SELECT keyword, search_count
       FROM search_logs
-      ORDER BY search_count DESC
+      WHERE char_length(trim(keyword)) >= 2
+      ORDER BY search_count DESC, last_searched_at DESC
       LIMIT 10
     `)
 
@@ -274,6 +314,8 @@ admin.get('/products', authMiddleware, async (c) => {
   const keyword = c.req.query('keyword') || ''
   const brandFilter = c.req.query('brand') || ''
   const categoryFilter = c.req.query('category') || ''
+  const sort = (c.req.query('sort') || 'created_at') as 'created_at' | 'updated_at'
+  const order = (c.req.query('order') || 'desc') as 'asc' | 'desc'
 
   // 品牌别名映射
   const brandNameMap: Record<string, string> = {
@@ -295,7 +337,7 @@ admin.get('/products', authMiddleware, async (c) => {
 
   // 解析关键词，提取品牌和分类
   let searchKeyword = keyword
-  let brandSearch = brandFilter
+  let brandSearch: string | string[] = brandFilter
   let categoryCode = categoryFilter
 
   if (keyword) {
@@ -303,7 +345,7 @@ admin.get('/products', authMiddleware, async (c) => {
     // 检查是否包含品牌名
     for (const [cn, en] of Object.entries(brandNameMap)) {
       if (lower.includes(cn) || lower.includes(en)) {
-        brandSearch = en
+        brandSearch = [cn, en]
         searchKeyword = lower.replace(cn, '').replace(en, '').trim()
         break
       }
@@ -326,7 +368,9 @@ admin.get('/products', authMiddleware, async (c) => {
     limit: pageSize,
     keyword: searchKeyword || undefined,
     brand: brandSearch || undefined,
-    categoryId: categoryCode ? undefined : undefined, // 需要通过 code 查找 id
+    categoryCode: categoryCode || undefined,
+    sort,
+    order,
   })
 
   const brands = await getBrands()
@@ -343,13 +387,14 @@ admin.get('/products', authMiddleware, async (c) => {
       rating: p.rating,
       review_count: p.reviewCount,
       created_at: p.createdAt ? p.createdAt.toISOString() : null,
-      image_url: p.imageUrl || null,
+      updated_at: p.updatedAt ? p.updatedAt.toISOString() : null,
+      image_url: p.mainImage || null,
     })),
     page,
     result.total,
     pageSize,
     role,
-    { keyword, brand: brandFilter, category: categoryFilter },
+    { keyword, brand: brandFilter, category: categoryFilter, sort, order },
     brands
   ))
 })
@@ -363,92 +408,123 @@ admin.get('/products/create', authMiddleware, async (c) => {
   return c.html(productFormPage(undefined, undefined, role, categories))
 })
 
-// 新增产品处理
+// 新增产品处理（表单用 fetch 提交：成功 302，失败 JSON）
 admin.post('/products/create', authMiddleware, async (c) => {
   try {
-    const adminUser = c.get('admin') as { role?: string }
-    const role = adminUser?.role || 'admin'
-
     const body = await c.req.parseBody()
-    const { name, brand, model, category_id, price } = body as Record<string, string>
+    const { name, brand, model, category_id, price, source_platform } = body as Record<string, string>
 
-    if (!name) {
-      return c.html(productFormPage(undefined, '产品名称不能为空', role))
+    if (!name?.trim()) {
+      return c.json({ code: 400, message: '产品名称不能为空' }, 400)
+    }
+    if (!brand?.trim()) {
+      return c.json({ code: 400, message: '品牌不能为空' }, 400)
+    }
+    if (!category_id) {
+      return c.json({ code: 400, message: '请选择分类' }, 400)
     }
 
-    // 收集参数: 前端用 p_{paramKey} 字段名提交, 取所有 p_ 开头的非空值
     const params: Record<string, string> = {}
     for (const [key, value] of Object.entries(body)) {
       if (key.startsWith('p_') && typeof value === 'string' && value.trim() !== '') {
-        params[key.slice(2)] = value.trim()  // 去掉 p_ 前缀
+        params[key.slice(2)] = value.trim()
       }
     }
 
-    const { createProduct } = await import('../db/queries.js')
-    const product = await createProduct({
-      name,
-      brand: brand || '未知品牌',
-      model: model || null,
-      categoryId: category_id ? parseInt(category_id) : null,
-      price: price || null,
-      params,
-      sourcePlatform: 'admin',
-    })
+    const categoryId = parseInt(category_id, 10)
+    const paramErrors = await validateProductParamsInput(categoryId, params)
+    if (paramErrors.length) {
+      return c.json(
+        {
+          code: 400,
+          message: '参数填写不合法：\n' + paramErrors.map((e) => e.message).join('\n'),
+          errors: paramErrors,
+        },
+        400
+      )
+    }
 
-    // 处理表单里的图片文件(一次性: 传 OSS + 建关联, 一个接口完成)
-    await saveProductImageFiles(product.id, body)
+    const { createProduct, ProductDuplicateError } = await import('../db/queries.js')
+    try {
+      const product = await createProduct({
+        name: name.trim(),
+        brand: brand.trim(),
+        model: model?.trim() || null,
+        categoryId,
+        price: price || null,
+        params,
+        sourcePlatform: source_platform?.trim() || 'admin',
+      })
 
-    return c.redirect('/admin/products')
+      await saveProductImageFiles(product.id, body)
+      return c.redirect('/admin/products')
+    } catch (err: any) {
+      const isDup = err?.name === 'ProductDuplicateError' || err instanceof ProductDuplicateError
+      return c.json(
+        {
+          code: isDup ? 409 : 500,
+          message: isDup ? err.message : '创建失败: ' + (err?.message || String(err)),
+          existingId: isDup ? err.existingId : undefined,
+        },
+        isDup ? 409 : 500
+      )
+    }
   } catch (error: any) {
-    const adminUser = c.get('admin') as { role?: string }
-    const role = adminUser?.role || 'admin'
-    return c.html(productFormPage(undefined, '创建失败: ' + error.message, role))
+    return c.json({ code: 500, message: '创建失败: ' + (error?.message || String(error)) }, 500)
   }
 })
 
-// 处理表单里的图片: 前端用 Base64 纯文本提交, 后端解码后传 OSS + 建关联
-// 绕过 FC multipart 二进制损坏问题(0x89 等非 ASCII 字节被 UTF-8 替换)
+// 处理表单主图: 本地 images-data 或 OSS，只写 products.main_image
 async function saveProductImageFiles(productId: number, body: Record<string, any>): Promise<void> {
-  const { createProductImage, getProductImages } = await import('../db/queries.js')
-  const { uploadImage, validateImageFile } = await import('../utils/oss.js')
+  const { validateImageFile } = await import('../utils/oss.js')
+  const {
+    useLocalImageStorage,
+    saveBufferToLocal,
+  } = await import('../utils/image-local.js')
+  const { uploadBufferViaStaging } = await import('../utils/image-oss-pipeline.js')
+  const { pool } = await import('../db/index.js')
 
   const toArr = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
   const dataArr = toArr(body['image_data[]'])
   const nameArr = toArr(body['image_names[]'])
   const mimeArr = toArr(body['image_mimes[]'])
-  const typeArr = toArr(body['image_types[]'])
 
   if (dataArr.length === 0) return
 
-  const existing = await getProductImages(productId)
-  let nextSort = existing.length > 0
-    ? Math.max(...existing.map(img => img.sortOrder)) + 1
-    : 0
+  const base64 = dataArr[0]
+  const fileName = nameArr[0] || 'image.png'
+  const mimeType = mimeArr[0] || 'image/png'
+  const buf = Buffer.from(base64, 'base64')
 
-  for (let i = 0; i < dataArr.length; i++) {
-    const base64 = dataArr[i]
-    const fileName = nameArr[i] || 'image.png'
-    const mimeType = mimeArr[i] || 'image/png'
-
-    // Base64 解码为 Buffer
-    const buf = Buffer.from(base64, 'base64')
-
-    // 校验
-    const validation = validateImageFile({ size: buf.length, originalName: fileName, mimeType })
-    if (!validation.valid) {
-      console.warn(`  [${i}] 校验失败, 跳过: ${fileName} - ${validation.error}`)
-      continue
-    }
-
-    const imageUrl = await uploadImage(buf, fileName, 'products')
-    const created = await createProductImage({
-      productId,
-      imageUrl,
-      imageType: typeArr[i] || 'main',
-      sortOrder: nextSort++,
-    })
-    console.log(`  [${i}] 已保存: ${imageUrl} (buffer首字节:0x${buf[0].toString(16)}) -> 图片记录ID ${created.id}`)
+  const validation = validateImageFile({ size: buf.length, originalName: fileName, mimeType })
+  if (!validation.valid) {
+    console.warn(`主图校验失败, 跳过: ${fileName} - ${validation.error}`)
+    return
   }
+
+  let imageUrl: string
+  if (useLocalImageStorage()) {
+    const ext = fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.')) : '.jpg'
+    const named = saveBufferToLocal(buf, {
+      filename: `p${productId}-main${ext}`,
+      mimeType,
+    })
+    imageUrl = named.url
+    console.log(`主图已存本地: ${named.filePath}`)
+  } else {
+    imageUrl = await uploadBufferViaStaging(buf, {
+      originalName: fileName,
+      mimeType,
+      folder: 'products',
+    })
+    console.log(`主图已上传 OSS: ${imageUrl}`)
+  }
+
+  await pool.query(
+    'UPDATE products SET main_image = $1, image_id = NULL, updated_at = NOW() WHERE id = $2',
+    [imageUrl, productId]
+  )
+  console.log(`已设置 main_image: ${imageUrl}`)
 }
 
 // 编辑产品页面
@@ -457,44 +533,58 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
   const role = adminUser?.role || 'admin'
 
   const id = parseInt(c.req.param('id'))
-  const { getProductById, getCategories, getProductImages } = await import('../db/queries.js')
-  const [product, categories, images] = await Promise.all([
-    getProductById(id),
-    getCategories(),
-    getProductImages(id),
-  ])
-
-  if (!product) return c.redirect('/admin/products')
-
-  // 拼上图片数据供表单页渲染
-  const productWithImages = {
-    ...product,
-    images: images.map(img => ({
-      id: img.id,
-      imageUrl: img.imageUrl,
-      imageType: img.imageType,
-      sortOrder: img.sortOrder,
-    })),
+  let returnTo = c.req.query('return_to') || '/admin/products'
+  if (!returnTo.startsWith('/admin/products')) {
+    returnTo = '/admin/products'
   }
 
-  return c.html(productFormPage(productWithImages, undefined, role, categories))
+  const { getProductById, getCategories } = await import('../db/queries.js')
+  const [product, categories] = await Promise.all([
+    getProductById(id),
+    getCategories(),
+  ])
+
+  if (!product) return c.redirect(returnTo)
+
+  // 使用 mainImage 作为主图
+  const productWithImages = {
+    ...product,
+    images: product.mainImage ? [{
+      id: product.imageId || 0,
+      imageUrl: product.mainImage,
+      imageType: 'main',
+      sortOrder: 0,
+    }] : [],
+  }
+
+  return c.html(productFormPage(productWithImages, undefined, role, categories, returnTo))
 })
 
-// 编辑产品处理
+// 编辑产品处理（表单用 fetch 提交：成功 302，失败 JSON）
 admin.post('/products/:id/edit', authMiddleware, async (c) => {
   try {
-    const adminUser = c.get('admin') as { role?: string }
-    const role = adminUser?.role || 'admin'
-
-    const id = parseInt(c.req.param('id'))
+    const id = parseInt(c.req.param('id'), 10)
+    if (!Number.isFinite(id) || id <= 0) {
+      return c.json({ code: 400, message: '无效的产品 ID，请从产品列表重新进入编辑' }, 400)
+    }
     const body = await c.req.parseBody()
-    const { name, brand, model, category_id, price } = body as Record<string, string>
+    const { name, brand, model, category_id, price, source_platform } = body as Record<string, string>
 
-    if (!name) {
-      return c.html(productFormPage({ id, name, brand, model, category_id, price }, '产品名称不能为空', role))
+    let returnTo = (body as Record<string, string>).return_to || '/admin/products'
+    if (typeof returnTo !== 'string' || !returnTo.startsWith('/admin/products')) {
+      returnTo = '/admin/products'
     }
 
-    // 收集参数: 前端用 p_{paramKey} 字段名提交, 取所有 p_ 开头的非空值
+    if (!name?.trim()) {
+      return c.json({ code: 400, message: '产品名称不能为空' }, 400)
+    }
+    if (!brand?.trim()) {
+      return c.json({ code: 400, message: '品牌不能为空' }, 400)
+    }
+    if (!category_id) {
+      return c.json({ code: 400, message: '请选择分类' }, 400)
+    }
+
     const params: Record<string, string> = {}
     for (const [key, value] of Object.entries(body)) {
       if (key.startsWith('p_') && typeof value === 'string' && value.trim() !== '') {
@@ -502,25 +592,46 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
       }
     }
 
-    const { updateProduct } = await import('../db/queries.js')
-    await updateProduct(id, {
-      name,
-      brand: brand || '未知品牌',
-      model: model || null,
-      categoryId: category_id ? parseInt(category_id) : null,
-      price: price || null,
-      params,
-    })
+    const categoryId = parseInt(category_id, 10)
+    const paramErrors = await validateProductParamsInput(categoryId, params)
+    if (paramErrors.length) {
+      return c.json(
+        {
+          code: 400,
+          message: '参数填写不合法：\n' + paramErrors.map((e) => e.message).join('\n'),
+          errors: paramErrors,
+        },
+        400
+      )
+    }
 
-    // 处理新上传的图片(传 OSS + 建关联, 单接口完成)
-    await saveProductImageFiles(id, body)
+    const { updateProduct, ProductDuplicateError } = await import('../db/queries.js')
+    try {
+      await updateProduct(id, {
+        name: name.trim(),
+        brand: brand.trim(),
+        model: model?.trim() || null,
+        categoryId,
+        price: price || null,
+        params,
+        sourcePlatform: source_platform?.trim() || null,
+      })
 
-    return c.redirect('/admin/products')
+      await saveProductImageFiles(id, body)
+      return c.redirect(returnTo)
+    } catch (err: any) {
+      const isDup = err?.name === 'ProductDuplicateError' || err instanceof ProductDuplicateError
+      return c.json(
+        {
+          code: isDup ? 409 : 500,
+          message: isDup ? err.message : '更新失败: ' + (err?.message || String(err)),
+          existingId: isDup ? err.existingId : undefined,
+        },
+        isDup ? 409 : 500
+      )
+    }
   } catch (error: any) {
-    const adminUser = c.get('admin') as { role?: string }
-    const role = adminUser?.role || 'admin'
-    const id = c.req.param('id')
-    return c.html(productFormPage({ id }, '更新失败: ' + error.message, role))
+    return c.json({ code: 500, message: '更新失败: ' + (error?.message || String(error)) }, 500)
   }
 })
 
@@ -544,7 +655,7 @@ admin.get('/categories', authMiddleware, async (c) => {
 
   const result = await pool.query(`
     SELECT c.*,
-      (SELECT COUNT(*) FROM products WHERE category_id = c.id) as product_count,
+      (SELECT COUNT(*) FROM products WHERE category_id = c.id AND deleted_at IS NULL) as product_count,
       (SELECT COUNT(*) FROM category_params WHERE category_id = c.id) as param_count
     FROM categories c
     ORDER BY c.sort_order, c.name
@@ -566,16 +677,33 @@ admin.post('/categories/create', authMiddleware, async (c) => {
     const body = await c.req.parseBody()
     const { code, name, display_name, icon, parent_id, sort_order, is_active } = body as Record<string, string>
 
-    if (!code || !name) {
+    if (!code?.trim() || !name?.trim()) {
       const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
       return c.html(categoryFormPage(undefined, categories.rows, '编码和名称不能为空'))
     }
 
-    await pool.query(
-      'INSERT INTO categories (code, name, display_name, icon, parent_id, sort_order, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [code, name, display_name || name, icon || null, parent_id || null, parseInt(sort_order || '0'), is_active === 'true']
-    )
-    return c.redirect('/admin/categories')
+    const { createCategory, CategoryDuplicateError } = await import('../db/queries.js')
+    try {
+      await createCategory({
+        code,
+        name,
+        displayName: display_name || name,
+        icon: icon || null,
+        parentId: parent_id ? parseInt(parent_id, 10) : null,
+        sortOrder: parseInt(sort_order || '0', 10),
+        isActive: is_active === 'true',
+      })
+      return c.redirect('/admin/categories')
+    } catch (err: any) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      const isDup = err?.name === 'CategoryDuplicateError' || err instanceof CategoryDuplicateError
+      const msg = isDup
+        ? err.message
+        : err?.code === '23505'
+          ? '分类编码或名称已存在'
+          : '创建失败: ' + (err?.message || String(err))
+      return c.html(categoryFormPage(undefined, categories.rows, msg))
+    }
   } catch (error: any) {
     const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
     return c.html(categoryFormPage(undefined, categories.rows, '创建失败: ' + error.message))
@@ -596,15 +724,63 @@ admin.get('/categories/:id/edit', authMiddleware, async (c) => {
 // 编辑分类处理
 admin.post('/categories/:id/edit', authMiddleware, async (c) => {
   try {
-    const id = c.req.param('id')
+    const id = parseInt(c.req.param('id'))
     const body = await c.req.parseBody()
     const { name, display_name, icon, parent_id, sort_order, is_active } = body as Record<string, string>
 
-    await pool.query(
-      'UPDATE categories SET name=$1, display_name=$2, icon=$3, parent_id=$4, sort_order=$5, is_active=$6 WHERE id=$7',
-      [name, display_name || name, icon || null, parent_id || null, parseInt(sort_order || '0'), is_active === 'true', id]
-    )
-    return c.redirect('/admin/categories')
+    if (!name?.trim()) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      const current = categories.rows.find(c => c.id === id)
+      return c.html(categoryFormPage(current, categories.rows, '分类名称不能为空'))
+    }
+
+    // 校验：不能把自己设为父分类（自引用）
+    if (parent_id && parseInt(parent_id) === id) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      const current = categories.rows.find(c => c.id === id)
+      return c.html(categoryFormPage(current, categories.rows, '不能将分类设为自己的父分类（自引用会导致循环引用）'))
+    }
+
+    // 校验：不能把子孙分类设为父分类（会形成环）
+    if (parent_id) {
+      const pid = parseInt(parent_id)
+      const allCats = (await pool.query('SELECT id, parent_id FROM categories')).rows
+      let cur: number | null = pid
+      const visited = new Set<number>()
+      while (cur !== null && !visited.has(cur)) {
+        if (cur === id) {
+          const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+          const current = categories.rows.find(c => c.id === id)
+          return c.html(categoryFormPage(current, categories.rows, '不能将子孙分类设为父分类（会形成循环引用）'))
+        }
+        visited.add(cur)
+        const node = allCats.find(c => c.id === cur)
+        cur = node?.parent_id ?? null
+      }
+    }
+
+    const { updateCategory, CategoryDuplicateError } = await import('../db/queries.js')
+    try {
+      await updateCategory(id, {
+        name,
+        displayName: display_name || name,
+        icon: icon || null,
+        parentId: parent_id ? parseInt(parent_id, 10) : null,
+        sortOrder: parseInt(sort_order || '0', 10),
+        isActive: is_active === 'true',
+      })
+      return c.redirect('/admin/categories')
+    } catch (err: any) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      const current = categories.rows.find(c => c.id === id)
+      const isDup = err?.name === 'CategoryDuplicateError' || err instanceof CategoryDuplicateError
+      const msg = isDup
+        ? err.message
+        : err?.code === '23505'
+          ? '分类编码或名称已存在'
+          : '更新失败: ' + (err?.message || String(err))
+      return c.html(categoryFormPage(current, categories.rows, msg))
+    }
   } catch (error: any) {
     const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
     return c.html(categoryFormPage({ id: c.req.param('id') }, categories.rows, '更新失败: ' + error.message))
@@ -724,97 +900,101 @@ admin.post('/category-params/:id/delete', authMiddleware, async (c) => {
 })
 
 // ==================== 图片管理 ====================
+// 管理 products.main_image
 
-// 图片列表
+// 图片列表：展示有主图的产品
 admin.get('/product-images', authMiddleware, async (c) => {
   const adminUser = c.get('admin') as { role?: string }
   const role = adminUser?.role || 'admin'
   const productId = c.req.query('product_id') ? parseInt(c.req.query('product_id')!) : undefined
+  const page = Math.max(1, parseInt(c.req.query('page') || '1'))
+  const pageSize = 50
+  const offset = (page - 1) * pageSize
 
-  let query = `
-    SELECT pi.*, p.name as product_name
-    FROM product_images pi
-    LEFT JOIN products p ON p.id = pi.product_id
-  `
+  // 查询有主图的产品（支持按产品筛选）
+  let whereClause = 'WHERE p.deleted_at IS NULL AND p.main_image IS NOT NULL'
   const params: any[] = []
   if (productId) {
-    query += ' WHERE pi.product_id = $1'
+    whereClause += ' AND p.id = $1'
     params.push(productId)
   }
-  query += ' ORDER BY pi.product_id, pi.image_type, pi.sort_order'
 
-  const [result, products] = await Promise.all([
-    pool.query(query, params),
-    pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
+  // 并行查询：主图列表 + 总数 + 全部产品（用于筛选下拉）
+  // 用别名转为驼峰命名，与页面接口字段对齐
+  const listQuery = `
+    SELECT p.id, p.name, p.brand, p.model,
+           p.main_image AS "mainImage",
+           p.image_id AS "imageId",
+           p.updated_at AS "updatedAt"
+    FROM products p
+    ${whereClause}
+    ORDER BY p.updated_at DESC
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+  `
+  const countQuery = `SELECT COUNT(*) FROM products p ${whereClause}`
+
+  const [listResult, countResult, allProducts] = await Promise.all([
+    pool.query(listQuery, [...params, pageSize, offset]),
+    pool.query(countQuery, params),
+    pool.query('SELECT id, name FROM products WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 200'),
   ])
-  return c.html(productImagesPage(result.rows, products.rows, role, productId))
+
+  const total = parseInt(countResult.rows[0]?.count || '0')
+
+  return c.html(productImagesPage(
+    listResult.rows,
+    allProducts.rows,
+    role,
+    productId,
+    total,
+    page,
+    pageSize,
+  ))
 })
 
-// 新增图片页面
-admin.get('/product-images/create', authMiddleware, async (c) => {
-  const adminUser = c.get('admin') as { role?: string }
-  const role = adminUser?.role || 'admin'
-  const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-  return c.html(productImageFormPage(undefined, products.rows, undefined, role))
-})
+// 删除产品主图（清除 main_image；若为 OSS URL 则删对象；不再依赖 images BYTEA）
+admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
+  const productId = parseInt(c.req.param('id'))
 
-// 新增图片处理
-admin.post('/product-images/create', authMiddleware, async (c) => {
   try {
-    const body = await c.req.parseBody()
-    const { product_id, image_url, image_type, sort_order } = body as Record<string, string>
+    const productResult = await pool.query(
+      'SELECT main_image, image_id FROM products WHERE id = $1',
+      [productId]
+    )
 
-    if (!product_id) {
-      const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-      return c.html(productImageFormPage(undefined, products.rows, '产品不能为空'))
+    if (productResult.rows.length === 0) {
+      return c.redirect('/admin/product-images')
     }
 
-    await pool.query(
-      'INSERT INTO product_images (product_id, image_url, image_type, sort_order) VALUES ($1, $2, $3, $4)',
-      [product_id, image_url || null, image_type || 'main', parseInt(sort_order || '0')]
-    )
-    return c.redirect('/admin/product-images')
-  } catch (error: any) {
-    const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-    return c.html(productImageFormPage(undefined, products.rows, '创建失败: ' + error.message))
-  }
-})
-
-// 编辑图片页面
-admin.get('/product-images/:id/edit', authMiddleware, async (c) => {
-  const adminUser = c.get('admin') as { role?: string }
-  const role = adminUser?.role || 'admin'
-  const id = c.req.param('id')
-  const [result, products] = await Promise.all([
-    pool.query('SELECT * FROM product_images WHERE id = $1', [id]),
-    pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-  ])
-  if (result.rows.length === 0) return c.redirect('/admin/product-images')
-  return c.html(productImageFormPage(result.rows[0], products.rows, undefined, role))
-})
-
-// 编辑图片处理
-admin.post('/product-images/:id/edit', authMiddleware, async (c) => {
-  try {
-    const id = c.req.param('id')
-    const body = await c.req.parseBody()
-    const { image_url, image_type, sort_order } = body as Record<string, string>
+    const { main_image: mainImage, image_id: imageId } = productResult.rows[0]
 
     await pool.query(
-      'UPDATE product_images SET image_url=$1, image_type=$2, sort_order=$3 WHERE id=$4',
-      [image_url || null, image_type || 'main', parseInt(sort_order || '0'), id]
+      'UPDATE products SET main_image = NULL, image_id = NULL, updated_at = NOW() WHERE id = $1',
+      [productId]
     )
-    return c.redirect('/admin/product-images')
-  } catch (error: any) {
-    const products = await pool.query('SELECT id, name FROM products ORDER BY id DESC LIMIT 100')
-    return c.html(productImageFormPage({ id: c.req.param('id') }, products.rows, '更新失败: ' + error.message))
-  }
-})
 
-// 删除图片
-admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
-  const id = c.req.param('id')
-  await pool.query('DELETE FROM product_images WHERE id = $1', [id])
+    if (mainImage && String(mainImage).includes('cheapgo')) {
+      try {
+        const { deleteImage } = await import('../utils/oss.js')
+        await deleteImage(mainImage)
+      } catch (e) {
+        console.warn(`[图片管理] 删除 OSS 失败（不影响主流程）:`, e)
+      }
+    }
+
+    if (imageId) {
+      try {
+        await pool.query('DELETE FROM images WHERE id = $1', [imageId])
+      } catch {
+        /* images 表可能已清空 */
+      }
+    }
+
+    console.log(`[图片管理] 已删除产品 #${productId} 的主图`)
+  } catch (error: any) {
+    console.error('[图片管理] 删除主图失败:', error)
+  }
+
   return c.redirect('/admin/product-images')
 })
 

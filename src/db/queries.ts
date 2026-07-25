@@ -4,18 +4,8 @@
  */
 
 import { eq, desc, asc, like, ilike, sql, and, or, count, isNull, isNotNull, inArray } from 'drizzle-orm';
-import { db } from './drizzle.js';
-import {
-  categories,
-  products,
-  productImages,
-  categoryParams,
-  admins,
-  searchLogs,
-  operationLogs,
-  systemSettings,
-  crawlerTasks,
-} from './schema.js';
+import { db, pool } from './drizzle.js';
+import {categories,products,categoryParams,admins,searchLogs,operationLogs,systemSettings} from './schema.js';
 
 // =====================================================
 // 分类查询
@@ -48,15 +38,128 @@ export async function getCategoryById(id: number) {
   return result[0] || null;
 }
 
+/** 分类编码/名称唯一，编码去空格并小写 */
+export class CategoryDuplicateError extends Error {
+  existingId: number;
+  field: 'code' | 'name';
+  constructor(field: 'code' | 'name', existingId: number, detail: string) {
+    super(detail);
+    this.name = 'CategoryDuplicateError';
+    this.field = field;
+    this.existingId = existingId;
+  }
+}
+
+export function normalizeCategoryCode(code: string): string {
+  return String(code || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\u00a0\u3000]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+export function normalizeCategoryName(name: string): string {
+  return String(name || '').trim();
+}
+
+export async function findDuplicateCategory(opts: {
+  code?: string | null;
+  name?: string | null;
+  excludeId?: number;
+}): Promise<{ id: number; code: string; name: string; field: 'code' | 'name' } | null> {
+  const code = opts.code ? normalizeCategoryCode(opts.code) : '';
+  const name = opts.name ? normalizeCategoryName(opts.name) : '';
+  const excludeId = opts.excludeId;
+
+  if (code) {
+    const byCode = await pool.query(
+      `SELECT id, code, name FROM categories
+       WHERE lower(regexp_replace(trim(both E' \\t\\n\\r\\u00a0' from code), '\\s+', '_', 'g')) = $1
+         AND ($2::bigint IS NULL OR id <> $2)
+       LIMIT 1`,
+      [code, excludeId ?? null]
+    );
+    if (byCode.rows[0]) {
+      return { ...byCode.rows[0], field: 'code' as const };
+    }
+  }
+
+  if (name) {
+    const byName = await pool.query(
+      `SELECT id, code, name FROM categories
+       WHERE trim(name) = $1
+         AND ($2::bigint IS NULL OR id <> $2)
+       LIMIT 1`,
+      [name, excludeId ?? null]
+    );
+    if (byName.rows[0]) {
+      return { ...byName.rows[0], field: 'name' as const };
+    }
+  }
+
+  return null;
+}
+
+export async function assertCategoryUnique(opts: {
+  code?: string | null;
+  name?: string | null;
+  excludeId?: number;
+}): Promise<void> {
+  const dup = await findDuplicateCategory(opts);
+  if (!dup) return;
+  if (dup.field === 'code') {
+    throw new CategoryDuplicateError(
+      'code',
+      dup.id,
+      `分类编码已存在：${dup.code}（ID ${dup.id}，名称「${dup.name}」）`
+    );
+  }
+  throw new CategoryDuplicateError(
+    'name',
+    dup.id,
+    `分类名称已存在：「${dup.name}」（ID ${dup.id}，编码 ${dup.code}）`
+  );
+}
+
 export async function createCategory(data: typeof categories.$inferInsert) {
-  const result = await db.insert(categories).values(data).returning();
+  const code = normalizeCategoryCode(String(data.code || ''));
+  const name = normalizeCategoryName(String(data.name || ''));
+  if (!code || !name) {
+    throw new Error('分类编码和名称不能为空');
+  }
+  await assertCategoryUnique({ code, name });
+  const result = await db
+    .insert(categories)
+    .values({
+      ...data,
+      code,
+      name,
+      displayName: normalizeCategoryName(String(data.displayName || name)) || name,
+    })
+    .returning();
   return result[0];
 }
 
 export async function updateCategory(id: number, data: Partial<typeof categories.$inferInsert>) {
+  const patch: Partial<typeof categories.$inferInsert> = { ...data };
+  if (patch.code !== undefined) {
+    patch.code = normalizeCategoryCode(String(patch.code));
+  }
+  if (patch.name !== undefined) {
+    patch.name = normalizeCategoryName(String(patch.name));
+  }
+  if (patch.displayName !== undefined) {
+    patch.displayName = normalizeCategoryName(String(patch.displayName));
+  }
+  await assertCategoryUnique({
+    code: patch.code,
+    name: patch.name,
+    excludeId: id,
+  });
   const result = await db
     .update(categories)
-    .set(data)
+    .set(patch)
     .where(eq(categories.id, id))
     .returning();
   return result[0] || null;
@@ -78,10 +181,13 @@ export async function getProducts(options: {
   page?: number;
   limit?: number;
   keyword?: string;
-  brand?: string;
+  brand?: string | string[];
   categoryId?: number;
+  categoryCode?: string;
+  sort?: 'created_at' | 'updated_at';
+  order?: 'asc' | 'desc';
 } = {}) {
-  const { page = 1, limit = 20, keyword, brand, categoryId } = options;
+  const { page = 1, limit = 20, keyword, brand, categoryId, categoryCode, sort = 'created_at', order = 'desc' } = options;
   const offset = (page - 1) * limit;
 
   // 构建查询条件
@@ -98,11 +204,17 @@ export async function getProducts(options: {
   }
 
   if (brand) {
-    conditions.push(eq(products.brand, brand));
+    const brands = Array.isArray(brand) ? brand : [brand];
+    conditions.push(or(...brands.map(b => ilike(products.brand, `%${b}%`))));
   }
 
   if (categoryId) {
     conditions.push(eq(products.categoryId, categoryId));
+  }
+
+  // 按分类 code 筛选（需关联 categories 表）
+  if (categoryCode) {
+    conditions.push(eq(categories.code, categoryCode));
   }
 
   // 只查询未删除的产品
@@ -114,9 +226,13 @@ export async function getProducts(options: {
   const [{ total }] = await db
     .select({ total: count() })
     .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(whereClause);
 
-  // 查询数据（关联 categories 取分类名 + 子查询取主图）
+  // 查询数据（关联 categories 取分类名，直接从 products.main_image 取主图 URL）
+  const sortColumn = sort === 'updated_at' ? products.updatedAt : products.createdAt;
+  const orderFn = order === 'asc' ? asc : desc;
+
   const data = await db
     .select({
       id: products.id,
@@ -131,22 +247,15 @@ export async function getProducts(options: {
       rating: products.rating,
       reviewCount: products.reviewCount,
       params: products.params,
+      mainImage: products.mainImage,
+      imageId: products.imageId,
       createdAt: products.createdAt,
       updatedAt: products.updatedAt,
-      imageUrl: sql<string>`(
-        SELECT ${productImages.imageUrl}
-        FROM ${productImages}
-        WHERE ${productImages.productId} = ${products.id}
-        ORDER BY
-          CASE ${productImages.imageType} WHEN 'main' THEN 0 ELSE 1 END,
-          ${productImages.sortOrder}
-        LIMIT 1
-      )`.as('image_url'),
     })
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(whereClause)
-    .orderBy(desc(products.createdAt))
+    .orderBy(orderFn(sortColumn))
     .limit(limit)
     .offset(offset);
 
@@ -174,6 +283,8 @@ export async function getProductById(id: number) {
       rating: products.rating,
       reviewCount: products.reviewCount,
       params: products.params,
+      mainImage: products.mainImage,
+      imageId: products.imageId,
       sourceUrl: products.sourceUrl,
       sourcePlatform: products.sourcePlatform,
       createdAt: products.createdAt,
@@ -187,12 +298,132 @@ export async function getProductById(id: number) {
   return result[0] || null;
 }
 
+/** 品牌 + 分类 + 型号（无型号则用名称）唯一，仅未软删产品 */
+export class ProductDuplicateError extends Error {
+  existingId: number;
+  constructor(existingId: number, detail: string) {
+    super(detail);
+    this.name = 'ProductDuplicateError';
+    this.existingId = existingId;
+  }
+}
+
+/** 型号归一化：去空白/横杠/下划线/点，小写 → LY-CBS020URH 与 LYCBS020URH 视为同一 */
+export function normalizeModelKey(raw: string): string {
+  return (raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-_.／／·•]/g, '');
+}
+
+function productIdentityKey(model?: string | null, name?: string | null): string {
+  const m = (model || '').trim();
+  const raw = m || (name || '').trim();
+  return normalizeModelKey(raw);
+}
+
+export async function findDuplicateProduct(opts: {
+  brand: string;
+  categoryId: number | null | undefined;
+  model?: string | null;
+  name?: string | null;
+  excludeId?: number;
+}): Promise<{ id: number; name: string; brand: string; model: string | null } | null> {
+  const brand = (opts.brand || '').trim();
+  const categoryId = opts.categoryId ?? null;
+  const identity = productIdentityKey(opts.model, opts.name);
+  if (!brand || categoryId == null || !identity) return null;
+
+  const conditions = [
+    isNull(products.deletedAt),
+    sql`trim(${products.brand}) = ${brand}`,
+    eq(products.categoryId, categoryId),
+    sql`regexp_replace(
+          lower(trim(COALESCE(NULLIF(trim(${products.model}), ''), ${products.name}))),
+          '[\\s\\-_.／·•]',
+          '',
+          'g'
+        ) = ${identity}`,
+  ];
+  if (opts.excludeId != null) {
+    conditions.push(sql`${products.id} <> ${opts.excludeId}`);
+  }
+
+  const rows = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      brand: products.brand,
+      model: products.model,
+    })
+    .from(products)
+    .where(and(...conditions))
+    .limit(1);
+
+  return rows[0] || null;
+}
+
+async function assertProductUnique(opts: {
+  brand: string;
+  categoryId: number | null | undefined;
+  model?: string | null;
+  name?: string | null;
+  excludeId?: number;
+}) {
+  const brand = (opts.brand || '').trim();
+  if (!brand) {
+    throw new Error('品牌不能为空');
+  }
+  if (opts.categoryId == null || Number.isNaN(Number(opts.categoryId))) {
+    throw new Error('请选择分类');
+  }
+  const identity = productIdentityKey(opts.model, opts.name);
+  if (!identity) {
+    throw new Error('型号或产品名称不能为空');
+  }
+
+  const dup = await findDuplicateProduct({
+    brand,
+    categoryId: Number(opts.categoryId),
+    model: opts.model,
+    name: opts.name,
+    excludeId: opts.excludeId,
+  });
+  if (dup) {
+    const label = (dup.model || '').trim() || dup.name;
+    throw new ProductDuplicateError(
+      dup.id,
+      `该分类下已存在相同品牌与型号的产品：${dup.brand} / ${label}（ID ${dup.id}）`
+    );
+  }
+}
+
 export async function createProduct(data: typeof products.$inferInsert) {
+  await assertProductUnique({
+    brand: data.brand,
+    categoryId: data.categoryId,
+    model: data.model,
+    name: data.name,
+  });
   const result = await db.insert(products).values(data).returning();
   return result[0];
 }
 
 export async function updateProduct(id: number, data: Partial<typeof products.$inferInsert>) {
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error('无效的产品 ID');
+  }
+  const existing = await getProductById(id);
+  if (!existing) return null;
+
+  await assertProductUnique({
+    brand: data.brand !== undefined ? data.brand : existing.brand,
+    categoryId: data.categoryId !== undefined ? data.categoryId : existing.categoryId,
+    model: data.model !== undefined ? data.model : existing.model,
+    name: data.name !== undefined ? data.name : existing.name,
+    excludeId: id,
+  });
+
   const result = await db
     .update(products)
     .set({ ...data, updatedAt: new Date() })
@@ -221,63 +452,98 @@ export async function batchDeleteProducts(ids: number[], deletedBy?: string): Pr
 }
 
 // =====================================================
-// 产品图片查询
+// 产品图片（仅主图 products.main_image）
 // =====================================================
 
+type MainImageRow = {
+  id: number;
+  productId: number;
+  imageUrl: string;
+  imageType: string;
+  sortOrder: number;
+};
+
+function asMainRow(productId: number, url: string | null | undefined): MainImageRow[] {
+  if (!url) return [];
+  return [{
+    id: productId,
+    productId,
+    imageUrl: url,
+    imageType: 'main',
+    sortOrder: 0,
+  }];
+}
+
 export async function getProductImages(productId: number) {
-  return db
-    .select()
-    .from(productImages)
-    .where(eq(productImages.productId, productId))
-    .orderBy(asc(productImages.imageType), asc(productImages.sortOrder));
+  const result = await db
+    .select({ id: products.id, mainImage: products.mainImage })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+  return asMainRow(productId, result[0]?.mainImage);
 }
 
 export async function getProductImageById(id: number) {
-  const result = await db
-    .select()
-    .from(productImages)
-    .where(eq(productImages.id, id))
-    .limit(1);
-  return result[0] || null;
+  const rows = await getProductImages(id);
+  return rows[0] || null;
 }
 
-export async function createProductImage(data: typeof productImages.$inferInsert) {
-  const result = await db.insert(productImages).values(data).returning();
-  return result[0];
+export async function createProductImage(data: {
+  productId: number;
+  imageUrl?: string | null;
+  imageType?: string;
+  sortOrder?: number;
+}) {
+  if (!data.productId || !data.imageUrl) {
+    throw new Error('createProductImage 需要 productId 与 imageUrl');
+  }
+  await db
+    .update(products)
+    .set({ mainImage: data.imageUrl, imageId: null, updatedAt: new Date() })
+    .where(eq(products.id, data.productId));
+  return {
+    id: data.productId,
+    productId: data.productId,
+    imageUrl: data.imageUrl,
+    imageType: 'main',
+    sortOrder: 0,
+  };
 }
 
-export async function updateProductImage(id: number, data: Partial<typeof productImages.$inferInsert>) {
-  const result = await db
-    .update(productImages)
-    .set(data)
-    .where(eq(productImages.id, id))
-    .returning();
-  return result[0] || null;
+export async function updateProductImage(
+  id: number,
+  data: Partial<{ imageUrl: string; imageType: string; sortOrder: number }>
+) {
+  if (data.imageUrl !== undefined) {
+    await db
+      .update(products)
+      .set({ mainImage: data.imageUrl, imageId: null, updatedAt: new Date() })
+      .where(eq(products.id, id));
+  }
+  const rows = await getProductImages(id);
+  return rows[0] || null;
 }
 
 export async function deleteProductImage(id: number) {
-  const result = await db
-    .delete(productImages)
-    .where(eq(productImages.id, id))
-    .returning();
-  return result[0] || null;
+  const before = await getProductImages(id);
+  await db
+    .update(products)
+    .set({ mainImage: null, imageId: null, updatedAt: new Date() })
+    .where(eq(products.id, id));
+  return before[0] || null;
 }
 
 export async function batchDeleteProductImages(ids: number[]) {
-  const result = await db
-    .delete(productImages)
-    .where(inArray(productImages.id, ids))
-    .returning();
-  return result;
+  const out = [];
+  for (const id of ids) {
+    const row = await deleteProductImage(id);
+    if (row) out.push(row);
+  }
+  return out;
 }
 
-export async function updateProductImageSort(items: Array<{ id: number; sortOrder: number }>) {
-  for (const item of items) {
-    await db
-      .update(productImages)
-      .set({ sortOrder: item.sortOrder })
-      .where(eq(productImages.id, item.id));
-  }
+export async function updateProductImageSort(_items: Array<{ id: number; sortOrder: number }>) {
+  // 仅主图，无需排序
 }
 
 // =====================================================
@@ -541,14 +807,14 @@ export async function getDashboardStats() {
     .from(categories);
 
   const [searchCount] = await db
-    .select({ count: count() })
+    .select({ count: sql<number>`COALESCE(SUM(${searchLogs.searchCount}), 0)` })
     .from(searchLogs);
 
   return {
     totalProducts: productCount.count,
     totalBrands: brandCount.count,
     totalCategories: categoryCount.count,
-    totalSearches: searchCount.count,
+    totalSearches: Number(searchCount.count),
   };
 }
 

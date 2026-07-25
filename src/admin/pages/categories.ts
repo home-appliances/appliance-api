@@ -50,7 +50,8 @@ export const categoriesPage = (categories: Category[], role = 'admin') => {
         <td class="px-4 py-3 text-right">
           <div class="flex items-center justify-end gap-2">
             <a href="/admin/categories/${cat.id}/edit" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑</a>
-            <form method="POST" action="/admin/categories/${cat.id}/delete" class="inline" onsubmit="return confirm('确定删除该分类？')">
+            <form method="POST" action="/admin/categories/${cat.id}/delete" class="inline delete-category-form">
+              <input type="hidden" class="category-name" value="${(cat.display_name || cat.name || '').replace(/"/g, '&quot;')}">
               <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors cursor-pointer border-0">删除</button>
             </form>
           </div>
@@ -93,6 +94,18 @@ export const categoriesPage = (categories: Category[], role = 'admin') => {
         </table>
       </div>
     </div>
+
+    <script>
+      document.querySelectorAll('.delete-category-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+          var nameInput = form.querySelector('.category-name')
+          var categoryName = nameInput && nameInput.value ? nameInput.value : '该分类'
+          if (!confirm('确定删除分类「' + categoryName + '」？')) {
+            e.preventDefault()
+          }
+        })
+      })
+    </script>
   `
 
   return layout('分类管理', content, 'categories', role)
@@ -101,6 +114,19 @@ export const categoriesPage = (categories: Category[], role = 'admin') => {
 export const categoryFormPage = (category?: any, categories: any[] = [], error?: string, role = 'admin') => {
   const isEdit = !!category
   const title = isEdit ? '编辑分类' : '新增分类'
+
+  // 计算当前分类的所有子孙 ID（避免循环引用：不能把自己或子孙设为父分类）
+  const getDescendantIds = (id: number): number[] => {
+    const ids: number[] = [id]
+    const children = categories.filter(c => c.parent_id === id)
+    for (const child of children) {
+      ids.push(...getDescendantIds(child.id))
+    }
+    return ids
+  }
+  const excludedIds = isEdit ? new Set(getDescendantIds(category.id)) : new Set<number>()
+  // 可选父分类：排除自身及子孙，只展示顶级分类（保持原有逻辑）
+  const availableParents = categories.filter(c => !c.parent_id && !excludedIds.has(c.id))
 
   const content = `
     <div class="flex items-center justify-between mb-6">
@@ -116,13 +142,15 @@ export const categoryFormPage = (category?: any, categories: any[] = [], error?:
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">分类编码 <span class="text-red-500">*</span></label>
             <input type="text" name="code" value="${category?.code || ''}" required placeholder="如：air_condition"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
-            <p class="mt-1 text-xs text-gray-500">英文编码，用于程序逻辑，创建后不可修改</p>
+              ${isEdit ? 'readonly' : ''}
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all ${isEdit ? 'bg-gray-50 text-gray-500' : ''}">
+            <p class="mt-1 text-xs text-gray-500">英文编码，唯一，自动去空格转小写；创建后不可修改</p>
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">分类名称 <span class="text-red-500">*</span></label>
             <input type="text" name="name" value="${category?.name || ''}" required placeholder="如：空调"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
+            <p class="mt-1 text-xs text-gray-500">中文名称，全局唯一</p>
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">展示名称</label>
@@ -139,10 +167,11 @@ export const categoryFormPage = (category?: any, categories: any[] = [], error?:
             <select name="parent_id"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
               <option value="">无（顶级分类）</option>
-              ${categories.filter(c => !c.parent_id).map(c => `
+              ${availableParents.map(c => `
                 <option value="${c.id}" ${category?.parent_id === c.id ? 'selected' : ''}>${c.icon || ''} ${c.display_name || c.name}</option>
               `).join('')}
             </select>
+            ${isEdit && availableParents.length === 0 ? '<p class="mt-1 text-xs text-gray-500">当前分类无可选父分类（顶级分类不能设为其他分类的子分类）</p>' : ''}
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">排序</label>

@@ -4,6 +4,15 @@
 
 import { layout } from '../layout.js'
 
+function escapeAttr(value: string): string {
+  if (!value) return ''
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 interface CategoryParam {
   id: number
   category_id: number
@@ -20,28 +29,42 @@ interface CategoryParam {
 }
 
 export const categoryParamsPage = (params: CategoryParam[], categories: any[], role = 'admin', filterCategoryId?: number) => {
-  const rows = params.map(p => `
+  const formatOptions = (p: CategoryParam): string => {
+    if (p.param_type === 'enum') {
+      return p.enum_values && p.enum_values.length ? p.enum_values.join(', ') : '（未配置）'
+    }
+    if (p.param_type === 'boolean') return '是, 否'
+    if (p.param_type === 'date') return '日期（精确到天）'
+    if (p.param_type === 'number') return '数值'
+    if (p.param_type === 'text') return '自由文本'
+    return '-'
+  }
+
+  const rows = params.map(p => {
+    const badges = [
+      p.is_core ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 whitespace-nowrap">核心</span>' : '',
+      p.is_filter ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 whitespace-nowrap">筛选</span>' : '',
+      p.is_sortable ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 whitespace-nowrap">排序</span>' : '',
+    ].filter(Boolean).join('')
+    const optionsText = formatOptions(p)
+    return `
     <tr class="hover:bg-gray-50 transition-colors">
-      <td class="px-4 py-3 text-sm text-gray-700">${p.id}</td>
-      <td class="px-4 py-3 text-sm text-gray-700">${p.category_name || '-'}</td>
-      <td class="px-4 py-3 text-sm font-mono text-gray-900">${p.param_key}</td>
-      <td class="px-4 py-3 text-sm text-gray-700">${p.display_name}</td>
-      <td class="px-4 py-3 text-sm text-gray-700">${p.icon || '-'}</td>
-      <td class="px-4 py-3">
+      <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">${p.id}</td>
+      <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">${p.category_name || '-'}</td>
+      <td class="px-3 py-3 text-sm font-mono text-gray-900 max-w-[160px] truncate" title="${escapeAttr(p.param_key)}">${p.param_key}</td>
+      <td class="px-3 py-3 text-sm text-gray-700 max-w-[160px] truncate" title="${escapeAttr(p.display_name)}">${p.display_name}</td>
+      <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">${p.icon || '-'}</td>
+      <td class="px-3 py-3 whitespace-nowrap">
         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
           ${p.param_type}
         </span>
       </td>
-      <td class="px-4 py-3">
-        <div class="flex items-center gap-2">
-          ${p.is_core ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">核心</span>' : ''}
-          ${p.is_filter ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">可筛选</span>' : ''}
-          ${p.is_sortable ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">可排序</span>' : ''}
-        </div>
+      <td class="px-3 py-3">
+        <div class="flex items-center gap-1 flex-nowrap">${badges || '<span class="text-xs text-gray-400">-</span>'}</div>
       </td>
-      <td class="px-4 py-3 text-sm text-gray-700">${p.enum_values ? p.enum_values.join(', ') : '-'}</td>
-      <td class="px-4 py-3 text-sm text-gray-700">${p.sort_order}</td>
-      <td class="px-4 py-3 text-right">
+      <td class="px-3 py-3 text-sm text-gray-700 max-w-[220px] truncate" title="${escapeAttr(optionsText)}">${optionsText}</td>
+      <td class="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">${p.sort_order}</td>
+      <td class="px-3 py-3 text-right whitespace-nowrap">
         <div class="flex items-center justify-end gap-2">
           <a href="/admin/category-params/${p.id}/edit" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑</a>
           <form method="POST" action="/admin/category-params/${p.id}/delete" class="inline" onsubmit="return confirm('确定删除该参数规范？')">
@@ -50,7 +73,7 @@ export const categoryParamsPage = (params: CategoryParam[], categories: any[], r
         </div>
       </td>
     </tr>
-  `).join('')
+  `}).join('')
 
   const content = `
     <div class="flex items-center justify-between mb-6">
@@ -66,19 +89,19 @@ export const categoryParamsPage = (params: CategoryParam[], categories: any[], r
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full divide-y divide-gray-200">
+        <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">分类</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">参数名</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">显示名</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">图标</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">类型</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">标记</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">枚举值</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">排序</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">操作</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">ID</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">分类</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">参数名</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">显示名</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">图标</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">类型</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">标记</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">可选值</th>
+              <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">排序</th>
+              <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">操作</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -128,34 +151,40 @@ export const categoryParamFormPage = (param?: any, categories: any[] = [], error
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">参数名 <span class="text-red-500">*</span></label>
-            <input type="text" name="param_key" value="${param?.param_key || ''}" required placeholder="如：匹数"
+            <input type="text" name="param_key" value="${escapeAttr(param?.param_key || '')}" required placeholder="如：匹数"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">显示名 <span class="text-red-500">*</span></label>
-            <input type="text" name="display_name" value="${param?.display_name || ''}" required placeholder="如：匹数"
+            <input type="text" name="display_name" value="${escapeAttr(param?.display_name || '')}" required placeholder="如：匹数"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">图标</label>
-            <input type="text" name="icon" value="${param?.icon || ''}" placeholder="如：⚡"
+            <input type="text" name="icon" value="${escapeAttr(param?.icon || '')}" placeholder="如：⚡"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">参数类型 <span class="text-red-500">*</span></label>
-            <select name="param_type" required
+            <select name="param_type" required id="param-type-select"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
-              <option value="text" ${param?.param_type === 'text' ? 'selected' : ''}>文本</option>
-              <option value="number" ${param?.param_type === 'number' ? 'selected' : ''}>数字</option>
-              <option value="enum" ${param?.param_type === 'enum' ? 'selected' : ''}>枚举</option>
-              <option value="boolean" ${param?.param_type === 'boolean' ? 'selected' : ''}>布尔</option>
+              <option value="text" ${param?.param_type === 'text' ? 'selected' : ''}>文本（text）</option>
+              <option value="number" ${param?.param_type === 'number' ? 'selected' : ''}>数字（number）</option>
+              <option value="enum" ${param?.param_type === 'enum' ? 'selected' : ''}>枚举（enum）</option>
+              <option value="boolean" ${param?.param_type === 'boolean' ? 'selected' : ''}>布尔（boolean）</option>
+              <option value="date" ${param?.param_type === 'date' ? 'selected' : ''}>日期（date）</option>
             </select>
+            <p class="mt-1 text-xs text-gray-500">
+              text=普通文本｜number=数值｜enum=下拉选择｜boolean=是/否｜date=日期选择器
+            </p>
           </div>
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">枚举值（JSON数组）</label>
-            <input type="text" name="enum_values" value="${param?.enum_values ? JSON.stringify(param.enum_values) : ''}" placeholder='["一级","二级","三级"]'
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">可选值说明</label>
+            <input type="text" name="enum_values" id="enum-values-input" value="${escapeAttr(param?.enum_values ? JSON.stringify(param.enum_values) : '')}" placeholder='枚举时填写：["一级","二级","三级"]'
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
-            <p class="mt-1 text-xs text-gray-500">参数类型为枚举时填写，JSON数组格式</p>
+            <p id="options-hint" class="mt-1 text-xs text-gray-500">
+              text=自由文本｜number=数值｜enum=JSON 数组必填｜boolean=固定「是 / 否」｜date=日期（精确到天）
+            </p>
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">排序</label>
@@ -188,6 +217,86 @@ export const categoryParamFormPage = (param?: any, categories: any[] = [], error
         </div>
       </form>
     </div>
+
+    <script>
+      var paramTypeSelect = document.getElementById('param-type-select')
+      var enumInput = document.getElementById('enum-values-input')
+      var optionsHint = document.getElementById('options-hint')
+      function updateEnumHint() {
+        var t = paramTypeSelect.value
+        if (t === 'enum') {
+          enumInput.disabled = false
+          enumInput.style.borderColor = '#ef4444'
+          enumInput.placeholder = '["一级","二级","三级"]'
+          if (optionsHint) {
+            optionsHint.innerHTML = '参数类型为枚举时<strong class="text-red-600">必填</strong>，JSON数组格式，如 ["一级","二级"]'
+            optionsHint.className = 'mt-1 text-xs text-red-500'
+          }
+        } else if (t === 'boolean') {
+          enumInput.disabled = true
+          enumInput.style.borderColor = ''
+          enumInput.placeholder = '无需填写（固定：是 / 否）'
+          if (optionsHint) {
+            optionsHint.innerHTML = '布尔类型固定可选值：<strong>是</strong>、<strong>否</strong>（编辑产品时以下拉展示）'
+            optionsHint.className = 'mt-1 text-xs text-gray-500'
+          }
+        } else if (t === 'date') {
+          enumInput.disabled = true
+          enumInput.style.borderColor = ''
+          enumInput.placeholder = '无需填写'
+          if (optionsHint) {
+            optionsHint.innerHTML = '日期类型使用日期选择器，精确到天（YYYY-MM-DD）'
+            optionsHint.className = 'mt-1 text-xs text-gray-500'
+          }
+        } else if (t === 'number') {
+          enumInput.disabled = true
+          enumInput.style.borderColor = ''
+          enumInput.placeholder = '无需填写'
+          if (optionsHint) {
+            optionsHint.innerHTML = '数字类型请录入纯数字；带单位的旧数据会以文本方式回显'
+            optionsHint.className = 'mt-1 text-xs text-gray-500'
+          }
+        } else {
+          enumInput.disabled = true
+          enumInput.style.borderColor = ''
+          enumInput.placeholder = '无需填写'
+          if (optionsHint) {
+            optionsHint.innerHTML = '文本类型为自由输入'
+            optionsHint.className = 'mt-1 text-xs text-gray-500'
+          }
+        }
+      }
+      paramTypeSelect.addEventListener('change', updateEnumHint)
+      updateEnumHint()
+
+      var form = document.querySelector('form[method="POST"]')
+      form.addEventListener('submit', function(e) {
+        if (paramTypeSelect.value === 'enum') {
+          var val = enumInput.value.trim()
+          if (!val) {
+            e.preventDefault()
+            alert('参数类型为「枚举」时，枚举值不能为空！\\n请填写JSON数组，如：["一级","二级","三级"]')
+            enumInput.focus()
+            return
+          }
+          try {
+            var parsed = JSON.parse(val)
+            if (!Array.isArray(parsed) || parsed.length === 0) {
+              throw new Error('not array')
+            }
+          } catch(err) {
+            e.preventDefault()
+            alert('枚举值格式错误！\\n请填写合法的JSON数组，如：["一级","二级","三级"]')
+            enumInput.focus()
+            return
+          }
+        } else {
+          // 非 enum 提交空枚举值，避免脏数据
+          enumInput.disabled = false
+          enumInput.value = ''
+        }
+      })
+    </script>
   `
 
   return layout(title, content, 'category-params', role)

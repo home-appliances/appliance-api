@@ -74,8 +74,11 @@ categories.post('/api/admin/categories', async (c) => {
 
     return c.json({ code: 0, data: result, message: '分类创建成功' });
   } catch (error: any) {
+    if (error?.name === 'CategoryDuplicateError') {
+      return c.json({ code: 409, message: error.message, existingId: error.existingId }, 409);
+    }
     if (error.code === '23505') {
-      return c.json({ code: 400, message: '分类编码已存在' }, 400);
+      return c.json({ code: 400, message: '分类编码或名称已存在' }, 400);
     }
     console.error('创建分类失败:', error);
     return c.json({ code: 500, message: '创建分类失败' }, 500);
@@ -107,8 +110,11 @@ categories.put('/api/admin/categories/:id', async (c) => {
 
     return c.json({ code: 0, data: result, message: '更新成功' });
   } catch (error: any) {
+    if (error?.name === 'CategoryDuplicateError') {
+      return c.json({ code: 409, message: error.message, existingId: error.existingId }, 409);
+    }
     if (error.code === '23505') {
-      return c.json({ code: 400, message: '分类编码已存在' }, 400);
+      return c.json({ code: 400, message: '分类编码或名称已存在' }, 400);
     }
     console.error('编辑分类失败:', error);
     return c.json({ code: 500, message: '编辑分类失败' }, 500);

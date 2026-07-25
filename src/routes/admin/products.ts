@@ -57,12 +57,15 @@ products.post('/api/admin/products', async (c) => {
     if (!name || !brand) {
       return c.json({ code: 400, message: '产品名称和品牌为必填项' }, 400);
     }
+    if (!category_id) {
+      return c.json({ code: 400, message: '请选择分类' }, 400);
+    }
 
     const result = await queries.createProduct({
       name,
-      brand,
+      brand: String(brand).trim(),
       categoryId: category_id || null,
-      model: model || null,
+      model: model ? String(model).trim() : null,
       price: price || null,
       originalPrice: original_price || null,
       rating: rating || null,
@@ -72,9 +75,12 @@ products.post('/api/admin/products', async (c) => {
     });
 
     return c.json({ code: 0, data: result, message: '产品创建成功' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('创建产品失败:', error);
-    return c.json({ code: 500, message: '创建产品失败' }, 500);
+    if (error?.name === 'ProductDuplicateError') {
+      return c.json({ code: 409, message: error.message, existingId: error.existingId }, 409);
+    }
+    return c.json({ code: 500, message: error?.message || '创建产品失败' }, 500);
   }
 });
 
@@ -134,9 +140,12 @@ products.put('/api/admin/products/:id', async (c) => {
     }
 
     return c.json({ code: 0, data: result, message: '更新成功' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('编辑产品失败:', error);
-    return c.json({ code: 500, message: '编辑产品失败' }, 500);
+    if (error?.name === 'ProductDuplicateError') {
+      return c.json({ code: 409, message: error.message, existingId: error.existingId }, 409);
+    }
+    return c.json({ code: 500, message: error?.message || '编辑产品失败' }, 500);
   }
 });
 
@@ -158,6 +167,41 @@ products.delete('/api/admin/products/:id', async (c) => {
   } catch (error) {
     console.error('删除产品失败:', error);
     return c.json({ code: 500, message: '删除产品失败' }, 500);
+  }
+});
+
+/**
+ * 删除产品主图（清除 products.main_image 和 image_id）
+ * DELETE /api/admin/products/:id/main-image
+ */
+products.delete('/api/admin/products/:id/main-image', async (c) => {
+  try {
+    const id = parseInt(c.req.param('id'));
+
+    const product = await queries.getProductById(id);
+    if (!product) {
+      return c.json({ code: 404, message: '产品不存在' }, 404);
+    }
+
+    const { pool } = await import('../../db/index.js');
+
+    await pool.query(
+      'UPDATE products SET main_image = NULL, image_id = NULL, updated_at = NOW() WHERE id = $1',
+      [id]
+    );
+
+    if (product.imageId) {
+      try {
+        await pool.query('DELETE FROM images WHERE id = $1', [product.imageId]);
+      } catch (e) {
+        console.warn('清理 images 表失败（不影响主流程）:', e);
+      }
+    }
+
+    return c.json({ code: 0, message: '主图已删除' });
+  } catch (error) {
+    console.error('删除产品主图失败:', error);
+    return c.json({ code: 500, message: '删除主图失败' }, 500);
   }
 });
 

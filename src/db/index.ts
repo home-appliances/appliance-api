@@ -167,21 +167,72 @@ function formatSearchQuery(keyword: string): string {
 }
 
 // =====================================================
+// 搜索词拆分（全文 / ILIKE / 日志 / 高亮共用）
+// =====================================================
+function splitSearchTerm(t: string): string[] {
+  if (!t) return [];
+  const segments = t.match(/[一-龥]+|[a-zA-Z0-9.\-]+/g) || [t];
+  const result: string[] = [];
+  for (const seg of segments) {
+    if (/[一-龥]/.test(seg) && seg.length > 2) {
+      for (let i = 0; i < seg.length; i += 2) {
+        result.push(seg.substring(i, i + 2));
+      }
+    } else {
+      result.push(seg);
+    }
+  }
+  return result;
+}
+
+/** 用户输入 → 空格分词后的原始词 */
+function extractSearchTerms(keyword: string): string[] {
+  const cleaned = keyword.replace(/[^一-龥a-zA-Z0-9.\-]/g, ' ').trim();
+  return cleaned.split(/\s+/).filter((t) => t.length > 0);
+}
+
+/** 拆成检索用 chunk（去重） */
+function buildSearchChunks(terms: string[]): string[] {
+  return [...new Set(terms.flatMap((t) => splitSearchTerm(t)).filter(Boolean))];
+}
+
+/** 构建 tsquery：多词 AND，英文/数字前缀匹配 */
+function buildTsQuery(terms: string[]): string {
+  const parts: string[] = [];
+  for (const t of terms) {
+    if (/^[a-zA-Z]+$/.test(t)) {
+      parts.push(`${t.toLowerCase()}:*`);
+    } else if (/^[0-9.]+[a-zA-Z一-龥]+$/.test(t)) {
+      parts.push(`${t}:*`);
+    } else {
+      for (const c of splitSearchTerm(t)) {
+        parts.push(`${c}:*`);
+      }
+    }
+  }
+  return parts.join(' & ');
+}
+
+const PRODUCT_LIST_COLS = `
+  p.id, p.name, p.brand, p.model, p.price, p.rating, p.review_count,
+  p.params, p.category_id, p.pinyin, p.main_image, p.created_at,
+  c.name AS category_name, c.code AS category
+`;
+
+// =====================================================
 // 高亮处理：在文本中包裹 <hl> 标签
 // =====================================================
 function highlightText(text: string, keyword: string): string {
   if (!text || !keyword) return text || '';
 
-  // 提取搜索关键词中的有效词
-  const cleaned = keyword.replace(/[^一-龥a-zA-Z0-9]/g, ' ').trim();
-  const terms = cleaned.split(/\s+/).filter(t => t.length > 0);
-
+  const terms = extractSearchTerms(keyword);
   if (terms.length === 0) return text;
 
-  // 对每个词进行高亮（按长度降序，避免短词覆盖长词）
-  terms.sort((a, b) => b.length - a.length);
+  const allTerms = buildSearchChunks(terms).filter((t) => t.length > 0);
+  allTerms.sort((a, b) => b.length - a.length);
+
   let result = text;
-  for (const term of terms) {
+  for (const term of allTerms) {
     const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     result = result.replace(regex, `<hl>$&</hl>`);
   }
@@ -189,8 +240,16 @@ function highlightText(text: string, keyword: string): string {
   return result;
 }
 
+function mapSearchRows(rows: any[], keyword: string) {
+  return decodeObjectStrings(rows).map((p) => ({
+    ...p,
+    title: highlightText(p.name, keyword),
+    img: p.main_image || '',
+  }));
+}
+
 // =====================================================
-// 搜索产品（全文搜索 + 相关性排序）
+// 搜索产品：先加权全文，无命中再 ILIKE 降级（含 params_search_text）
 // =====================================================
 export async function searchProducts(
   keyword: string,
@@ -202,16 +261,23 @@ export async function searchProducts(
   page: number;
   limit: number;
 }> {
+  const offset = (page - 1) * limit;
+
   if (!keyword || !keyword.trim()) {
-    // 无关键词时，返回所有产品
-    const countResult = await pool.query('SELECT COUNT(*) FROM products');
-    const total = parseInt(countResult.rows[0].count);
-
-    const result = await pool.query(
-      'SELECT * FROM products ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-      [limit, (page - 1) * limit]
+    const countResult = await pool.query(
+      'SELECT COUNT(*) FROM products WHERE deleted_at IS NULL'
     );
-
+    const total = parseInt(countResult.rows[0].count);
+    const result = await pool.query(
+      `SELECT p.id, p.name, p.brand, p.model, p.price, p.rating, p.review_count, p.params,
+              p.category_id, p.pinyin, p.main_image, p.created_at,
+              c.name AS category_name, c.code AS category
+       FROM products p
+       LEFT JOIN categories c ON p.category_id = c.id
+       WHERE p.deleted_at IS NULL
+       ORDER BY p.created_at DESC LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
     return {
       products: decodeObjectStrings(result.rows),
       total,
@@ -220,99 +286,80 @@ export async function searchProducts(
     };
   }
 
-  // 提取搜索词（中文、英文、数字、点号、连字符）
-  const cleaned = keyword.replace(/[^一-龥a-zA-Z0-9.\-]/g, ' ').trim();
-  // 按空格分割多个关键词
-  const terms = cleaned.split(/\s+/).filter(t => t.length > 0);
-
+  const terms = extractSearchTerms(keyword);
   if (terms.length === 0) {
     return { products: [], total: 0, page, limit };
   }
 
-  console.log('搜索调试:', { keyword, terms });
+  const tsQuery = buildTsQuery(terms);
+  const chunks = buildSearchChunks(terms);
+  console.log('搜索调试:', { keyword, terms, tsQuery, chunks });
 
-  // 使用 pg_jieba 分词：将每个词用 & 连接（AND 逻辑）
-  // 每个词用前缀匹配（:*）支持部分匹配
-  const tsQueryParts = terms.map(t => {
-    // 英文品牌名直接使用
-    if (/^[a-zA-Z]+$/.test(t)) {
-      return `${t.toLowerCase()}:*`;
-    }
-    // 数字+单位（如1.5匹、218L）直接使用
-    if (/^[0-9.]+[a-zA-Z一-龥]+$/.test(t)) {
-      return `${t}:*`;
-    }
-    // 中文词使用 pg_jieba 分词
-    return t;
-  });
-  const tsQuery = tsQueryParts.join(' & ');
-  console.log('tsQuery:', tsQuery);
-
-  // 查询：使用 search_vector 全文搜索，同时用 ILIKE 作为降级
-  const query = `
-    SELECT *,
-      ts_rank(search_vector, to_tsquery('jiebacfg', $1)) as rank,
-      CASE
-        WHEN name ILIKE $2 THEN 200
-        WHEN brand ILIKE $3 THEN 150
-        WHEN model ILIKE $2 THEN 100
-        ELSE ts_rank(search_vector, to_tsquery('jiebacfg', $1)) * 100
-      END as boost
-    FROM products
-    WHERE search_vector @@ to_tsquery('jiebacfg', $1)
-       OR name ILIKE $2
-       OR brand ILIKE $3
-       OR model ILIKE $2
-       OR pinyin ILIKE $2
-    ORDER BY boost DESC, created_at DESC
-    LIMIT $4 OFFSET $5
+  // ---------- Phase 1: 仅 FTS（可用 GIN，不与 ILIKE OR 绑死）----------
+  const ftsSql = `
+    SELECT ${PRODUCT_LIST_COLS},
+      ts_rank_cd(p.search_vector, q.query) AS rank,
+      COUNT(*) OVER()::int AS total_count
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    CROSS JOIN (SELECT to_tsquery('jiebacfg', $1) AS query) q
+    WHERE p.deleted_at IS NULL
+      AND p.search_vector @@ q.query
+    ORDER BY rank DESC, p.created_at DESC
+    LIMIT $2 OFFSET $3
   `;
 
-  const params = [
-    tsQuery,                    // $1: tsquery
-    `%${keyword}%`,            // $2: name/model/pinyin ILIKE
-    `%${keyword.toLowerCase()}%`, // $3: brand ILIKE
-    limit,                      // $4
-    (page - 1) * limit,        // $5
-  ];
+  const ftsResult = await pool.query(ftsSql, [tsQuery, limit, offset]);
+  const ftsTotal = ftsResult.rows[0]?.total_count ?? 0;
 
-  const result = await pool.query(query, params);
-
-  // 计算总数
-  const countQuery = `
-    SELECT COUNT(*) FROM products
-    WHERE search_vector @@ to_tsquery('jiebacfg', $1)
-       OR name ILIKE $2
-       OR brand ILIKE $3
-       OR model ILIKE $2
-       OR pinyin ILIKE $2
-  `;
-  const countParams = [
-    tsQuery,
-    `%${keyword}%`,
-    `%${keyword.toLowerCase()}%`,
-  ];
-  const countResult = await pool.query(countQuery, countParams);
-  const total = parseInt(countResult.rows[0].count);
-
-  const products = decodeObjectStrings(result.rows).map(p => {
-    let img = '/static/default_img.png';
-    if (p.images_binary && p.images_binary.length > 0 && p.images_binary[0]) {
-      img = `data:image/jpeg;base64,${p.images_binary[0].toString('base64')}`;
-    } else if (p.images && p.images.length > 0) {
-      img = p.images[0];
-    }
-
+  if (ftsTotal > 0) {
     return {
-      ...p,
-      title: highlightText(p.name, keyword),
-      img,
+      products: mapSearchRows(ftsResult.rows, keyword),
+      total: ftsTotal,
+      page,
+      limit,
     };
+  }
+
+  // ---------- Phase 2: ILIKE 降级（含参数值文本）----------
+  if (chunks.length === 0) {
+    return { products: [], total: 0, page, limit };
+  }
+
+  const ilikeParams = chunks.map((t) => `%${t}%`);
+  const perTermConds = ilikeParams.map((_, i) => {
+    const idx = i + 1;
+    return `(p.name ILIKE $${idx} OR p.brand ILIKE $${idx} OR p.model ILIKE $${idx}
+      OR p.pinyin ILIKE $${idx} OR COALESCE(p.params_search_text, '') ILIKE $${idx}
+      OR c.name ILIKE $${idx})`;
   });
+  const ilikeCond = perTermConds.join(' AND ');
+  const limitIdx = ilikeParams.length + 1;
+  const offsetIdx = limitIdx + 1;
+
+  const ilikeSql = `
+    SELECT ${PRODUCT_LIST_COLS},
+      0::float AS rank,
+      COUNT(*) OVER()::int AS total_count
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE p.deleted_at IS NULL AND (${ilikeCond})
+    ORDER BY
+      CASE
+        WHEN p.name ILIKE $1 THEN 3
+        WHEN p.brand ILIKE $1 THEN 2
+        ELSE 1
+      END DESC,
+      p.created_at DESC
+    LIMIT $${limitIdx} OFFSET $${offsetIdx}
+  `;
+
+  const ilikeResult = await pool.query(ilikeSql, [...ilikeParams, limit, offset]);
+  const ilikeTotal = ilikeResult.rows[0]?.total_count ?? 0;
 
   return {
-    products,
-    total,
+    products: mapSearchRows(ilikeResult.rows, keyword),
+    total: ilikeTotal,
     page,
     limit,
   };
@@ -322,7 +369,7 @@ export async function searchProducts(
 // 获取产品详情
 // =====================================================
 export async function getProductById(id: number): Promise<any | null> {
-  const result = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
+  const result = await pool.query('SELECT * FROM products WHERE id = $1 AND deleted_at IS NULL', [id]);
   return result.rows[0] ? decodeObjectStrings(result.rows[0]) : null;
 }
 
@@ -377,30 +424,15 @@ export async function getProductParams(id: number): Promise<Record<string, strin
 // 获取产品图片
 // =====================================================
 export async function getProductImages(id: number): Promise<string[]> {
-  const result = await pool.query('SELECT images, image_id FROM products WHERE id = $1', [id]);
-
-  if (result.rows.length === 0) {
-    return [];
-  }
-
-  const row = result.rows[0];
-
-  // 优先从 images 表获取二进制图片
-  if (row.image_id) {
-    const imgResult = await pool.query('SELECT image_data, mime_type FROM images WHERE id = $1', [row.image_id]);
-    if (imgResult.rows.length > 0 && imgResult.rows[0].image_data) {
-      const img = imgResult.rows[0];
-      // 过滤过小的图片数据（已损坏/截断的图片可能只有几字节）
-      if (img.image_data.length > 1024) {
-        const base64 = img.image_data.toString('base64');
-        return [`data:${img.mime_type};base64,${base64}`];
-      }
-      console.warn('getProductImages 图片数据过小，跳过:', row.image_id, img.image_data.length);
+  try {
+    const pResult = await pool.query('SELECT main_image FROM products WHERE id = $1', [id]);
+    if (pResult.rows.length > 0 && pResult.rows[0].main_image) {
+      return [pResult.rows[0].main_image];
     }
+  } catch (e) {
+    console.error('getProductImages 失败:', e);
   }
-
-  // 降级返回 URL 数组
-  return row.images || [];
+  return [];
 }
 
 // =====================================================
@@ -409,7 +441,39 @@ export async function getProductImages(id: number): Promise<string[]> {
 export async function logSearch(keyword: string): Promise<void> {
   if (!keyword || !keyword.trim()) return;
   const trimmed = keyword.trim();
-  await pool.query(`SELECT log_search($1)`, [trimmed]);
+  const spaceTerms = extractSearchTerms(trimmed).filter((t) => t.length >= 2);
+  const toLog = [...new Set([trimmed, ...spaceTerms])];
+
+  await pool.query(
+    `
+    INSERT INTO search_logs (keyword, search_count, last_searched_at)
+    SELECT k, 1, NOW()
+    FROM unnest($1::text[]) AS k
+    ON CONFLICT (keyword)
+    DO UPDATE SET
+      search_count = search_logs.search_count + 1,
+      last_searched_at = NOW()
+    `,
+    [toLog]
+  );
+}
+
+// =====================================================
+// 获取热门搜索词
+// =====================================================
+export async function getHotSearches(limit: number = 10): Promise<string[]> {
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
+  const result = await pool.query(
+    `
+    SELECT keyword
+    FROM search_logs
+    WHERE char_length(trim(keyword)) >= 2
+    ORDER BY search_count DESC, last_searched_at DESC
+    LIMIT $1
+    `,
+    [safeLimit]
+  );
+  return result.rows.map((row) => row.keyword as string);
 }
 
 // =====================================================
@@ -445,11 +509,12 @@ export async function getSuggestions(keyword: string, limit: number = 8): Promis
     }
   }
 
-  // 2. 从品牌中匹配（支持中英文）
+  // 2. 从品牌中匹配（支持中英文，排除已软删除产品）
   if (suggestions.length < limit) {
     const brandMatches = await pool.query(`
       SELECT DISTINCT brand FROM products
       WHERE brand ILIKE $1
+        AND deleted_at IS NULL
       LIMIT $2
     `, [`%${trimmed}%`, limit - suggestions.length]);
 
@@ -463,11 +528,12 @@ export async function getSuggestions(keyword: string, limit: number = 8): Promis
     }
   }
 
-  // 3. 从产品名称中匹配
+  // 3. 从产品名称中匹配（排除已软删除产品）
   if (suggestions.length < limit) {
     const nameMatches = await pool.query(`
       SELECT DISTINCT name FROM products
       WHERE name ILIKE $1
+        AND deleted_at IS NULL
       LIMIT $2
     `, [`%${trimmed}%`, limit - suggestions.length]);
 
@@ -479,35 +545,6 @@ export async function getSuggestions(keyword: string, limit: number = 8): Promis
   }
 
   return suggestions.slice(0, limit);
-}
-
-// =====================================================
-// 获取推荐数据（空结果时使用）
-// =====================================================
-export async function getRecommendations(limit: number = 6): Promise<{
-  brands: Array<{ brand: string; count: number }>;
-  hotProducts: any[];
-}> {
-  // 获取品牌统计
-  const brandsResult = await pool.query(`
-    SELECT brand, COUNT(*) as count
-    FROM products
-    GROUP BY brand
-    ORDER BY count DESC
-    LIMIT $1
-  `, [limit]);
-
-  // 获取热门产品（按创建时间排序）
-  const productsResult = await pool.query(`
-    SELECT * FROM products
-    ORDER BY created_at DESC
-    LIMIT $1
-  `, [limit]);
-
-  return {
-    brands: brandsResult.rows,
-    hotProducts: decodeObjectStrings(productsResult.rows),
-  };
 }
 
 // =====================================================
@@ -555,16 +592,16 @@ export async function getProductsByCategoryId(
   limit: number;
 }> {
   const countResult = await pool.query(
-    'SELECT COUNT(*) FROM products WHERE category_id = $1',
+    'SELECT COUNT(*) FROM products WHERE category_id = $1 AND deleted_at IS NULL',
     [categoryId]
   );
   const total = parseInt(countResult.rows[0].count);
 
   const result = await pool.query(`
-    SELECT p.*, c.name as category_name
+    SELECT p.*, c.name as category_name, p.main_image
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
-    WHERE p.category_id = $1
+    WHERE p.category_id = $1 AND p.deleted_at IS NULL
     ORDER BY p.created_at DESC
     LIMIT $2 OFFSET $3
   `, [categoryId, limit, (page - 1) * limit]);
@@ -589,54 +626,26 @@ export async function getProductViewById(id: number): Promise<any | null> {
 }
 
 // =====================================================
-// 新增：获取产品图片列表（统一方式）
+// 获取产品图片列表（仅主图 main_image）
 // =====================================================
 export async function getProductImagesList(id: number): Promise<Array<{
   id: number;
   url: string;
   mime_type: string;
 }>> {
-  const images: Array<{ id: number; url: string; mime_type: string }> = [];
-
-  // 1. 从 images 表获取（优先）
-  const imageResult = await pool.query(`
-    SELECT i.id, i.image_data, i.mime_type
-    FROM products p
-    JOIN images i ON p.image_id = i.id
-    WHERE p.id = $1
-  `, [id]);
-
-  if (imageResult.rows.length > 0) {
-    const img = imageResult.rows[0];
-    images.push({
-      id: img.id,
-      url: `data:${img.mime_type};base64,${img.image_data.toString('base64')}`,
-      mime_type: img.mime_type,
-    });
-  }
-
-  // 2. 降级：从 products.images 数组获取（兼容旧数据）
-  if (images.length === 0) {
-    const productResult = await pool.query(
-      'SELECT images FROM products WHERE id = $1',
-      [id]
-    );
-
-    if (productResult.rows.length > 0 && productResult.rows[0].images) {
-      const urlArray = productResult.rows[0].images;
-      urlArray.forEach((url: string, index: number) => {
-        if (url) {
-          images.push({
-            id: -index - 1, // 负数ID表示来自数组
-            url: url,
-            mime_type: 'image/unknown',
-          });
-        }
-      });
+  try {
+    const pResult = await pool.query('SELECT main_image FROM products WHERE id = $1', [id]);
+    if (pResult.rows.length > 0 && pResult.rows[0].main_image) {
+      return [{
+        id: 0,
+        url: pResult.rows[0].main_image,
+        mime_type: 'image/main',
+      }];
     }
+  } catch (e) {
+    console.error('getProductImagesList 失败:', e);
   }
-
-  return images;
+  return [];
 }
 
 // =====================================================

@@ -3,7 +3,31 @@
  * 全品类家电产品数据库
  */
 
-import { pgTable, bigint, text, numeric, integer, boolean, timestamp, jsonb, unique } from 'drizzle-orm/pg-core';
+import { pgTable, bigint, text, numeric, integer, boolean, timestamp, jsonb, unique, customType } from 'drizzle-orm/pg-core';
+
+// =====================================================
+// bytea 自定义类型（PostgreSQL 二进制数据）
+// =====================================================
+const bytea = customType<{ data: Buffer; default: false }>({
+  dataType() {
+    return 'bytea';
+  },
+});
+
+// =====================================================
+// 图片表（本地已废弃并 DROP；schema 保留仅防旧代码引用）
+// 本地：~/Desktop/crawler_test/images-data + /local-images/* ；线上：OSS CDN URL
+// =====================================================
+export const images = pgTable('images', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  imageData: bytea('image_data'),
+  mimeType: text('mime_type'),
+  fileSize: integer('file_size'),
+  width: integer('width'),
+  height: integer('height'),
+  sourceUrl: text('source_url').unique(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
 // =====================================================
 // 分类表
@@ -11,7 +35,7 @@ import { pgTable, bigint, text, numeric, integer, boolean, timestamp, jsonb, uni
 export const categories = pgTable('categories', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   code: text('code').unique().notNull(),
-  name: text('name').notNull(),
+  name: text('name').unique().notNull(),
   displayName: text('display_name'),
   icon: text('icon'),
   parentId: bigint('parent_id', { mode: 'number' }),
@@ -34,9 +58,12 @@ export const products = pgTable('products', {
   rating: numeric('rating', { precision: 3, scale: 1 }),
   reviewCount: integer('review_count').default(0),
   params: jsonb('params').default({}).notNull(),
+  paramsSearchText: text('params_search_text'),
   searchVector: text('search_vector'),
   pinyin: text('pinyin'),
   pinyinInitials: text('pinyin_initials'),
+  mainImage: text('main_image'), // 主图：本地 /local-images 或 OSS CDN
+  imageId: bigint('image_id', { mode: 'number' }), // 已废弃，应恒为 null
   sourceUrl: text('source_url').unique(),
   sourcePlatform: text('source_platform').default('pconline'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -46,21 +73,8 @@ export const products = pgTable('products', {
 });
 
 // =====================================================
-// 产品图片表
+// 产品图片：目前只做主图，存在 products.main_image（本地 /local-images 或 OSS URL）
 // =====================================================
-export const productImages = pgTable('product_images', {
-  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-  productId: bigint('product_id', { mode: 'number' }).notNull(),
-  imageUrl: text('image_url'),
-  imageType: text('image_type').default('main').notNull(),
-  sortOrder: integer('sort_order').default(0),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (table) => ({
-  // 唯一约束：同一产品、同一类型、同一排序不重复
-  productTypeSortUnique: unique('product_images_product_type_sort_unique').on(
-    table.productId, table.imageType, table.sortOrder
-  ),
-}));
 
 // =====================================================
 // 品类参数规范表
@@ -137,21 +151,4 @@ export const systemSettings = pgTable('system_settings', {
   key: text('key').primaryKey(),
   value: jsonb('value').notNull(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
-
-// =====================================================
-// 爬虫任务表
-// =====================================================
-export const crawlerTasks = pgTable('crawler_tasks', {
-  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-  category: text('category'),
-  status: text('status').default('pending'),
-  progress: integer('progress').default(0),
-  totalProducts: integer('total_products').default(0),
-  successCount: integer('success_count').default(0),
-  failCount: integer('fail_count').default(0),
-  errorMessage: text('error_message'),
-  startedAt: timestamp('started_at'),
-  completedAt: timestamp('completed_at'),
-  createdAt: timestamp('created_at').defaultNow(),
 });

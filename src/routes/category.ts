@@ -41,7 +41,7 @@ category.get('/api/category/:id', async (c) => {
 
     // 获取分类信息
     const categories = await getCategories()
-    const categoryInfo = categories.find(cat => cat.id === categoryId)
+    const categoryInfo = categories.find(cat => Number(cat.id) === categoryId)
 
     if (!categoryInfo) {
       return c.json({
@@ -52,19 +52,10 @@ category.get('/api/category/:id', async (c) => {
 
     // 处理产品图片
     const products = result.products.map(p => {
-      let img = '/static/default_img.png';
-      if (p.image_id) {
-        // 图片从 images 表获取，这里先用占位符
-        // 实际应该调用 getProductImagesList
-        img = '/static/default_img.png';
-      } else if (p.images && p.images.length > 0 && p.images[0]) {
-        img = p.images[0];
-      }
-
       return {
         id: p.id,
         title: p.name,
-        img: img,
+        img: p.main_image || '',
         tag: [p.brand, p.params?.['能效等级']].filter(Boolean),
         brand: p.brand,
         model: p.model,

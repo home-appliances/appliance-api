@@ -7,18 +7,26 @@ import path from 'path';
 import crypto from 'crypto';
 
 // CDN 域名（图片走 CDN 加速）
-const CDN_DOMAIN = process.env.CDN_DOMAIN || '';
+const CDN_DOMAIN = (process.env.CDN_DOMAIN || 'https://static.cheapgo.top').replace(/\/$/, '');
 
 // OSS 客户端懒加载
 let _ossClient: OSS | null = null;
 
 function getOssClient(): OSS {
   if (!_ossClient) {
-    const accessKeyId = process.env.ALIYUN_ACCESS_KEY_ID;
-    const accessKeySecret = process.env.ALIYUN_ACCESS_KEY_SECRET;
+    const accessKeyId =
+      process.env.ALIYUN_ACCESS_KEY_ID ||
+      process.env.OSS_ACCESS_KEY_ID ||
+      process.env.ALIBABA_CLOUD_ACCESS_KEY_ID;
+    const accessKeySecret =
+      process.env.ALIYUN_ACCESS_KEY_SECRET ||
+      process.env.OSS_ACCESS_KEY_SECRET ||
+      process.env.ALIBABA_CLOUD_ACCESS_KEY_SECRET;
 
     if (!accessKeyId || !accessKeySecret) {
-      throw new Error('OSS 配置缺失：请设置 ALIYUN_ACCESS_KEY_ID 和 ALIYUN_ACCESS_KEY_SECRET 环境变量');
+      throw new Error(
+        'OSS 配置缺失：请设置 ALIYUN_ACCESS_KEY_ID / ALIYUN_ACCESS_KEY_SECRET（见 .env.example）'
+      );
     }
 
     _ossClient = new OSS({
