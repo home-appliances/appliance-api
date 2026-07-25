@@ -915,41 +915,39 @@ admin.post('/category-params/:id/delete', authMiddleware, async (c) => {
 // ==================== 图片管理 ====================
 // 管理 product_images 表（多类型图片）
 
-// 图片列表：展示有图片的产品
+// 图片列表：按图片记录列出（每行一张图，带产品信息）
 admin.get('/product-images', authMiddleware, async (c) => {
   const adminUser = c.get('admin') as { role?: string }
   const role = adminUser?.role || 'admin'
   const productId = c.req.query('product_id') ? parseInt(c.req.query('product_id')!) : undefined
+  const imageType = c.req.query('type') || undefined
   const page = Math.max(1, parseInt(c.req.query('page') || '1'))
   const pageSize = 50
   const offset = (page - 1) * pageSize
 
-  // 查询有图片的产品（主图 = image_type='main' 中 sort_order 最小的一条）
-  let whereClause = 'WHERE p.deleted_at IS NULL AND EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id)'
+  // 按图片记录查询，关联产品信息
+  const conditions: string[] = ['p.deleted_at IS NULL']
   const params: any[] = []
   if (productId) {
-    whereClause += ' AND p.id = $1'
     params.push(productId)
+    conditions.push(`pi.product_id = $${params.length}`)
   }
+  if (imageType) {
+    params.push(imageType)
+    conditions.push(`pi.image_type = $${params.length}`)
+  }
+  const whereClause = 'WHERE ' + conditions.join(' AND ')
 
-  // 并行查询：主图列表 + 总数 + 全部产品（用于筛选下拉）
-  // 用别名转为驼峰命名，与页面接口字段对齐
   const listQuery = `
-    SELECT p.id, p.name, p.brand, p.model,
-           pi.image_url AS "mainImage",
-           pi.id AS "imageId",
-           p.updated_at AS "updatedAt"
-    FROM products p
-    LEFT JOIN LATERAL (
-      SELECT image_url, id FROM product_images
-      WHERE product_id = p.id AND image_type = 'main'
-      ORDER BY sort_order ASC, id ASC LIMIT 1
-    ) pi ON true
+    SELECT pi.id, pi.image_url, pi.image_type, pi.sort_order, pi.created_at,
+           p.id AS product_id, p.name AS product_name, p.brand, p.model
+    FROM product_images pi
+    INNER JOIN products p ON p.id = pi.product_id
     ${whereClause}
-    ORDER BY p.updated_at DESC
+    ORDER BY p.id DESC, pi.image_type ASC, pi.sort_order ASC, pi.id ASC
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}
   `
-  const countQuery = `SELECT COUNT(*) FROM products p ${whereClause}`
+  const countQuery = `SELECT COUNT(*) FROM product_images pi INNER JOIN products p ON p.id = pi.product_id ${whereClause}`
 
   const [listResult, countResult, allProducts] = await Promise.all([
     pool.query(listQuery, [...params, pageSize, offset]),
@@ -970,26 +968,23 @@ admin.get('/product-images', authMiddleware, async (c) => {
   ))
 })
 
-// 删除产品主图（删除 product_images 中该产品的 main 图；若为 OSS URL 则删对象）
+// 删除图片记录（按图片 id 删除 product_images 中对应记录）
 admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
-  const productId = parseInt(c.req.param('id'))
+  const imageId = parseInt(c.req.param('id'))
 
   try {
-    // 查该产品的主图记录
     const imgResult = await pool.query(
-      `SELECT id, image_url FROM product_images
-       WHERE product_id = $1 AND image_type = 'main'
-       ORDER BY sort_order ASC, id ASC LIMIT 1`,
-      [productId]
+      'SELECT id, image_url, product_id FROM product_images WHERE id = $1',
+      [imageId]
     )
 
     if (imgResult.rows.length === 0) {
       return c.redirect('/admin/product-images')
     }
 
-    const { id: imageId, image_url: imageUrl } = imgResult.rows[0]
+    const { id, image_url: imageUrl, product_id: productId } = imgResult.rows[0]
 
-    await pool.query('DELETE FROM product_images WHERE id = $1', [imageId])
+    await pool.query('DELETE FROM product_images WHERE id = $1', [id])
 
     if (imageUrl && String(imageUrl).includes('cheapgo')) {
       try {
@@ -1000,7 +995,12 @@ admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
       }
     }
 
-    console.log(`[图片管理] 已删除产品 #${productId} 的主图`)
+    // 同步更新产品的 updated_at
+    if (productId) {
+      await pool.query('UPDATE products SET updated_at = NOW() WHERE id = $1', [productId])
+    }
+
+    console.log(`[图片管理] 已删除图片记录 #${imageId}`)
   } catch (error: any) {
     console.error('[图片管理] 删除主图失败:', error)
   }

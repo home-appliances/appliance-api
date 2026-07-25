@@ -1,22 +1,27 @@
 /**
  * 产品图片管理页面
- * 管理 products.main_image
+ * 按图片记录列出（每行一张图，带产品信息和类型）
  */
 
 import { layout } from '../layout.js'
 
-interface ProductWithImage {
+interface ImageRow {
   id: number
-  name: string
+  image_url: string
+  image_type: string
+  sort_order: number
+  created_at: string
+  product_id: number
+  product_name: string
   brand: string | null
   model: string | null
-  mainImage: string | null
-  imageId: number | null
-  updatedAt: string
 }
 
+const typeLabel = (t: string) => t === 'display' ? '展示图' : (t === 'main' ? '主图' : t)
+const typeBadgeColor = (t: string) => t === 'display' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+
 export const productImagesPage = (
-  products: ProductWithImage[],
+  images: ImageRow[],
   allProducts: any[],
   role = 'admin',
   filterProductId?: number,
@@ -26,38 +31,37 @@ export const productImagesPage = (
 ) => {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
-  const rows = products.map(p => `
+  const rows = images.map(img => `
     <tr class="hover:bg-gray-50 transition-colors">
-      <td class="px-4 py-3 text-sm text-gray-700">${p.id}</td>
+      <td class="px-4 py-3 text-sm text-gray-700">${img.id}</td>
       <td class="px-4 py-3 text-sm text-gray-700">
-        <a href="/admin/products/${p.id}/edit" class="text-primary-600 hover:underline" title="编辑产品">
-          ${p.name}
+        <a href="/admin/products/${img.product_id}/edit" class="text-primary-600 hover:underline" title="编辑产品">
+          #${img.product_id} ${img.product_name}
         </a>
       </td>
       <td class="px-4 py-3">
-        ${p.mainImage
-          ? `<img src="${p.mainImage}" alt="主图" class="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity" onclick="showImage('${p.mainImage}', '${p.name} - 主图')" title="点击查看大图">`
+        ${img.image_url
+          ? `<img src="${img.image_url}" alt="${typeLabel(img.image_type)}" class="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity" onclick="showImage('${img.image_url}', '${img.product_name} - ${typeLabel(img.image_type)}')" title="点击查看大图">`
           : '<div class="w-16 h-16 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">无图</div>'}
       </td>
+      <td class="px-4 py-3">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeColor(img.image_type)}">${typeLabel(img.image_type)}</span>
+      </td>
+      <td class="px-4 py-3 text-sm text-gray-700">${img.sort_order}</td>
       <td class="px-4 py-3 text-sm text-gray-500 max-w-xs">
-        ${p.mainImage
-          ? `<span class="inline-block truncate align-middle" title="${p.mainImage}">${p.mainImage}</span>`
+        ${img.image_url
+          ? `<span class="inline-block truncate align-middle" title="${img.image_url}">${img.image_url}</span>`
           : '<span class="text-gray-400">-</span>'}
       </td>
-      <td class="px-4 py-3">
-        ${p.imageId
-          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">已入库</span>`
-          : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">仅URL</span>'}
-      </td>
-      <td class="px-4 py-3 text-sm text-gray-700">${new Date(p.updatedAt).toLocaleString('zh-CN')}</td>
+      <td class="px-4 py-3 text-sm text-gray-700">${new Date(img.created_at).toLocaleString('zh-CN')}</td>
       <td class="px-4 py-3 text-right">
         <div class="flex items-center justify-end gap-2">
-          <a href="/admin/products/${p.id}/edit" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑产品</a>
-          ${p.mainImage ? `
-          <form method="POST" action="/admin/product-images/${p.id}/delete" class="inline delete-main-image-form">
-            <input type="hidden" class="product-name" value="${(p.name || '').replace(/"/g, '&quot;')}">
-            <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors cursor-pointer border-0">删除主图</button>
-          </form>` : ''}
+          <a href="/admin/products/${img.product_id}/edit" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑产品</a>
+          <form method="POST" action="/admin/product-images/${img.id}/delete" class="inline delete-image-form">
+            <input type="hidden" class="product-name" value="${(img.product_name || '').replace(/"/g, '&quot;')}">
+            <input type="hidden" class="image-type" value="${typeLabel(img.image_type)}">
+            <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors cursor-pointer border-0">删除</button>
+          </form>
         </div>
       </td>
     </tr>
@@ -77,7 +81,7 @@ export const productImagesPage = (
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">图片管理</h1>
-        <p class="text-sm text-gray-500 mt-1">管理产品主图</p>
+        <p class="text-sm text-gray-500 mt-1">管理产品图片（主图 / 展示图），按图片记录列出</p>
       </div>
       <div class="flex items-center gap-3">
         <select id="productFilter" onchange="filterByProduct()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500">
@@ -90,7 +94,7 @@ export const productImagesPage = (
     <!-- 统计卡片 -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <div class="text-sm text-gray-500">主图总数</div>
+        <div class="text-sm text-gray-500">图片总数</div>
         <div class="text-2xl font-bold text-gray-900 mt-1">${total}</div>
       </div>
     </div>
@@ -100,17 +104,18 @@ export const productImagesPage = (
         <table class="w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">产品ID</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">产品名称</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">主图</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">图片ID</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">所属产品</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">预览</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">类型</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">排序</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">图片路径</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">存储方式</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">更新时间</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">创建时间</th>
               <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">操作</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            ${rows || '<tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">暂无主图数据</td></tr>'}
+            ${rows || '<tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">暂无图片数据</td></tr>'}
           </tbody>
         </table>
       </div>
@@ -138,12 +143,14 @@ export const productImagesPage = (
     </div>
 
     <script>
-      // 删除主图确认：用事件监听，避免 HTML 属性引号冲突
-      document.querySelectorAll('.delete-main-image-form').forEach(function(form) {
+      // 删除图片确认
+      document.querySelectorAll('.delete-image-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
           var nameInput = form.querySelector('.product-name')
+          var typeInput = form.querySelector('.image-type')
           var productName = nameInput ? nameInput.value : '该产品'
-          if (!confirm('确定删除「' + productName + '」的主图？\\n（将清除 products.main_image 和 images 表二进制数据）')) {
+          var imageType = typeInput ? typeInput.value : '图片'
+          if (!confirm('确定删除「' + productName + '」的' + imageType + '？')) {
             e.preventDefault()
           }
         })
