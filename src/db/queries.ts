@@ -5,7 +5,7 @@
 
 import { eq, desc, asc, like, ilike, sql, and, or, count, isNull, isNotNull, inArray } from 'drizzle-orm';
 import { db } from './drizzle.js';
-import {categories,products,productImages,images,categoryParams,admins,searchLogs,operationLogs,systemSettings,crawlerTasks} from './schema.js';
+import {categories,products,categoryParams,admins,searchLogs,operationLogs,systemSettings} from './schema.js';
 
 // =====================================================
 // 分类查询
@@ -219,63 +219,98 @@ export async function batchDeleteProducts(ids: number[], deletedBy?: string): Pr
 }
 
 // =====================================================
-// 产品图片查询
+// 产品图片（仅主图 products.main_image）
 // =====================================================
 
+type MainImageRow = {
+  id: number;
+  productId: number;
+  imageUrl: string;
+  imageType: string;
+  sortOrder: number;
+};
+
+function asMainRow(productId: number, url: string | null | undefined): MainImageRow[] {
+  if (!url) return [];
+  return [{
+    id: productId,
+    productId,
+    imageUrl: url,
+    imageType: 'main',
+    sortOrder: 0,
+  }];
+}
+
 export async function getProductImages(productId: number) {
-  return db
-    .select()
-    .from(productImages)
-    .where(eq(productImages.productId, productId))
-    .orderBy(asc(productImages.imageType), asc(productImages.sortOrder));
+  const result = await db
+    .select({ id: products.id, mainImage: products.mainImage })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+  return asMainRow(productId, result[0]?.mainImage);
 }
 
 export async function getProductImageById(id: number) {
-  const result = await db
-    .select()
-    .from(productImages)
-    .where(eq(productImages.id, id))
-    .limit(1);
-  return result[0] || null;
+  const rows = await getProductImages(id);
+  return rows[0] || null;
 }
 
-export async function createProductImage(data: typeof productImages.$inferInsert) {
-  const result = await db.insert(productImages).values(data).returning();
-  return result[0];
+export async function createProductImage(data: {
+  productId: number;
+  imageUrl?: string | null;
+  imageType?: string;
+  sortOrder?: number;
+}) {
+  if (!data.productId || !data.imageUrl) {
+    throw new Error('createProductImage 需要 productId 与 imageUrl');
+  }
+  await db
+    .update(products)
+    .set({ mainImage: data.imageUrl, imageId: null, updatedAt: new Date() })
+    .where(eq(products.id, data.productId));
+  return {
+    id: data.productId,
+    productId: data.productId,
+    imageUrl: data.imageUrl,
+    imageType: 'main',
+    sortOrder: 0,
+  };
 }
 
-export async function updateProductImage(id: number, data: Partial<typeof productImages.$inferInsert>) {
-  const result = await db
-    .update(productImages)
-    .set(data)
-    .where(eq(productImages.id, id))
-    .returning();
-  return result[0] || null;
+export async function updateProductImage(
+  id: number,
+  data: Partial<{ imageUrl: string; imageType: string; sortOrder: number }>
+) {
+  if (data.imageUrl !== undefined) {
+    await db
+      .update(products)
+      .set({ mainImage: data.imageUrl, imageId: null, updatedAt: new Date() })
+      .where(eq(products.id, id));
+  }
+  const rows = await getProductImages(id);
+  return rows[0] || null;
 }
 
 export async function deleteProductImage(id: number) {
-  const result = await db
-    .delete(productImages)
-    .where(eq(productImages.id, id))
-    .returning();
-  return result[0] || null;
+  const before = await getProductImages(id);
+  await db
+    .update(products)
+    .set({ mainImage: null, imageId: null, updatedAt: new Date() })
+    .where(eq(products.id, id));
+  return before[0] || null;
 }
 
 export async function batchDeleteProductImages(ids: number[]) {
-  const result = await db
-    .delete(productImages)
-    .where(inArray(productImages.id, ids))
-    .returning();
-  return result;
+  const out = [];
+  for (const id of ids) {
+    const row = await deleteProductImage(id);
+    if (row) out.push(row);
+  }
+  return out;
 }
 
-export async function updateProductImageSort(items: Array<{ id: number; sortOrder: number }>) {
-  for (const item of items) {
-    await db
-      .update(productImages)
-      .set({ sortOrder: item.sortOrder })
-      .where(eq(productImages.id, item.id));
-  }
+export async function updateProductImageSort(_items: Array<{ id: number; sortOrder: number }>) {
+  // 仅主图，无需排序
 }
 
 // =====================================================
