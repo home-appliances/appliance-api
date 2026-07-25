@@ -12,6 +12,7 @@ import airConditioners from './routes/air-conditioners.js'
 import imageProxy from './routes/image-proxy.js'
 import category from './routes/category.js'
 import image from './routes/image.js'
+import localImages from './routes/local-images.js'
 
 const app = new Hono()
 
@@ -33,6 +34,7 @@ app.route('/api/air-conditioners', airConditioners)
 app.route('/', imageProxy)
 app.route('/', category)
 app.route('/', image)
+app.route('/', localImages)
 
 // 管理后台 CSS 静态文件（SSR 页面需要）
 app.get('/admin/css/*', async (c) => {

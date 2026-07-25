@@ -421,46 +421,14 @@ export async function getProductParams(id: number): Promise<Record<string, strin
 // 获取产品图片
 // =====================================================
 export async function getProductImages(id: number): Promise<string[]> {
-  // 0. 优先使用 products.main_image
   try {
     const pResult = await pool.query('SELECT main_image FROM products WHERE id = $1', [id]);
     if (pResult.rows.length > 0 && pResult.rows[0].main_image) {
       return [pResult.rows[0].main_image];
     }
   } catch (e) {
-    // 静默跳过
+    console.error('getProductImages 失败:', e);
   }
-
-  // 1. 从 product_images 表获取图片 URL
-  try {
-    const piResult = await pool.query(
-      `SELECT image_url FROM product_images
-       WHERE product_id = $1
-       ORDER BY CASE image_type WHEN 'main' THEN 0 ELSE 1 END, sort_order, id`,
-      [id]
-    );
-    if (piResult.rows.length > 0) {
-      return piResult.rows
-        .map((r: any) => r.image_url)
-        .filter((url: string) => url && url.trim() !== '');
-    }
-  } catch (e) {
-    console.error('getProductImages: 查询 product_images 失败:', e);
-  }
-
-  // 2. 降级：从 images 表获取二进制图片（通过 products.image_id 关联）
-  try {
-    const pResult = await pool.query('SELECT image_id FROM products WHERE id = $1', [id]);
-    if (pResult.rows.length > 0) {
-      const imageId = pResult.rows[0].image_id;
-      if (imageId) {
-        return [`/api/image/${imageId}`];
-      }
-    }
-  } catch (e) {
-    // 静默跳过
-  }
-
   return [];
 }
 
@@ -651,79 +619,26 @@ export async function getProductViewById(id: number): Promise<any | null> {
 }
 
 // =====================================================
-// 新增：获取产品图片列表（统一方式）
-//   优先级：
-//     1. product_images 表（URL 形式，当前主要存储方式）
-//     2. images 表（二进制，通过 products.image_id 关联，兼容旧数据）
+// 获取产品图片列表（仅主图 main_image）
 // =====================================================
 export async function getProductImagesList(id: number): Promise<Array<{
   id: number;
   url: string;
   mime_type: string;
 }>> {
-  const images: Array<{ id: number; url: string; mime_type: string }> = [];
-
-  // 0. 优先使用 products.main_image
   try {
-    const pResult = await pool.query('SELECT main_image, image_id FROM products WHERE id = $1', [id]);
+    const pResult = await pool.query('SELECT main_image FROM products WHERE id = $1', [id]);
     if (pResult.rows.length > 0 && pResult.rows[0].main_image) {
-      images.push({
-        id: pResult.rows[0].image_id || 0,
+      return [{
+        id: 0,
         url: pResult.rows[0].main_image,
         mime_type: 'image/main',
-      });
-      return images;
+      }];
     }
   } catch (e) {
-    // 静默跳过
+    console.error('getProductImagesList 失败:', e);
   }
-
-  // 1. 从 product_images 表获取图片 URL
-  try {
-    const piResult = await pool.query(
-      `SELECT id, image_url, image_type FROM product_images
-       WHERE product_id = $1
-       ORDER BY CASE image_type WHEN 'main' THEN 0 ELSE 1 END, sort_order, id`,
-      [id]
-    );
-    for (const row of piResult.rows) {
-      if (row.image_url && row.image_url.trim() !== '') {
-        images.push({
-          id: row.id,
-          url: row.image_url,
-          mime_type: row.image_type === 'main' ? 'image/main' : 'image/gallery',
-        });
-      }
-    }
-    if (images.length > 0) {
-      return images;
-    }
-  } catch (e) {
-    console.error('getProductImagesList: 查询 product_images 失败:', e);
-  }
-
-  // 2. 降级：从 images 表获取二进制图片（通过 products.image_id 关联）
-  try {
-    const imageResult = await pool.query(`
-      SELECT i.id, i.mime_type
-      FROM products p
-      JOIN images i ON p.image_id = i.id
-      WHERE p.id = $1
-    `, [id]);
-
-    if (imageResult.rows.length > 0) {
-      const img = imageResult.rows[0];
-      images.push({
-        id: img.id,
-        url: `/api/image/${img.id}`,
-        mime_type: img.mime_type,
-      });
-    }
-  } catch (e) {
-    // 静默跳过
-  }
-
-  return images;
+  return [];
 }
 
 // =====================================================

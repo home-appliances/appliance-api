@@ -419,80 +419,57 @@ admin.post('/products/create', authMiddleware, async (c) => {
   }
 })
 
-// 处理表单里的图片: 上传 OSS + 存二进制到 images 表 + 建关联 + 设置 main_image
+// 处理表单主图: 本地 images-data 或 OSS，只写 products.main_image
 async function saveProductImageFiles(productId: number, body: Record<string, any>): Promise<void> {
-  const { createProductImage, getProductImages } = await import('../db/queries.js')
-  const { uploadImage, validateImageFile } = await import('../utils/oss.js')
+  const { validateImageFile } = await import('../utils/oss.js')
+  const {
+    useLocalImageStorage,
+    saveBufferToLocal,
+  } = await import('../utils/image-local.js')
+  const { uploadBufferViaStaging } = await import('../utils/image-oss-pipeline.js')
   const { pool } = await import('../db/index.js')
 
   const toArr = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
   const dataArr = toArr(body['image_data[]'])
   const nameArr = toArr(body['image_names[]'])
   const mimeArr = toArr(body['image_mimes[]'])
-  const typeArr = toArr(body['image_types[]'])
 
   if (dataArr.length === 0) return
 
-  const existing = await getProductImages(productId)
-  let nextSort = existing.length > 0
-    ? Math.max(...existing.map(img => img.sortOrder)) + 1
-    : 0
+  const base64 = dataArr[0]
+  const fileName = nameArr[0] || 'image.png'
+  const mimeType = mimeArr[0] || 'image/png'
+  const buf = Buffer.from(base64, 'base64')
 
-  let firstImageId: number | null = null
-
-  for (let i = 0; i < dataArr.length; i++) {
-    const base64 = dataArr[i]
-    const fileName = nameArr[i] || 'image.png'
-    const mimeType = mimeArr[i] || 'image/png'
-
-    // Base64 解码为 Buffer
-    const buf = Buffer.from(base64, 'base64')
-
-    // 校验
-    const validation = validateImageFile({ size: buf.length, originalName: fileName, mimeType })
-    if (!validation.valid) {
-      console.warn(`  [${i}] 校验失败, 跳过: ${fileName} - ${validation.error}`)
-      continue
-    }
-
-    const imageUrl = await uploadImage(buf, fileName, 'products')
-
-    let imageId: number | null = null
-    try {
-      const imgResult = await pool.query(
-        `INSERT INTO images (image_data, mime_type, file_size, created_at)
-         VALUES ($1, $2, $3, NOW())
-         RETURNING id`,
-        [buf, mimeType, buf.length]
-      )
-      imageId = imgResult.rows[0].id
-      console.log(`  [${i}] 原图已入库: images 表 ID ${imageId} (${(buf.length / 1024).toFixed(1)} KB)`)
-    } catch (e) {
-      console.warn(`  [${i}] 原图入库失败, 仅使用 OSS URL:`, e)
-    }
-
-    const created = await createProductImage({
-      productId,
-      imageUrl,
-      imageType: typeArr[i] || 'main',
-      sortOrder: nextSort++,
-    })
-    console.log(`  [${i}] 已保存: ${imageUrl} -> 图片记录ID ${created.id}`)
-
-    if (firstImageId === null && (typeArr[i] === 'main' || i === 0)) {
-      firstImageId = imageId
-      const mainUrl = imageId !== null ? `/api/image/${imageId}` : imageUrl
-      try {
-        await pool.query(
-          'UPDATE products SET main_image = $1, image_id = $2 WHERE id = $3',
-          [mainUrl, imageId, productId]
-        )
-        console.log(`  [${i}] 已设置 main_image: ${mainUrl}`)
-      } catch (e) {
-        console.warn(`  [${i}] 设置 main_image 失败:`, e)
-      }
-    }
+  const validation = validateImageFile({ size: buf.length, originalName: fileName, mimeType })
+  if (!validation.valid) {
+    console.warn(`主图校验失败, 跳过: ${fileName} - ${validation.error}`)
+    return
   }
+
+  let imageUrl: string
+  if (useLocalImageStorage()) {
+    const ext = fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.')) : '.jpg'
+    const named = saveBufferToLocal(buf, {
+      filename: `p${productId}-main${ext}`,
+      mimeType,
+    })
+    imageUrl = named.url
+    console.log(`主图已存本地: ${named.filePath}`)
+  } else {
+    imageUrl = await uploadBufferViaStaging(buf, {
+      originalName: fileName,
+      mimeType,
+      folder: 'products',
+    })
+    console.log(`主图已上传 OSS: ${imageUrl}`)
+  }
+
+  await pool.query(
+    'UPDATE products SET main_image = $1, image_id = NULL, updated_at = NOW() WHERE id = $2',
+    [imageUrl, productId]
+  )
+  console.log(`已设置 main_image: ${imageUrl}`)
 }
 
 // 编辑产品页面
@@ -855,13 +832,13 @@ admin.get('/product-images', authMiddleware, async (c) => {
   ))
 })
 
-// 删除产品主图（清除 products.main_image 和 image_id，并清理 images 表二进制数据）
+// 删除产品主图（清除 main_image；若为 OSS URL 则删对象；不再依赖 images BYTEA）
 admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
   const productId = parseInt(c.req.param('id'))
 
   try {
     const productResult = await pool.query(
-      'SELECT image_id FROM products WHERE id = $1',
+      'SELECT main_image, image_id FROM products WHERE id = $1',
       [productId]
     )
 
@@ -869,19 +846,27 @@ admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
       return c.redirect('/admin/product-images')
     }
 
-    const imageId = productResult.rows[0].image_id
+    const { main_image: mainImage, image_id: imageId } = productResult.rows[0]
 
     await pool.query(
       'UPDATE products SET main_image = NULL, image_id = NULL, updated_at = NOW() WHERE id = $1',
       [productId]
     )
 
+    if (mainImage && String(mainImage).includes('cheapgo')) {
+      try {
+        const { deleteImage } = await import('../utils/oss.js')
+        await deleteImage(mainImage)
+      } catch (e) {
+        console.warn(`[图片管理] 删除 OSS 失败（不影响主流程）:`, e)
+      }
+    }
+
     if (imageId) {
       try {
         await pool.query('DELETE FROM images WHERE id = $1', [imageId])
-        console.log(`[图片管理] 已清理产品 #${productId} 的主图二进制数据 (images.id=${imageId})`)
-      } catch (e) {
-        console.warn(`[图片管理] 清理 images 表失败（不影响主流程）:`, e)
+      } catch {
+        /* images 表可能已清空 */
       }
     }
 
