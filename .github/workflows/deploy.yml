@@ -39,8 +39,26 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
           ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          MIGRATE_SECRET: ${{ secrets.MIGRATE_SECRET }}
           CDN_DOMAIN: ${{ secrets.CDN_DOMAIN }}
         run: s deploy -y --use-local
+
+      - name: Run database migration
+        run: |
+          # 等 FC 部署生效
+          sleep 10
+          # 调迁移接口（走 FC 公网 -> VPC 内网连 DB）
+          RESPONSE=$(curl -s -X POST "https://appliance-api.cheapgo.top/api/admin/db/migrate" \
+            -H "X-Migrate-Secret: ${{ secrets.MIGRATE_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "迁移响应: $RESPONSE"
+          # 检查是否成功（code=0）
+          CODE=$(echo "$RESPONSE" | jq -r '.code // 1')
+          if [ "$CODE" != "0" ]; then
+            echo "❌ 数据库迁移失败，部署标记为失败"
+            exit 1
+          fi
+          echo "✅ 数据库迁移完成"
 
       - name: Install Aliyun CLI
         run: |

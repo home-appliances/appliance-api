@@ -6,11 +6,21 @@
 import { pgTable, bigint, text, numeric, integer, boolean, timestamp, jsonb, unique, customType } from 'drizzle-orm/pg-core';
 
 // =====================================================
-// bytea 自定义类型（PostgreSQL 二进制数据）
+// 自定义类型
 // =====================================================
+
+// bytea（PostgreSQL 二进制数据）
 const bytea = customType<{ data: Buffer; default: false }>({
   dataType() {
     return 'bytea';
+  },
+});
+
+// tsvector（PostgreSQL 全文搜索向量）
+// schema.ts 里定义为 tsvector，与生产 DB 一致，避免 drizzle 误改为 text
+const tsvector = customType<{ data: unknown; default: false }>({
+  dataType() {
+    return 'tsvector';
   },
 });
 
@@ -26,7 +36,7 @@ export const images = pgTable('images', {
   width: integer('width'),
   height: integer('height'),
   sourceUrl: text('source_url').unique(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 // =====================================================
@@ -41,7 +51,7 @@ export const categories = pgTable('categories', {
   parentId: bigint('parent_id', { mode: 'number' }),
   sortOrder: integer('sort_order').default(0),
   isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 // =====================================================
@@ -59,14 +69,14 @@ export const products = pgTable('products', {
   reviewCount: integer('review_count').default(0),
   params: jsonb('params').default({}).notNull(),
   paramsSearchText: text('params_search_text'),
-  searchVector: text('search_vector'),
+  searchVector: tsvector('search_vector'),
   pinyin: text('pinyin'),
   pinyinInitials: text('pinyin_initials'),
   sourceUrl: text('source_url').unique(),
   sourcePlatform: text('source_platform').default('pconline'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  deletedAt: timestamp('deleted_at'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
   deletedBy: text('deleted_by'),
 });
 
@@ -80,7 +90,7 @@ export const productImages = pgTable('product_images', {
   imageUrl: text('image_url'),
   imageType: text('image_type').default('main').notNull(),
   sortOrder: integer('sort_order').default(0),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   // 唯一约束：同一产品、同一类型、同一排序不重复
   productTypeSortUnique: unique('product_images_product_type_sort_unique').on(
@@ -103,7 +113,7 @@ export const categoryParams = pgTable('category_params', {
   isSortable: boolean('is_sortable').default(false),
   enumValues: jsonb('enum_values'),
   sortOrder: integer('sort_order').default(0),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   // 唯一约束：同一分类下参数名不重复
   categoryParamUnique: unique('category_params_category_param_unique').on(
@@ -125,9 +135,9 @@ export const admins = pgTable('admins', {
   status: text('status').default('active'),
   avatar: text('avatar'),
   remark: text('remark'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-  lastLogin: timestamp('last_login'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  lastLogin: timestamp('last_login', { withTimezone: true }),
 });
 
 // =====================================================
@@ -137,8 +147,8 @@ export const searchLogs = pgTable('search_logs', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   keyword: text('keyword').unique().notNull(),
   searchCount: integer('search_count').default(1).notNull(),
-  lastSearchedAt: timestamp('last_searched_at').defaultNow().notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  lastSearchedAt: timestamp('last_searched_at', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 // =====================================================
@@ -153,7 +163,7 @@ export const operationLogs = pgTable('operation_logs', {
   target: text('target'),
   result: text('result').default('success'),
   detail: text('detail'),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
 // =====================================================
@@ -162,5 +172,5 @@ export const operationLogs = pgTable('operation_logs', {
 export const systemSettings = pgTable('system_settings', {
   key: text('key').primaryKey(),
   value: jsonb('value').notNull(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });

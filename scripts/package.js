@@ -1,5 +1,5 @@
 import AdmZip from 'adm-zip';
-import { existsSync, rmSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, rmSync, readFileSync, writeFileSync, cpSync } from 'fs';
 import { execSync } from 'child_process';
 
 const ZIP_PATH = 'code.zip';
@@ -23,6 +23,13 @@ const distPkg = {
 writeFileSync('dist/package.json', JSON.stringify(distPkg, null, 2));
 console.log('📝 已创建 dist/package.json');
 
+// 复制 migration 文件到 dist/drizzle（FC 运行时需要读这些 SQL 文件执行迁移）
+if (existsSync('drizzle')) {
+  rmSync('dist/drizzle', { recursive: true, force: true });
+  cpSync('drizzle', 'dist/drizzle', { recursive: true });
+  console.log('📋 已复制 drizzle/ migration 文件');
+}
+
 // 安装生产依赖
 console.log('📦 安装生产依赖...');
 execSync('npm install --omit=dev', { cwd: 'dist', stdio: 'inherit' });
@@ -32,4 +39,4 @@ const zip = new AdmZip();
 zip.addLocalFolder('dist');
 zip.writeZip(ZIP_PATH);
 
-console.log('✅ 已打包 dist/ → code.zip');
+console.log('✅ 已打包 dist/ -> code.zip');
