@@ -1,0 +1,3586 @@
+[
+  {
+    "brand": "rongsheng",
+    "productId": "647123",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:05:43.025Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1477987",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:26:22.950Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2407599",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:26:32.376Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2062087",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:26:36.481Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1437927",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:26:37.223Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "2122747",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:26:40.665Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1617687",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:26:52.611Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1530667",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:13:48.430Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1758707",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:06:44.788Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1707167",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:14:05.470Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1576067",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:27:24.353Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1438547",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:27:25.070Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2377579",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:27:37.201Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1984747",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:27:40.065Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1926367",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:28:00.649Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "2719239",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:32:49.418Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1409748",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:27:55.073Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "2719299",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:28:05.256Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1351727",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:28:10.476Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2407619",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:28:15.978Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2152559",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:28:19.520Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "2725439",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:28:58.133Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1542487",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:29:21.763Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1351927",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:29:28.710Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1276316",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:29:34.502Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1317787",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:29:44.612Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1230066",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:29:57.001Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1076027",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:30:15.655Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1276317",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:30:20.196Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2879091",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:30:29.636Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1305218",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:30:35.140Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2753079",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:33:28.947Z"
+  },
+  {
+    "brand": "xinfei",
+    "productId": "1426988",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:31:33.201Z"
+  },
+  {
+    "brand": "xinfei",
+    "productId": "1177307",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:31:49.115Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "1465390",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:31:49.866Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "2500899",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:32:05.284Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "2717579",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:32:13.270Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "2725039",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:32:22.674Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "1169187",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:32:33.442Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "2829871",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:32:34.155Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "1649667",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:32:43.927Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "1947047",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:32:52.797Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2166479",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:34:36.467Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "1349767",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:35:12.348Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "1281840",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:35:55.883Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "1674147",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:38:54.031Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2041527",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:39:20.279Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2135887",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:39:28.344Z"
+  },
+  {
+    "brand": "bocsh",
+    "productId": "2223959",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:39:59.483Z"
+  },
+  {
+    "brand": "bocsh",
+    "productId": "1230051",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:40:24.960Z"
+  },
+  {
+    "brand": "bocsh",
+    "productId": "1143520",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:40:28.234Z"
+  },
+  {
+    "brand": "bocsh",
+    "productId": "1467467",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:40:24.601Z"
+  },
+  {
+    "brand": "toshiba",
+    "productId": "1850147",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:42:00.682Z"
+  },
+  {
+    "brand": "tcl",
+    "productId": "1352307",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:44:19.333Z"
+  },
+  {
+    "brand": "tcl",
+    "productId": "2439519",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:46:19.851Z"
+  },
+  {
+    "brand": "tcl",
+    "productId": "1352207",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:46:58.874Z"
+  },
+  {
+    "brand": "tcl",
+    "productId": "1404127",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:26:30.087Z"
+  },
+  {
+    "brand": "tcl",
+    "productId": "1155175",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:26:45.507Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "2637179",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:48:39.599Z"
+  },
+  {
+    "brand": "tcl",
+    "productId": "1322355",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:48:39.797Z"
+  },
+  {
+    "brand": "tcl",
+    "productId": "1423276",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:48:59.150Z"
+  },
+  {
+    "brand": "sharp",
+    "productId": "2863251",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:51:18.223Z"
+  },
+  {
+    "brand": "sharp",
+    "productId": "1283403",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:52:52.232Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2673379",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:34:56.779Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1453407",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:56:21.887Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1477687",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:56:43.933Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1471088",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:57:46.303Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2168539",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:58:23.402Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2480519",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:58:42.978Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1383610",
+    "category": "air_condition",
+    "error": "HTTP 404",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:58:45.803Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1340778",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:58:51.096Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1438207",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T09:59:41.812Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1438187",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:00:49.182Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2168499",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:01:20.294Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2291339",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:03:03.317Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1379727",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:03:07.701Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2168479",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:03:40.799Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1329787",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:03:41.016Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1339927",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:07:09.463Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1340525",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:08:13.879Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1340767",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:09:15.789Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "1475807",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-05T10:09:51.989Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1831407",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:49:30.008Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "568150",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:56:04.212Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1430527",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:50:36.620Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1619147",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:52:41.465Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1414069",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:53:14.980Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1424867",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:54:44.255Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1427056",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:54:54.861Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "614110",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:55:37.474Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1060868",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:55:46.852Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1323892",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:55:55.530Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1060865",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:56:15.240Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "2659999",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T06:59:38.432Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "2549339",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:00:42.958Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "2500879",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:00:46.797Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1536987",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:00:24.900Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1435067",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:00:39.327Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1414147",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:00:42.753Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1918507",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:00:54.394Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1537027",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:01:03.281Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1446000",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:01:08.166Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "2166659",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:01:27.166Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1618627",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:01:33.156Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "512153",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:01:38.575Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1350147",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:01:53.774Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "2241319",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:02:13.868Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "2288939",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:03:14.716Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1434907",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:04:32.567Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1454440",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:04:53.365Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1417626",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:04:45.254Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1510768",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:05:00.998Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1454422",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:05:04.343Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1510767",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:05:09.644Z"
+  },
+  {
+    "brand": "siemens",
+    "productId": "1060828",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:06:41.029Z"
+  },
+  {
+    "brand": "siemens",
+    "productId": "1138593",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:06:42.290Z"
+  },
+  {
+    "brand": "siemens",
+    "productId": "1372471",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:06:52.528Z"
+  },
+  {
+    "brand": "siemens",
+    "productId": "1508977",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:07:10.422Z"
+  },
+  {
+    "brand": "siemens",
+    "productId": "1508954",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:07:14.174Z"
+  },
+  {
+    "brand": "siemens",
+    "productId": "1276311",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:08:07.334Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2879451",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:59:50.658Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2716359",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T07:59:59.107Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2497459",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:00:22.813Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2716239",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:00:37.324Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2716039",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:01:07.344Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2834111",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:01:20.433Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2521899",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:01:25.986Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2834031",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:01:54.327Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1560567",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:02:42.400Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1831747",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:02:50.885Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1530347",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:03:00.261Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1467047",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:03:17.929Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1380607",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:03:27.742Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1920147",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:04:12.502Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2365059",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:04:56.951Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "2243299",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:05:09.920Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1380647",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:05:51.681Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1465387",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:05:59.490Z"
+  },
+  {
+    "brand": "rongsheng",
+    "productId": "1530407",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:06:17.634Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "2522839",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:11:29.895Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "2597099",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:12:07.949Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1536847",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:12:30.573Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1560127",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:12:54.048Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1441668",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:13:05.861Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1831827",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:13:12.067Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "487226",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:13:43.704Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "2166299",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:13:51.862Z"
+  },
+  {
+    "brand": "meiling",
+    "productId": "1717327",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:13:56.497Z"
+  },
+  {
+    "brand": "tcl",
+    "productId": "2350019",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:26:03.639Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "1425107",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:28:06.661Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "1905287",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:28:17.297Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "2167259",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:28:21.083Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "1425027",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:28:48.104Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "1753127",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:29:08.328Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "2275639",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:29:27.611Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "1649767",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:29:35.058Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "1424987",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:29:38.531Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "1560447",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:30:04.430Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "2044767",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:30:08.710Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "2008147",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:30:26.203Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "1424968",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:30:50.575Z"
+  },
+  {
+    "brand": "casarte",
+    "productId": "1510748",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:31:06.030Z"
+  },
+  {
+    "brand": "sharp",
+    "productId": "1422187",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:31:56.115Z"
+  },
+  {
+    "brand": "sharp",
+    "productId": "1353827",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:32:04.312Z"
+  },
+  {
+    "brand": "sharp",
+    "productId": "1171072",
+    "category": "icebox",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:32:46.236Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2774279",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:33:27.708Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2882711",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:33:46.928Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2772439",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:34:01.194Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2882691",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:34:10.753Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2772479",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:34:23.540Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2842211",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:34:45.693Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2882771",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:34:50.833Z"
+  },
+  {
+    "brand": "gree",
+    "productId": "2828451",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:35:18.180Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2826851",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:39:44.818Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2673199",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:40:04.198Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2846451",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:40:12.168Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2572639",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:40:17.595Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2685139",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:40:21.259Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2780799",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:40:26.544Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2846551",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:41:03.172Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2780859",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:41:35.126Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1475787",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:41:56.257Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1467968",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:41:59.735Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1617507",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:42:12.503Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1617888",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:42:44.782Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1617527",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:43:15.119Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1620727",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:44:03.497Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1770807",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:44:54.466Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1623447",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:45:13.452Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2168059",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:45:31.930Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1382540",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:45:35.256Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1429127",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:45:48.725Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1748907",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:45:57.646Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2085827",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:46:21.884Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1617867",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:46:25.485Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1619869",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:46:40.360Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1693667",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:46:49.898Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1617907",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:47:05.887Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1770787",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:47:25.253Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2167459",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:47:43.184Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2480659",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:48:15.311Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2290959",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:49:21.809Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1535007",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:50:24.136Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1536247",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:50:27.439Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1536187",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:50:30.624Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2085967",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:50:33.954Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1386567",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:50:37.630Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2480679",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:51:24.145Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2168039",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:51:37.286Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1623767",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:51:41.627Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1748927",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:51:45.097Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "1619527",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:52:44.319Z"
+  },
+  {
+    "brand": "midea",
+    "productId": "2480639",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:52:48.513Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "2829311",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:54:09.222Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "2674539",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:54:16.393Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "2674319",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:54:37.932Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "2891071",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:55:27.146Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "2674699",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:55:34.939Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1437187",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:55:59.169Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1532067",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:56:09.371Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1439227",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:56:39.153Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1412808",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:57:32.665Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1292567",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:58:17.146Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1439467",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:58:30.288Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1293189",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:58:48.961Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1440309",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:59:15.804Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1439427",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:59:42.867Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1437907",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T08:59:46.124Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1437429",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:00:11.032Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1439547",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:00:25.785Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "577078",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:00:36.103Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1293190",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:00:45.430Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1441027",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:01:36.219Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1293188",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:02:14.754Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1840167",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:02:20.717Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1533747",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:02:42.934Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1371790",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:04:21.316Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "2220379",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:04:39.638Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1443727",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:04:50.556Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1436987",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:05:03.468Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1436953",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:05:39.461Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1438649",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:05:43.782Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1417007",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:05:48.884Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1532027",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:06:02.812Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1387307",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:06:06.056Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1436989",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:06:11.667Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1840087",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:06:16.982Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1371793",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:06:20.669Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1851307",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:07:14.132Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1440347",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:07:17.706Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1417027",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:07:22.464Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1297161",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:07:32.107Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1439607",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:07:39.526Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1371756",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:07:44.987Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1532127",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:08:01.759Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1439727",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:08:49.695Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1438447",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:08:53.147Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1363487",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:09:15.990Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1439587",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:09:30.120Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1310647",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:10:09.061Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1445774",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:10:23.586Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1387517",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:10:51.042Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1389025",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:11:07.413Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1389022",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:11:10.720Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1152329",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:11:29.305Z"
+  },
+  {
+    "brand": "haier",
+    "productId": "1445771",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:11:49.761Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "2784931",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:12:02.313Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1151851",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:12:11.071Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1830547",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:12:14.479Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1154148",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:12:40.550Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1152031",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:12:44.704Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1103467",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:12:58.100Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1541088",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:13:21.315Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "638189",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:13:25.028Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1152033",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:13:51.465Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1319511",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:13:54.910Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1153960",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:14:02.534Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "638069",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:14:22.572Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1153979",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:14:31.980Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1309247",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:14:48.469Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1118286",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:15:09.335Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "630967",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:15:41.783Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "620712",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:15:52.333Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1309688",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:15:55.730Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "617923",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:16:02.280Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1153956",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:16:20.939Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1152037",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:16:34.609Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1152052",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:16:37.968Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "592878",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:16:43.473Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1329247",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:17:29.271Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1152047",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:17:47.872Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1397149",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:17:52.976Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1309510",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:18:14.225Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1397101",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:18:33.866Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1309127",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:18:38.194Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1118280",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:18:45.685Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1832267",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:19:43.595Z"
+  },
+  {
+    "brand": "panasonic",
+    "productId": "1097792",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:20:01.885Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "2675659",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:20:24.731Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "1368007",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:20:28.408Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "566411",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:20:56.340Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "1236607",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:21:03.852Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "1467869",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:21:07.375Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "566408",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:21:10.984Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "566665",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:21:37.534Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "1548407",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:21:55.379Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "574433",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:22:11.856Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "566667",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:22:52.141Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "2222039",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:23:02.761Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "1378329",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:23:08.031Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "1467870",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:23:27.262Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "566658",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:23:40.295Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "566194",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:24:06.892Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "566409",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:24:11.360Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "1548807",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:24:17.908Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "1470776",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:24:22.114Z"
+  },
+  {
+    "brand": "mitsubishi",
+    "productId": "1385023",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:24:50.510Z"
+  },
+  {
+    "brand": "daikin",
+    "productId": "2675599",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:25:15.567Z"
+  },
+  {
+    "brand": "daikin",
+    "productId": "1344027",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:25:29.816Z"
+  },
+  {
+    "brand": "daikin",
+    "productId": "1344007",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:25:54.170Z"
+  },
+  {
+    "brand": "daikin",
+    "productId": "1343847",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:25:57.903Z"
+  },
+  {
+    "brand": "daikin",
+    "productId": "1343907",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:26:09.348Z"
+  },
+  {
+    "brand": "daikin",
+    "productId": "1235867",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:26:14.189Z"
+  },
+  {
+    "brand": "daikin",
+    "productId": "1329807",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:27:21.344Z"
+  },
+  {
+    "brand": "daikin",
+    "productId": "2478859",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:27:51.056Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2633539",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:28:01.271Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2675019",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:28:16.971Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2839791",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:28:22.595Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2781459",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:28:35.491Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2781419",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:28:52.313Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2691839",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:29:02.910Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2828131",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:29:09.125Z"
+  },
+  {
+    "brand": "hisense",
+    "productId": "2794991",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:29:28.557Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1548287",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:29:44.772Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1547987",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:30:14.058Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "2356019",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:30:46.924Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "2284519",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:31:04.611Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1548067",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:31:10.865Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1547907",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:31:32.173Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "575884",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:31:35.449Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1846067",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:31:38.596Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "575893",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:31:44.866Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "575879",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:31:58.745Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1033568",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:33:29.500Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1033496",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:33:49.811Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1460162",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:34:21.148Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1338820",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:34:24.418Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1338823",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:34:45.399Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1385114",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:34:54.613Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1460153",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:35:05.087Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1338819",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:35:16.838Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1338828",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:35:22.929Z"
+  },
+  {
+    "brand": "mhi",
+    "productId": "1460156",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:35:35.309Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "2673859",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:35:48.860Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "2781319",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:35:55.386Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "2723159",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:36:18.462Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "2673899",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:36:24.121Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "2673919",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:36:32.401Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1633567",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:36:54.741Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1390907",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:37:16.048Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1394687",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:37:41.058Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1633607",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:37:44.606Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1452708",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:37:53.270Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1483367",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:38:08.665Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1390927",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:38:14.527Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1633947",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:38:23.189Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "2291159",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:38:40.115Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "2309259",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:38:50.292Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1363648",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:38:53.708Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1722107",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:39:02.843Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1363687",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:39:06.707Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1633827",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:39:10.250Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1412727",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:39:17.904Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1691047",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:39:34.523Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1423167",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:39:45.098Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "2087667",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:40:08.751Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1633927",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:40:52.114Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1423168",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:41:03.510Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1691067",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:41:08.259Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1633907",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:41:18.873Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1445811",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:41:57.408Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1433512",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:42:03.308Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1433495",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:42:20.058Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1445805",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:42:32.189Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1367558",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:42:54.900Z"
+  },
+  {
+    "brand": "aux",
+    "productId": "1445810",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:43:24.934Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "2221599",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:43:51.877Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "2221719",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:44:00.188Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "2221739",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:44:03.500Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "2221619",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:44:06.948Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1337197",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:44:25.974Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1383467",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:44:30.441Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1337185",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:44:41.687Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1337187",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:44:53.478Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1337198",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:45:24.743Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1383482",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:45:29.927Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1235248",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:45:33.331Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1383485",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:45:49.086Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1337195",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:45:57.396Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1383483",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:46:02.107Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1337189",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:46:05.445Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1383486",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:46:13.174Z"
+  },
+  {
+    "brand": "samsung",
+    "productId": "1225309",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:46:16.556Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1189347",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:46:22.128Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1189967",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:46:28.066Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1189233",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:47:04.225Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1189987",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:47:23.683Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1189968",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:47:27.222Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1189947",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:47:33.767Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1189868",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:47:45.146Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1189307",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:47:49.262Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1189329",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:48:11.204Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1298020",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:48:17.414Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1171393",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:48:22.783Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341855",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:48:30.222Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1154010",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:48:33.633Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341860",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:48:44.186Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1155939",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:49:15.562Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341904",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:49:27.120Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341872",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:49:49.954Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341853",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:50:21.123Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1385026",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:50:37.161Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341870",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:51:00.262Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1281095",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:51:19.043Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1154541",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:51:25.865Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1171094",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:52:40.313Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341871",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:53:33.543Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341851",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:53:48.827Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341903",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:54:16.998Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1171415",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:55:49.757Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1341918",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:56:49.688Z"
+  },
+  {
+    "brand": "chigo",
+    "productId": "1171395",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:57:04.049Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2843711",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:57:26.029Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2843831",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:57:49.179Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2863011",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:58:10.075Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2725179",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:58:18.001Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2628879",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:58:21.410Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2563499",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:58:57.484Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2574519",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T09:59:04.927Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "1328547",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T10:00:01.763Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2220179",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T10:00:06.900Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "1973927",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T10:00:13.159Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2220159",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T10:00:25.462Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "1782527",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T10:00:51.901Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "1390747",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T10:01:02.215Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2220219",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T10:01:12.300Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "2309759",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T10:01:22.078Z"
+  },
+  {
+    "brand": "xiaomi",
+    "productId": "1328487",
+    "category": "air_condition",
+    "error": "HTTP 503",
+    "retries": 0,
+    "lastAttempt": "2026-06-06T10:01:49.599Z"
+  }
+]

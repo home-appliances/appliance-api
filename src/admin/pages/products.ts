@@ -334,27 +334,28 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         <input type="hidden" name="price" value="${product?.price || ''}">
         <input type="hidden" name="original_price" value="${product?.originalPrice || product?.original_price || ''}">
 
-        <!-- 主图区域 -->
+        <!-- 产品图片区域（支持多张主图/展示图，可排序） -->
         <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-3">产品主图</label>
+          <label class="block text-sm font-medium text-gray-700 mb-3">产品图片 <span class="text-xs text-gray-400 font-normal">（可上传多张，主图用于列表展示，按 sort 升序取第一张主图）</span></label>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4" id="image-list">
             ${product?.images && product.images.length > 0 ? product.images.map((img: any, idx: number) => `
               <div class="relative group" data-image-id="${img.id || ''}">
-                <img src="${img.imageUrl || img.url}" alt="产品主图" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="showImage(this.src, '产品主图')">
-                <span class="absolute top-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded">主图</span>
-                <button type="button" onclick="deleteMainImage(${product?.id || 0}, this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>
+                <img src="${img.imageUrl || img.url}" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="showImage(this.src, '产品图片')">
+                <span class="absolute top-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded type-badge">${img.imageType === 'display' ? '展示图' : '主图'}</span>
+                <span class="absolute bottom-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded">sort: ${img.sortOrder ?? 0}</span>
+                <button type="button" onclick="deleteProductImage(${img.id || 0}, this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>
               </div>
             `).join('') : ''}
           </div>
 
           <!-- 上传区域 -->
           <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors cursor-pointer" onclick="document.getElementById('file-input').click()">
-            <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleFileSelect(this.files)">
+            <input type="file" id="file-input" accept="image/*" multiple class="hidden" onchange="handleFileSelect(this.files)">
             <div class="text-gray-400">
               <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
               </svg>
-              <p class="text-sm">点击或拖拽图片到此处（先暂存，提交时上传）</p>
+              <p class="text-sm">点击或拖拽图片到此处（可多选，先暂存，提交时上传）</p>
               <p class="text-xs text-gray-400 mt-1">支持 JPG、PNG、GIF、WebP，最大 5MB</p>
             </div>
           </div>
@@ -691,9 +692,8 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         })
       }
 
-      // 选择文件 -> 先校验, 通过才暂存(本地预览), 不上传
+      // 选择文件 -> 先校验, 通过才暂存(本地预览), 不上传。支持多张累积。
       async function handleFileSelect(files) {
-        const imageType = 'main'
         for (const file of files) {
           // 1. 扩展名
           const dotIdx = file.name.lastIndexOf('.')
@@ -726,16 +726,18 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           const base64 = await fileToBase64(file)
           const seq = pendingSeq++
           const previewUrl = URL.createObjectURL(file)
-          pendingImages.length = 0
-          document.querySelectorAll('#image-list [data-pending-seq]').forEach(el => el.remove())
-          pendingImages.push({ seq, fileName: file.name, mimeType: file.type, base64, imageType, previewUrl, sort: 0 })
-          addPendingToDOM(seq, previewUrl, imageType)
+          // 默认主图，sort 自动递增（取当前暂存图的最大 sort + 1）
+          const maxSort = pendingImages.reduce((m, p) => Math.max(m, p.sort), -1)
+          const imageType = 'main'
+          const sort = maxSort + 1
+          pendingImages.push({ seq, fileName: file.name, mimeType: file.type, base64, imageType, previewUrl, sort })
+          addPendingToDOM(seq, previewUrl, imageType, sort)
         }
         document.getElementById('file-input').value = ''
       }
 
-      // 暂存图加到列表(虚线边框 + 待上传标记 + 删除)
-      function addPendingToDOM(seq, previewUrl, imageType) {
+      // 暂存图加到列表(虚线边框 + 待上传标记 + 类型选择 + 排序 + 删除)
+      function addPendingToDOM(seq, previewUrl, imageType, sort) {
         const list = document.getElementById('image-list')
         const div = document.createElement('div')
         div.className = 'relative group'
@@ -743,7 +745,13 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         div.innerHTML =
           '<img src="' + previewUrl + '" alt="待上传" class="w-full h-32 object-cover rounded-lg border-2 border-dashed border-primary-400">' +
           '<span class="absolute top-7 left-2 px-2 py-0.5 text-xs bg-primary-500 text-white rounded">待上传</span>' +
-          '<span class="absolute top-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded">主图</span>' +
+          '<div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 flex items-center gap-1">' +
+            '<select onchange="setPendingType(' + seq + ', this.value)" class="flex-1 bg-transparent border-none text-white text-xs outline-none cursor-pointer">' +
+              '<option value="main"' + (imageType === 'main' ? ' selected' : '') + '>主图</option>' +
+              '<option value="display"' + (imageType === 'display' ? ' selected' : '') + '>展示图</option>' +
+            '</select>' +
+            '<input type="number" value="' + sort + '" onchange="setPendingSort(' + seq + ', this.value)" class="w-10 bg-transparent border-none text-white text-xs outline-none" title="排序值（小的在前）">' +
+          '</div>' +
           '<button type="button" onclick="removePending(' + seq + ', this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>'
         list.appendChild(div)
       }
@@ -751,6 +759,11 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
       function setPendingType(seq, type) {
         const p = pendingImages.find(x => x.seq === seq)
         if (p) p.imageType = type
+      }
+
+      function setPendingSort(seq, val) {
+        const p = pendingImages.find(x => x.seq === seq)
+        if (p) p.sort = parseInt(val, 10) || 0
       }
 
       function removePending(seq, btn) {
@@ -916,12 +929,16 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         }
       })
 
-      // 已有主图(编辑时): 删除（调用后端清除 products.main_image）
-      async function deleteMainImage(productId, btn) {
-        if (!confirm('确定删除主图？')) return
+      // 已有图片(编辑时): 删除单张图片记录（调用 /api/admin/product-images/:id）
+      async function deleteProductImage(imageId, btn) {
+        if (!imageId) {
+          alert('图片ID缺失，无法删除')
+          return
+        }
+        if (!confirm('确定删除该图片？')) return
         const container = btn.parentElement
         try {
-          const res = await fetch('/api/admin/products/' + productId + '/main-image', { method: 'DELETE' })
+          const res = await fetch('/api/admin/product-images/' + imageId, { method: 'DELETE' })
           const data = await res.json()
           if (data.code === 0) {
             container.remove()

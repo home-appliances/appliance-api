@@ -474,62 +474,69 @@ admin.post('/products/create', authMiddleware, async (c) => {
   }
 })
 
-// 处理表单主图: 本地 images-data 或 OSS，写入 product_images 表
+// 处理表单图片: 多张图（主图/展示图），写入 product_images 表，sort_order 递增不覆盖
 async function saveProductImageFiles(productId: number, body: Record<string, any>): Promise<void> {
+  const { createProductImage } = await import('../db/queries.js')
   const { validateImageFile } = await import('../utils/oss.js')
   const {
     useLocalImageStorage,
     saveBufferToLocal,
   } = await import('../utils/image-local.js')
   const { uploadBufferViaStaging } = await import('../utils/image-oss-pipeline.js')
-  const { pool } = await import('../db/index.js')
 
   const toArr = (v: any) => Array.isArray(v) ? v : (v ? [v] : [])
   const dataArr = toArr(body['image_data[]'])
   const nameArr = toArr(body['image_names[]'])
   const mimeArr = toArr(body['image_mimes[]'])
+  const typeArr = toArr(body['image_types[]'])
+  const sortArr = toArr(body['image_sorts[]'])
 
   if (dataArr.length === 0) return
 
-  const base64 = dataArr[0]
-  const fileName = nameArr[0] || 'image.png'
-  const mimeType = mimeArr[0] || 'image/png'
-  const buf = Buffer.from(base64, 'base64')
+  for (let i = 0; i < dataArr.length; i++) {
+    const base64 = dataArr[i]
+    const fileName = nameArr[i] || 'image.png'
+    const mimeType = mimeArr[i] || 'image/png'
+    const imageType = typeArr[i] || 'main'
+    // 前端可通过 image_sorts[] 指定排序；未指定则由 createProductImage 自动递增
+    const sortOrderRaw = sortArr[i]
+    const sortOrder = sortOrderRaw !== undefined && sortOrderRaw !== '' && sortOrderRaw !== null
+      ? parseInt(sortOrderRaw, 10)
+      : undefined
+    const buf = Buffer.from(base64, 'base64')
 
-  const validation = validateImageFile({ size: buf.length, originalName: fileName, mimeType })
-  if (!validation.valid) {
-    console.warn(`主图校验失败, 跳过: ${fileName} - ${validation.error}`)
-    return
-  }
+    const validation = validateImageFile({ size: buf.length, originalName: fileName, mimeType })
+    if (!validation.valid) {
+      console.warn(`  [${i}] 校验失败, 跳过: ${fileName} - ${validation.error}`)
+      continue
+    }
 
-  let imageUrl: string
-  if (useLocalImageStorage()) {
-    const ext = fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.')) : '.jpg'
-    const named = saveBufferToLocal(buf, {
-      filename: `p${productId}-main${ext}`,
-      mimeType,
+    let imageUrl: string
+    if (useLocalImageStorage()) {
+      const ext = fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.')) : '.jpg'
+      const named = saveBufferToLocal(buf, {
+        filename: `p${productId}-${imageType}-${Date.now()}-${i}${ext}`,
+        mimeType,
+      })
+      imageUrl = named.url
+      console.log(`  [${i}] 已存本地: ${named.filePath}`)
+    } else {
+      imageUrl = await uploadBufferViaStaging(buf, {
+        originalName: fileName,
+        mimeType,
+        folder: 'products',
+      })
+      console.log(`  [${i}] 已上传 OSS: ${imageUrl}`)
+    }
+
+    const created = await createProductImage({
+      productId,
+      imageUrl,
+      imageType,
+      sortOrder,
     })
-    imageUrl = named.url
-    console.log(`主图已存本地: ${named.filePath}`)
-  } else {
-    imageUrl = await uploadBufferViaStaging(buf, {
-      originalName: fileName,
-      mimeType,
-      folder: 'products',
-    })
-    console.log(`主图已上传 OSS: ${imageUrl}`)
+    console.log(`  [${i}] 已保存 -> 图片记录ID ${created.id} (type=${imageType}, sort=${created.sortOrder})`)
   }
-
-  // 写入 product_images 表：删除该产品旧主图后插入新主图（sort_order=0）
-  await pool.query('DELETE FROM product_images WHERE product_id = $1 AND image_type = $2', [productId, 'main'])
-  await pool.query(
-    `INSERT INTO product_images (product_id, image_url, image_type, sort_order, created_at)
-     VALUES ($1, $2, 'main', 0, NOW())`,
-    [productId, imageUrl]
-  )
-  // 同步更新产品的 updated_at
-  await pool.query('UPDATE products SET updated_at = NOW() WHERE id = $1', [productId])
-  console.log(`已设置主图: ${imageUrl}`)
 }
 
 // 编辑产品页面
@@ -543,23 +550,24 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
     returnTo = '/admin/products'
   }
 
-  const { getProductById, getCategories } = await import('../db/queries.js')
-  const [product, categories] = await Promise.all([
+  const { getProductById, getCategories, getProductImages } = await import('../db/queries.js')
+  const [product, categories, images] = await Promise.all([
     getProductById(id),
     getCategories(),
+    getProductImages(id),
   ])
 
   if (!product) return c.redirect(returnTo)
 
-  // 使用 mainImage（来自 getProductById 的子查询）作为主图
+  // 取该产品所有图片（多张主图/展示图），供表单页渲染和排序
   const productWithImages = {
     ...product,
-    images: product.mainImage ? [{
-      id: 0,
-      imageUrl: product.mainImage,
-      imageType: 'main',
-      sortOrder: 0,
-    }] : [],
+    images: images.map(img => ({
+      id: img.id,
+      imageUrl: img.imageUrl,
+      imageType: img.imageType,
+      sortOrder: img.sortOrder,
+    })),
   }
 
   return c.html(productFormPage(productWithImages, undefined, role, categories, returnTo))

@@ -229,20 +229,9 @@ export async function getProducts(options: {
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(whereClause);
 
-  // 查询数据（关联 categories 取分类名，主图从 product_images 取 sort_order 最小的 main 图）
+  // 查询数据（关联 categories 取分类名，主图从 product_images 取：main 类型优先，同类型 sort_order 升序）
   const sortColumn = sort === 'updated_at' ? products.updatedAt : products.createdAt;
   const orderFn = order === 'asc' ? asc : desc;
-
-  // 主图子查询：取该产品 image_type='main' 中 sort_order 最小的 URL
-  const mainImageSub = db
-    .select({ url: productImages.imageUrl })
-    .from(productImages)
-    .where(and(
-      eq(productImages.productId, products.id),
-      eq(productImages.imageType, 'main'),
-    ))
-    .orderBy(asc(productImages.sortOrder))
-    .limit(1);
 
   const data = await db
     .select({
@@ -258,7 +247,15 @@ export async function getProducts(options: {
       rating: products.rating,
       reviewCount: products.reviewCount,
       params: products.params,
-      mainImage: sql<string>`${mainImageSub}`.as('main_image'),
+      mainImage: sql<string>`(
+        SELECT ${productImages.imageUrl}
+        FROM ${productImages}
+        WHERE ${productImages.productId} = ${products.id}
+        ORDER BY
+          CASE ${productImages.imageType} WHEN 'main' THEN 0 ELSE 1 END,
+          ${productImages.sortOrder}
+        LIMIT 1
+      )`.as('main_image'),
       createdAt: products.createdAt,
       updatedAt: products.updatedAt,
     })
@@ -279,17 +276,6 @@ export async function getProducts(options: {
 }
 
 export async function getProductById(id: number) {
-  // 主图子查询：取该产品 image_type='main' 中 sort_order 最小的 URL
-  const mainImageSub = db
-    .select({ url: productImages.imageUrl })
-    .from(productImages)
-    .where(and(
-      eq(productImages.productId, products.id),
-      eq(productImages.imageType, 'main'),
-    ))
-    .orderBy(asc(productImages.sortOrder))
-    .limit(1);
-
   const result = await db
     .select({
       id: products.id,
@@ -304,7 +290,15 @@ export async function getProductById(id: number) {
       rating: products.rating,
       reviewCount: products.reviewCount,
       params: products.params,
-      mainImage: sql<string>`${mainImageSub}`.as('main_image'),
+      mainImage: sql<string>`(
+        SELECT ${productImages.imageUrl}
+        FROM ${productImages}
+        WHERE ${productImages.productId} = ${products.id}
+        ORDER BY
+          CASE ${productImages.imageType} WHEN 'main' THEN 0 ELSE 1 END,
+          ${productImages.sortOrder}
+        LIMIT 1
+      )`.as('main_image'),
       sourceUrl: products.sourceUrl,
       sourcePlatform: products.sourcePlatform,
       createdAt: products.createdAt,
@@ -524,15 +518,16 @@ export async function createProductImage(data: {
   if (!data.productId || !data.imageUrl) {
     throw new Error('createProductImage 需要 productId 与 imageUrl');
   }
-  // sort_order 自动取该产品同类型现有最大值 + 1
-  let sortOrder = data.sortOrder ?? 0;
-  if (data.sortOrder === undefined) {
+  const imageType = data.imageType || 'main';
+  // sort_order 未指定时，取该产品同类型现有最大 sort_order + 1
+  let sortOrder = data.sortOrder;
+  if (sortOrder === undefined) {
     const existing = await db
       .select({ maxSort: max(productImages.sortOrder) })
       .from(productImages)
       .where(and(
         eq(productImages.productId, data.productId),
-        eq(productImages.imageType, data.imageType || 'main'),
+        eq(productImages.imageType, imageType),
       ));
     sortOrder = (existing[0]?.maxSort ?? -1) + 1;
   }
@@ -541,7 +536,7 @@ export async function createProductImage(data: {
     .values({
       productId: data.productId,
       imageUrl: data.imageUrl,
-      imageType: data.imageType || 'main',
+      imageType,
       sortOrder,
     })
     .returning();
@@ -596,8 +591,13 @@ export async function getMainImageUrl(productId: number): Promise<string | null>
   return result[0]?.url ?? null;
 }
 
-export async function updateProductImageSort(_items: Array<{ id: number; sortOrder: number }>) {
-  // 仅主图，无需排序
+export async function updateProductImageSort(items: Array<{ id: number; sortOrder: number }>) {
+  for (const item of items) {
+    await db
+      .update(productImages)
+      .set({ sortOrder: item.sortOrder })
+      .where(eq(productImages.id, item.id));
+  }
 }
 
 // =====================================================
