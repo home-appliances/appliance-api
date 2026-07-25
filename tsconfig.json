@@ -13,15 +13,8 @@
   },
   "include": ["src/**/*"],
   "exclude": [
-    "src/crawler/**/*",
-    "src/db/check-data.ts",
     "src/db/fill-pinyin.ts",
-    "src/db/fix-*.ts",
-    "src/db/import-*.ts",
-    "src/db/init.ts",
-    "src/db/merge-*.ts",
     "src/db/migrate-search-vector.ts",
-    "src/db/run-*.ts",
     "src/db/seed.ts",
     "src/db/update-*.ts"
   ]

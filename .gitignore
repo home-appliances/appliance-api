@@ -13,12 +13,10 @@ dist/
 logs/
 *.log
 
-# 爬虫状态
-crawler-state/
-
 # 本地数据
 data/
 src/data/
+scripts/output/
 
 # TypeScript
 *.tsbuildinfo

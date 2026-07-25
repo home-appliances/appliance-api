@@ -52,12 +52,15 @@ appliance-api/
 │   │       ├── upload.ts     # 图片上传 API
 │   │       ├── auth.ts       # 认证 API
 │   │       └── stats.ts      # 统计 API
-│   ├── db/                   # 数据库（运行时 + 迁移/运维脚本，见 src/db/README.md）
+│   ├── db/                   # 数据库（schema / seed / 查询）
 │   │   ├── schema.ts         # Drizzle schema 定义
 │   │   ├── drizzle.ts        # Drizzle 客户端
 │   │   ├── queries.ts        # 类型安全查询函数
 │   │   ├── index.ts          # 连接池 (兼容旧代码)
-│   │   └── seed.ts           # 初始化种子数据
+│   │   ├── seed.ts           # 初始化种子数据
+│   │   ├── snapshots/        # category_params 快照
+│   │   ├── migrate-search-vector.ts  # 全文搜索环境安装
+│   │   └── fill-pinyin.ts    # 拼音补全
 │   ├── utils/
 │   │   └── oss.ts            # 阿里云 OSS 上传工具
 │   ├── middleware/
@@ -85,10 +88,16 @@ cp .env.example .env
 # 编辑 .env 填入数据库连接信息
 
 # 3. 初始化数据库 (首次)
-npm run db:push        # Drizzle 推送 schema 到数据库
-npm run db:seed        # 灌入初始数据
+npm run db:push                 # Drizzle 推送 schema
+npm run db:seed                 # 灌入种子
+npm run migrate:search-vector   # 全文搜索（空库/新机一次）
 
-# 4. 启动开发服务器
+# 4. 导入本地整理数据（可选）
+npm run import:zol-ac
+npm run fill:pinyin
+npm run check:etl
+
+# 5. 启动开发服务器
 npm run dev
 # 访问 http://localhost:3000
 ```
@@ -188,28 +197,38 @@ Authorization header，没有则读 Cookie。
 
 ## 图片存储
 
-产品图片以两种方式并存：
+### 本地开发（当前）
 
-1. **库内二进制**（`images` 表）→ 通过 `/api/image/:id` 读取
-2. **OSS + CDN**（管理后台上传）→ `https://static.cheapgo.top/...`
+只做主图：`products.main_image = /local-images/{id}.jpg`  
+文件在 `~/Desktop/crawler_test/images-data/`（**不在项目内**，可用 `IMAGE_STAGING_DIR` 覆盖）。  
+无 OSS Key 时导入/上传自动落本地（也可设 `IMAGE_STORAGE=local`）。缺主图时重跑 `npm run import:zol-ac`。
+
+示例：`http://localhost:3000/local-images/3819.jpg`
+
+### 线上（以后）
+
+有 OSS Key 时，上传/导入走 `image-oss-pipeline`，`main_image` 写 CDN URL。
+
+| 字段                          | 本地                              | 线上      |
+|-----------------------------|---------------------------------|---------|
+| `products.main_image`       | `/local-images/xxx.jpg`（目前只做主图） | CDN URL |
+| `images` / `product_images` | **已删除**                         | 不应再使用   |
 
 ### 图片 API
 
-| 方法     | 路径                              | 说明                  |
-|--------|---------------------------------|---------------------|
-| GET    | `/api/image/:id`                | 按 `images.id` 返回二进制 |
-| GET    | `/api/image/product/:productId` | 产品关联图片列表            |
-| POST   | `/api/image/download`           | 从 URL 下载并入库         |
-| POST   | `/api/image/upload`             | 上传本地文件入库            |
-| DELETE | `/api/image/:id`                | 删除图片                |
+| 方法   | 路径                        | 说明                             |
+|------|---------------------------|--------------------------------|
+| GET  | `/local-images/*`         | 读桌面 `crawler_test/images-data` |
+| POST | `/api/admin/upload/image` | 后台上传（无 Key 时落本地）               |
+| GET  | `/api/image/:id`          | 本地有文件则 302 到 `/local-images/`  |
 
-### 管理后台上传 (OSS)
+### 管理后台上传
 
-1. 后台选择/拖拽图片 → Base64 暂存（绕过 FC multipart 问题）
-2. 提交产品时上传 OSS（`cheapgo-assets`）
-3. CDN：`static.cheapgo.top`
+1. Base64 暂存 → 提交
+2. 本地：写入 `~/Desktop/crawler_test/images-data`，`main_image=/local-images/...`
+3. 有 OSS Key：上传 CDN
 
-校验：扩展名与 MIME 白名单（jpg/jpeg/png/gif/webp）、≤ 5MB。
+校验：扩展名与 MIME 白名单、≤ 5MB。
 
 ### 运维脚本
 
@@ -227,45 +246,51 @@ npx tsx scripts/import-zol-air-condition.ts --dry-run
 # 指定数据目录
 npx tsx scripts/import-zol-air-condition.ts --dir /path/to/data
 
-# 只回刷库内 params（值归一化），不重导图片
-npx tsx scripts/import-zol-air-condition.ts --normalize-existing
-
-# 回刷前预览
-npx tsx scripts/import-zol-air-condition.ts --normalize-existing --dry-run
+# 只回刷：从爬虫 JSON 再 Transform（按需入座 + 例外），不重导图片
+npm run import:zol-ac:normalize
 ```
 
-规则简述：`category_params` 白名单 → `PARAM_MAP` 翻译字段名 → 丢弃未定义字段 → 值归一化（如
-`1.5P→1.5匹`）。设计说明见知识库「家电 · 项目总览」。
+ETL 约定：
+
+| 层         | 字段 / 产物                                               | 说明                |
+|-----------|-------------------------------------------------------|-------------------|
+| Extract   | 桌面爬虫 JSON                                             | 原材料，**不进库**       |
+| Transform | `products.params`                                     | 白名单 + 入座结果        |
+| 例外        | `import_exceptions`                                   | 未知键 / 入不了座 / 规则丢弃 |
+| 规范        | `src/db/snapshots/category-params-air-condition.json` | seed 对齐           |
+| 图片        | `products.main_image`                                 | 仅主图 URL           |
+
+规则简述：白名单过滤 → `PARAM_MAP` 异名翻译 → 枚举/布尔**按需入座**；对不上的不硬塞。新批次会把同平台旧
+open 标为 `superseded`。设计说明见知识库「家电 · 项目总览」。
 
 **scripts/**
 
-| 脚本                            | 说明                       | 命令                                      |
-|-------------------------------|--------------------------|-----------------------------------------|
-| `package.js`                  | 打包部署产物                   | `npm run package`                       |
-| `import-zol-air-condition.ts` | 导入 ZOL 空调 / 回刷 params    | 见上方「ZOL 空调导入」                           |
-| `import-main-images.ts`       | 批量下载产品主图入库               | `npx tsx scripts/import-main-images.ts` |
-| `migrate-main-image.ts`       | 补全 main_image / image_id | `npm run migrate:main-image`            |
-| `fix-unknown-brands.ts`       | 修复未知品牌                   | `npm run fix:unknown-brands`            |
+| 脚本                                   | 说明                    | 命令                               |
+|--------------------------------------|-----------------------|----------------------------------|
+| `package.js`                         | 打包部署产物                | `npm run package`                |
+| `import-zol-air-condition.ts`        | 导入 ZOL 空调 / 回刷 params | 见上方「ZOL 空调导入」                    |
+| `check-etl.ts`                       | ZOL 空调 ETL 质检         | `npm run check:etl`              |
+| `export-category-params-snapshot.ts` | 导出 category_params 快照 | `npm run export:category-params` |
+| `lib/import-exceptions.ts`           | 例外写入（被导入脚本引用）         | —                                |
 
 **src/db/**
 
-| 脚本                         | 说明                 | 命令                                        |
-|----------------------------|--------------------|-------------------------------------------|
-| `seed.ts`                  | 分类/管理员/参数规范种子数据    | `npm run db:seed`                         |
-| `migrate-search-vector.ts` | search_vector 全文索引 | `npm run migrate:search-vector`           |
-| `import-images.ts`         | URL 图片入库（旧版）       | `npx tsx src/db/import-images.ts`         |
-| `check-data.ts`            | 数据概况检查             | `npm run check`                           |
-| `update-admin-password.ts` | 更新管理员密码            | `npx tsx src/db/update-admin-password.ts` |
+| 脚本                         | 说明                     | 命令                                        |
+|----------------------------|------------------------|-------------------------------------------|
+| `seed.ts`                  | 分类/管理员/参数规范种子数据        | `npm run db:seed`                         |
+| `migrate-search-vector.ts` | 全文搜索环境（pg_jieba + GIN） | `npm run migrate:search-vector`           |
+| `fill-pinyin.ts`           | 补拼音字段                  | `npm run fill:pinyin`                     |
+| `update-admin-password.ts` | 更新管理员密码                | `npx tsx src/db/update-admin-password.ts` |
 
 ## 数据库命令
 
-| 命令                              | 说明                          |
-|---------------------------------|-----------------------------|
-| `npm run db:push`               | 推送 schema 到数据库 (开发用)        |
-| `npm run db:generate`           | 生成 migration SQL 文件         |
-| `npm run db:migrate`            | 执行 migration 文件 (生产用)       |
-| `npm run db:seed`               | 灌入初始数据                      |
-| `npm run migrate:search-vector` | 初始化全文搜索 (pg_jieba + GIN 索引) |
+| 命令                                   | 说明                         |
+|--------------------------------------|----------------------------|
+| `npm run db:push`                    | 推送 schema 到数据库（本地整理用）      |
+| `npm run db:seed`                    | 灌入种子数据                     |
+| `npm run migrate:search-vector`      | 安装全文搜索（空库/新机一次）            |
+| `npm run fill:pinyin`                | 导入后补拼音                     |
+| `npm run db:generate` / `db:migrate` | 生产 migration（上线前再写，本地不必依赖） |
 
 ## 部署
 
