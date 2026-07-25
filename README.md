@@ -276,22 +276,22 @@ open 标为 `superseded`。设计说明见知识库「家电 · 项目总览」�
 
 **src/db/**
 
-| 脚本                         | 说明                        | 命令                                        |
-|----------------------------|---------------------------|-------------------------------------------|
-| `seed.ts`                  | 分类/管理员/参数规范种子数据           | `npm run db:seed`                         |
-| `migrate-search-vector.ts` | 加权全文 + params_search_text | `npm run migrate:search-vector`           |
-| `fill-pinyin.ts`           | 补拼音字段                     | `npm run fill:pinyin`                     |
-| `update-admin-password.ts` | 更新管理员密码                   | `npx tsx src/db/update-admin-password.ts` |
+| 脚本                        | 说明                                       | 命令                                        |
+|-----------------------------|------------------------------------------|-------------------------------------------|
+| `schema.ts`                 | Drizzle schema 定义（数据库结构的唯一真相源）          | -                                         |
+| `migrate-auto.ts`           | 自动迁移执行逻辑（CI 调用，走 VPC 内网）                | -                                         |
+| `seed.ts`                   | 分类/管理员/参数规范种子数据                         | `npm run db:seed`                         |
+| `fill-pinyin.ts`            | 补拼音字段                                    | `npm run fill:pinyin`                     |
+| `update-admin-password.ts`  | 更新管理员密码                                  | `npx tsx src/db/update-admin-password.ts` |
 
 ## 数据库命令
 
-| 命令                                   | 说明                         |
-|--------------------------------------|----------------------------|
-| `npm run db:push`                    | 推送 schema 到数据库（本地整理用）      |
-| `npm run db:seed`                    | 灌入种子数据                     |
-| `npm run db:generate`                | 从 schema 生成 migration SQL 文件 |
-| `npm run migrate:search-vector`      | 安装/重建全文搜索（空库或升级加权索引时跑）     |
-| `npm run fill:pinyin`                | 导入后补拼音                     |
+| 命令                       | 说明                                  |
+|--------------------------|---------------------------------------|
+| `npm run db:generate`    | 从 schema 生成 migration SQL 文件（改 schema 后跑） |
+| `npm run db:push`        | 推送 schema 到数据库（本地开发调试用）            |
+| `npm run db:seed`        | 灌入种子数据（新环境初始化）                      |
+| `npm run fill:pinyin`    | 导入产品后补拼音字段                          |
 
 ## 数据库迁移（CI/CD 自动化）
 
