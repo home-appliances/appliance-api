@@ -328,6 +328,17 @@ GitHub Actions 自动：
 3. （可选）本地 `npm run db:push` 验证 schema 变更
 4. `git push origin main`，CI 自动部署 + 迁移
 
+### 新环境初始化
+
+全新部署（新数据库）时，本地连 DB 执行一次：
+
+```bash
+npm run db:push     # 用 schema.ts 建所有表
+npm run db:seed     # 灌入种子数据（16 个分类、admin 账号、参数规范）
+```
+
+之后所有 schema 变更都走 CI/CD 自动迁移，无需手动连 DB。
+
 ### baseline
 
 当前 baseline 是 `drizzle/0000_baseline.sql`，与生产 DB 当前结构一致。生产 DB 的 `__drizzle_migrations` 表已标记 baseline 为已执行，CI 不会重复跑。
