@@ -432,6 +432,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
       // ====== 产品参数: 根据所选分类动态渲染参数输入 ======
       // 编辑时已有值, 从 product.params 读取
       const existingParams = ${JSON.stringify(product?.params || {})}
+      let categoryParamDefs = []
 
       // 模糊匹配参数值: 规范 key 可能与产品 params key 不完全一致
       // 例如规范是"匹数", 产品 params 是"空调匹数"
@@ -512,6 +513,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         const container = document.getElementById('params-container')
         if (!categoryId) {
           container.innerHTML = '<div class="text-sm text-gray-400">请先选择分类，参数将自动生成</div>'
+          categoryParamDefs = []
           return
         }
         container.innerHTML = '<div class="text-sm text-gray-400">加载中...</div>'
@@ -522,16 +524,17 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           }
           const data = await res.json()
           container.innerHTML = ''
+          categoryParamDefs = (data.code === 0 && data.data) ? data.data : []
 
           // 渲染参数规范定义的字段
-          if (data.code === 0 && data.data && data.data.length > 0) {
+          if (categoryParamDefs.length > 0) {
             // 编辑模式（产品已有参数）: 只显示有值的参数，空参数折叠
             // 新增模式（无参数）: 显示全部参数
             const hasExisting = Object.keys(existingParams).length > 0
             let filledCount = 0
             let emptyCount = 0
 
-            data.data.forEach(p => {
+            categoryParamDefs.forEach(p => {
               const div = document.createElement('div')
               div.className = 'flex items-center gap-3'
               const key = p.paramKey
@@ -759,10 +762,104 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         btn.parentElement.remove()
       }
 
+      // 前端参数校验（与后端 validate-param-input 规则对齐）
+      function validateParamsClient(fd) {
+        const errors = []
+        const byKey = {}
+        categoryParamDefs.forEach(function(p) { byKey[p.paramKey] = p })
+        const measureRe = /功率|电流|制冷量|制热量|循环风量|新风量|除湿量|尺寸|噪音|噪声|风量|面积|电压|频率|电源|能效比|质量|重量|耗电|水压|扬程|转速|压力/
+        const modelRe = /型号|货号|编码|SKU|sku|制冷剂/
+        const seriesRe = /系列/
+        const cnDescRe = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|质保|配件/
+        const measureSeg = /^(?:宽|高|深|厚|长|直径|内|外|室|机)?\\s*-?\\d+(?:\\.\\d+)?\\s*(?:\\(\\s*[A-Za-z]\\s*\\))?\\s*(?:kWh|kW|Wh|Hz|mm|cm|m³|m²|㎡|dB|db|℃|°C|%|匹|级|[WAV]|m)?$/i
+        function isValidMeasure(v) {
+          if (!/^[\\d.\\s\\-–—*×xX/／~～+±()（）\\[\\]【】,，;；:：°℃%WAakKvVmMhHzdbDB³2㎡匹级宽高深厚长直径内外室机]+$/i.test(v)) return false
+          const parts = v.split(/[,，;；/／~～\\-–—+*×xX]+/).map(function(p) { return p.trim() }).filter(Boolean)
+          return parts.length > 0 && parts.every(function(p) { return measureSeg.test(p) })
+        }
+        function hasGarbled(v) {
+          return /[a-z]{4,}\\d|\\d[a-z]{4,}/.test(v)
+        }
+        function hasDescDigitJunk(v) {
+          if (/\\d{3,}/.test(v)) return true
+          if (/[\\u4e00-\\u9fff].*\\d{2,}$/.test(v)) return true
+          if (/[\\u4e00-\\u9fff][A-Za-z0-9]{3,}/.test(v)) return true
+          return false
+        }
+        function hasMeasureSnippet(v) {
+          return /(?:^|[^A-Za-z0-9])\\d+\\s*(?:kWh|kW|Wh|Hz|mm|W|A|V|安|伏|瓦)(?![A-Za-z0-9])/i.test(v) || /(?:^|[^A-Za-z0-9])(?:kWh|kW|Wh|Hz|W|A|V|安|伏|瓦)\\s*\\d+(?![A-Za-z0-9])/i.test(v)
+        }
+        function cnRatio(v) {
+          const chars = Array.from(String(v).replace(/\\s/g, ''))
+          if (!chars.length) return 0
+          return chars.filter(function(c) { return /[\\u4e00-\\u9fff]/.test(c) }).length / chars.length
+        }
+        function pushErr(label, value, reason) {
+          const shown = value.length > 40 ? value.slice(0, 40) + '…' : value
+          errors.push('「' + label + '」当前值「' + shown + '」' + reason)
+        }
+        for (const [name, raw] of fd.entries()) {
+          if (!String(name).startsWith('p_') || typeof raw !== 'string') continue
+          const value = raw.trim()
+          if (!value) continue
+          const key = String(name).slice(2)
+          const def = byKey[key] || { paramKey: key, paramType: 'text', displayName: key }
+          const type = String(def.paramType || 'text').toLowerCase()
+          const label = def.displayName || key
+          const hay = key + ' ' + label
+          if (type === 'enum') {
+            let opts = def.enumValues
+            if (typeof opts === 'string') { try { opts = JSON.parse(opts) } catch(e) { opts = [] } }
+            if (Array.isArray(opts) && opts.length && opts.indexOf(value) < 0) {
+              pushErr(label, value, '不在规范枚举选项中')
+            }
+          } else if (type === 'boolean') {
+            if (value !== '是' && value !== '否') pushErr(label, value, '只能选「是」或「否」')
+          } else if (type === 'number') {
+            if (!/^-?\\d+(\\.\\d+)?$/.test(value)) pushErr(label, value, '只能填写纯数字')
+          } else if (type === 'date') {
+            if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value) && !/^\\d{4}-\\d{2}$/.test(value)) {
+              pushErr(label, value, '请使用日期格式 YYYY-MM-DD')
+            }
+          } else if (measureRe.test(hay)) {
+            if (!isValidMeasure(value)) {
+              pushErr(label, value, '应为计量值（如 1000W、60dB），不能夹杂无关文字或多余数字')
+            }
+          } else if (seriesRe.test(hay)) {
+            if (!/^[\\u4e00-\\u9fffA-Za-z0-9\\-_./+\\s()（）·&]+$/.test(value)) {
+              pushErr(label, value, '含非法字符')
+            } else if (hasGarbled(value)) {
+              pushErr(label, value, '疑似乱码英文/数字，请改正')
+            }
+          } else if (cnDescRe.test(hay)) {
+            if (hasGarbled(value) || hasDescDigitJunk(value)) {
+              pushErr(label, value, '请填写中文说明，不要夹杂无关数字或乱码')
+            } else if (hasMeasureSnippet(value)) {
+              pushErr(label, value, '不应包含功率/电压等计量写法')
+            } else if (cnRatio(value) < 0.3 && /[a-zA-Z]/.test(value)) {
+              pushErr(label, value, '应以中文描述为主')
+            }
+          } else if (modelRe.test(hay)) {
+            if (!/^[\\u4e00-\\u9fffA-Za-z0-9\\-_./+\\s()（）]+$/.test(value)) {
+              pushErr(label, value, '格式不正确')
+            }
+          }
+        }
+        return errors
+      }
+
       // ====== 表单提交: 一次性把产品资料 + 图片一起发, 后端一个接口处理 ======
       const productForm = document.querySelector('form[method="POST"]')
       productForm.addEventListener('submit', async function(e) {
         e.preventDefault()
+
+        // 前端先拦一层非法参数（后端仍会再校验）
+        const clientErrors = validateParamsClient(new FormData(productForm))
+        if (clientErrors.length) {
+          alert('参数填写不合法：\\n' + clientErrors.join('\\n'))
+          return
+        }
+
         const submitBtn = productForm.querySelector('button[type="submit"]')
         const origText = submitBtn.textContent
         submitBtn.disabled = true

@@ -22,6 +22,37 @@ import { categoriesPage, categoryFormPage } from './pages/categories.js'
 import { categoryParamsPage, categoryParamFormPage } from './pages/category-params.js'
 import { productImagesPage } from './pages/product-images.js'
 import { logsPage } from './pages/logs.js'
+import { validateAdminParams, type AdminParamDef } from '../utils/validate-param-input.js'
+
+/** 按分类参数规范校验后台提交的 p_* 值 */
+async function validateProductParamsInput(
+  categoryId: number,
+  params: Record<string, string>
+) {
+  const { getCategoryParams } = await import('../db/queries.js')
+  const rows = await getCategoryParams(categoryId)
+  const defs: AdminParamDef[] = rows.map((r) => {
+    let enumValues: string[] | null = null
+    const raw = r.enumValues as unknown
+    if (Array.isArray(raw)) {
+      enumValues = raw.map(String)
+    } else if (typeof raw === 'string' && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) enumValues = parsed.map(String)
+      } catch {
+        enumValues = null
+      }
+    }
+    return {
+      paramKey: r.paramKey,
+      paramType: r.paramType || 'text',
+      enumValues,
+      displayName: r.displayName || r.paramKey,
+    }
+  })
+  return validateAdminParams(defs, params)
+}
 
 // ==================== 登录 ====================
 
@@ -400,13 +431,26 @@ admin.post('/products/create', authMiddleware, async (c) => {
       }
     }
 
+    const categoryId = parseInt(category_id, 10)
+    const paramErrors = await validateProductParamsInput(categoryId, params)
+    if (paramErrors.length) {
+      return c.json(
+        {
+          code: 400,
+          message: '参数填写不合法：\n' + paramErrors.map((e) => e.message).join('\n'),
+          errors: paramErrors,
+        },
+        400
+      )
+    }
+
     const { createProduct, ProductDuplicateError } = await import('../db/queries.js')
     try {
       const product = await createProduct({
         name: name.trim(),
         brand: brand.trim(),
         model: model?.trim() || null,
-        categoryId: parseInt(category_id, 10),
+        categoryId,
         price: price || null,
         params,
         sourcePlatform: source_platform?.trim() || 'admin',
@@ -548,13 +592,26 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
       }
     }
 
+    const categoryId = parseInt(category_id, 10)
+    const paramErrors = await validateProductParamsInput(categoryId, params)
+    if (paramErrors.length) {
+      return c.json(
+        {
+          code: 400,
+          message: '参数填写不合法：\n' + paramErrors.map((e) => e.message).join('\n'),
+          errors: paramErrors,
+        },
+        400
+      )
+    }
+
     const { updateProduct, ProductDuplicateError } = await import('../db/queries.js')
     try {
       await updateProduct(id, {
         name: name.trim(),
         brand: brand.trim(),
         model: model?.trim() || null,
-        categoryId: parseInt(category_id, 10),
+        categoryId,
         price: price || null,
         params,
         sourcePlatform: source_platform?.trim() || null,
