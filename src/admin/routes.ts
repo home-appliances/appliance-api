@@ -377,46 +377,56 @@ admin.get('/products/create', authMiddleware, async (c) => {
   return c.html(productFormPage(undefined, undefined, role, categories))
 })
 
-// 新增产品处理
+// 新增产品处理（表单用 fetch 提交：成功 302，失败 JSON）
 admin.post('/products/create', authMiddleware, async (c) => {
   try {
-    const adminUser = c.get('admin') as { role?: string }
-    const role = adminUser?.role || 'admin'
-
     const body = await c.req.parseBody()
     const { name, brand, model, category_id, price, source_platform } = body as Record<string, string>
 
-    if (!name) {
-      return c.html(productFormPage(undefined, '产品名称不能为空', role))
+    if (!name?.trim()) {
+      return c.json({ code: 400, message: '产品名称不能为空' }, 400)
+    }
+    if (!brand?.trim()) {
+      return c.json({ code: 400, message: '品牌不能为空' }, 400)
+    }
+    if (!category_id) {
+      return c.json({ code: 400, message: '请选择分类' }, 400)
     }
 
-    // 收集参数: 前端用 p_{paramKey} 字段名提交, 取所有 p_ 开头的非空值
     const params: Record<string, string> = {}
     for (const [key, value] of Object.entries(body)) {
       if (key.startsWith('p_') && typeof value === 'string' && value.trim() !== '') {
-        params[key.slice(2)] = value.trim()  // 去掉 p_ 前缀
+        params[key.slice(2)] = value.trim()
       }
     }
 
-    const { createProduct } = await import('../db/queries.js')
-    const product = await createProduct({
-      name,
-      brand: brand || '未知品牌',
-      model: model || null,
-      categoryId: category_id ? parseInt(category_id) : null,
-      price: price || null,
-      params,
-      sourcePlatform: source_platform?.trim() || 'admin',
-    })
+    const { createProduct, ProductDuplicateError } = await import('../db/queries.js')
+    try {
+      const product = await createProduct({
+        name: name.trim(),
+        brand: brand.trim(),
+        model: model?.trim() || null,
+        categoryId: parseInt(category_id, 10),
+        price: price || null,
+        params,
+        sourcePlatform: source_platform?.trim() || 'admin',
+      })
 
-    // 处理表单里的图片文件(一次性: 传 OSS + 建关联, 一个接口完成)
-    await saveProductImageFiles(product.id, body)
-
-    return c.redirect('/admin/products')
+      await saveProductImageFiles(product.id, body)
+      return c.redirect('/admin/products')
+    } catch (err: any) {
+      const isDup = err?.name === 'ProductDuplicateError' || err instanceof ProductDuplicateError
+      return c.json(
+        {
+          code: isDup ? 409 : 500,
+          message: isDup ? err.message : '创建失败: ' + (err?.message || String(err)),
+          existingId: isDup ? err.existingId : undefined,
+        },
+        isDup ? 409 : 500
+      )
+    }
   } catch (error: any) {
-    const adminUser = c.get('admin') as { role?: string }
-    const role = adminUser?.role || 'admin'
-    return c.html(productFormPage(undefined, '创建失败: ' + error.message, role))
+    return c.json({ code: 500, message: '创建失败: ' + (error?.message || String(error)) }, 500)
   }
 })
 
@@ -506,13 +516,13 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
   return c.html(productFormPage(productWithImages, undefined, role, categories, returnTo))
 })
 
-// 编辑产品处理
+// 编辑产品处理（表单用 fetch 提交：成功 302，失败 JSON）
 admin.post('/products/:id/edit', authMiddleware, async (c) => {
   try {
-    const adminUser = c.get('admin') as { role?: string }
-    const role = adminUser?.role || 'admin'
-
-    const id = parseInt(c.req.param('id'))
+    const id = parseInt(c.req.param('id'), 10)
+    if (!Number.isFinite(id) || id <= 0) {
+      return c.json({ code: 400, message: '无效的产品 ID，请从产品列表重新进入编辑' }, 400)
+    }
     const body = await c.req.parseBody()
     const { name, brand, model, category_id, price, source_platform } = body as Record<string, string>
 
@@ -521,11 +531,16 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
       returnTo = '/admin/products'
     }
 
-    if (!name) {
-      return c.html(productFormPage({ id, name, brand, model, category_id, price, sourcePlatform: source_platform }, '产品名称不能为空', role, [], returnTo))
+    if (!name?.trim()) {
+      return c.json({ code: 400, message: '产品名称不能为空' }, 400)
+    }
+    if (!brand?.trim()) {
+      return c.json({ code: 400, message: '品牌不能为空' }, 400)
+    }
+    if (!category_id) {
+      return c.json({ code: 400, message: '请选择分类' }, 400)
     }
 
-    // 收集参数: 前端用 p_{paramKey} 字段名提交, 取所有 p_ 开头的非空值
     const params: Record<string, string> = {}
     for (const [key, value] of Object.entries(body)) {
       if (key.startsWith('p_') && typeof value === 'string' && value.trim() !== '') {
@@ -533,26 +548,33 @@ admin.post('/products/:id/edit', authMiddleware, async (c) => {
       }
     }
 
-    const { updateProduct } = await import('../db/queries.js')
-    await updateProduct(id, {
-      name,
-      brand: brand || '未知品牌',
-      model: model || null,
-      categoryId: category_id ? parseInt(category_id) : null,
-      price: price || null,
-      params,
-      sourcePlatform: source_platform?.trim() || null,
-    })
+    const { updateProduct, ProductDuplicateError } = await import('../db/queries.js')
+    try {
+      await updateProduct(id, {
+        name: name.trim(),
+        brand: brand.trim(),
+        model: model?.trim() || null,
+        categoryId: parseInt(category_id, 10),
+        price: price || null,
+        params,
+        sourcePlatform: source_platform?.trim() || null,
+      })
 
-    // 处理新上传的图片(传 OSS + 建关联, 单接口完成)
-    await saveProductImageFiles(id, body)
-
-    return c.redirect(returnTo)
+      await saveProductImageFiles(id, body)
+      return c.redirect(returnTo)
+    } catch (err: any) {
+      const isDup = err?.name === 'ProductDuplicateError' || err instanceof ProductDuplicateError
+      return c.json(
+        {
+          code: isDup ? 409 : 500,
+          message: isDup ? err.message : '更新失败: ' + (err?.message || String(err)),
+          existingId: isDup ? err.existingId : undefined,
+        },
+        isDup ? 409 : 500
+      )
+    }
   } catch (error: any) {
-    const adminUser = c.get('admin') as { role?: string }
-    const role = adminUser?.role || 'admin'
-    const id = c.req.param('id')
-    return c.html(productFormPage({ id }, '更新失败: ' + error.message, role))
+    return c.json({ code: 500, message: '更新失败: ' + (error?.message || String(error)) }, 500)
   }
 })
 

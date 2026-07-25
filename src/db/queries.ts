@@ -185,12 +185,132 @@ export async function getProductById(id: number) {
   return result[0] || null;
 }
 
+/** 品牌 + 分类 + 型号（无型号则用名称）唯一，仅未软删产品 */
+export class ProductDuplicateError extends Error {
+  existingId: number;
+  constructor(existingId: number, detail: string) {
+    super(detail);
+    this.name = 'ProductDuplicateError';
+    this.existingId = existingId;
+  }
+}
+
+/** 型号归一化：去空白/横杠/下划线/点，小写 → LY-CBS020URH 与 LYCBS020URH 视为同一 */
+export function normalizeModelKey(raw: string): string {
+  return (raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-_.／／·•]/g, '');
+}
+
+function productIdentityKey(model?: string | null, name?: string | null): string {
+  const m = (model || '').trim();
+  const raw = m || (name || '').trim();
+  return normalizeModelKey(raw);
+}
+
+export async function findDuplicateProduct(opts: {
+  brand: string;
+  categoryId: number | null | undefined;
+  model?: string | null;
+  name?: string | null;
+  excludeId?: number;
+}): Promise<{ id: number; name: string; brand: string; model: string | null } | null> {
+  const brand = (opts.brand || '').trim();
+  const categoryId = opts.categoryId ?? null;
+  const identity = productIdentityKey(opts.model, opts.name);
+  if (!brand || categoryId == null || !identity) return null;
+
+  const conditions = [
+    isNull(products.deletedAt),
+    sql`trim(${products.brand}) = ${brand}`,
+    eq(products.categoryId, categoryId),
+    sql`regexp_replace(
+          lower(trim(COALESCE(NULLIF(trim(${products.model}), ''), ${products.name}))),
+          '[\\s\\-_.／·•]',
+          '',
+          'g'
+        ) = ${identity}`,
+  ];
+  if (opts.excludeId != null) {
+    conditions.push(sql`${products.id} <> ${opts.excludeId}`);
+  }
+
+  const rows = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      brand: products.brand,
+      model: products.model,
+    })
+    .from(products)
+    .where(and(...conditions))
+    .limit(1);
+
+  return rows[0] || null;
+}
+
+async function assertProductUnique(opts: {
+  brand: string;
+  categoryId: number | null | undefined;
+  model?: string | null;
+  name?: string | null;
+  excludeId?: number;
+}) {
+  const brand = (opts.brand || '').trim();
+  if (!brand) {
+    throw new Error('品牌不能为空');
+  }
+  if (opts.categoryId == null || Number.isNaN(Number(opts.categoryId))) {
+    throw new Error('请选择分类');
+  }
+  const identity = productIdentityKey(opts.model, opts.name);
+  if (!identity) {
+    throw new Error('型号或产品名称不能为空');
+  }
+
+  const dup = await findDuplicateProduct({
+    brand,
+    categoryId: Number(opts.categoryId),
+    model: opts.model,
+    name: opts.name,
+    excludeId: opts.excludeId,
+  });
+  if (dup) {
+    const label = (dup.model || '').trim() || dup.name;
+    throw new ProductDuplicateError(
+      dup.id,
+      `该分类下已存在相同品牌与型号的产品：${dup.brand} / ${label}（ID ${dup.id}）`
+    );
+  }
+}
+
 export async function createProduct(data: typeof products.$inferInsert) {
+  await assertProductUnique({
+    brand: data.brand,
+    categoryId: data.categoryId,
+    model: data.model,
+    name: data.name,
+  });
   const result = await db.insert(products).values(data).returning();
   return result[0];
 }
 
 export async function updateProduct(id: number, data: Partial<typeof products.$inferInsert>) {
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error('无效的产品 ID');
+  }
+  const existing = await getProductById(id);
+  if (!existing) return null;
+
+  await assertProductUnique({
+    brand: data.brand !== undefined ? data.brand : existing.brand,
+    categoryId: data.categoryId !== undefined ? data.categoryId : existing.categoryId,
+    model: data.model !== undefined ? data.model : existing.model,
+    name: data.name !== undefined ? data.name : existing.name,
+    excludeId: id,
+  });
+
   const result = await db
     .update(products)
     .set({ ...data, updatedAt: new Date() })

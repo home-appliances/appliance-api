@@ -262,7 +262,7 @@ export const productsPage = (products: Product[], page: number, total: number, p
 }
 
 export const productFormPage = (product?: any, error?: string, role = 'admin', categories: any[] = [], returnTo: string = '/admin/products') => {
-  const isEdit = !!product
+  const isEdit = Number.isFinite(Number(product?.id)) && Number(product.id) > 0
   const title = isEdit ? '编辑产品' : '新增产品'
   const safeReturnTo = returnTo.replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;')
 
@@ -298,18 +298,19 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
           </div>
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">品牌</label>
-            <input type="text" name="brand" value="${product?.brand || ''}"
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">品牌 <span class="text-red-500">*</span></label>
+            <input type="text" name="brand" value="${product?.brand || ''}" required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">型号</label>
             <input type="text" name="model" value="${product?.model || ''}"
+              placeholder="建议填写，为空时按产品名称去重"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
           </div>
           <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">分类</label>
-            <select name="category_id" id="category-select" onchange="loadCategoryParams(this.value)"
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">分类 <span class="text-red-500">*</span></label>
+            <select name="category_id" id="category-select" required onchange="loadCategoryParams(this.value)"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
               <option value="">请选择分类</option>
               ${categories.map(c => `<option value="${c.id}" ${product?.categoryId === c.id || product?.category_id === c.id ? 'selected' : ''}>${c.icon || ''} ${c.displayName || c.name}</option>`).join('')}
@@ -768,10 +769,8 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         submitBtn.textContent = pendingImages.length > 0 ? '正在上传...' : '保存中...'
 
         try {
-          // 用 FormData 把产品字段 + 暂存图片文件一起发
           const fd = new FormData(productForm)
-          // 用 Base64 纯文本提交(绕过 FC multipart 二进制损坏)
-          pendingImages.forEach((p, i) => {
+          pendingImages.forEach((p) => {
             fd.append('image_data[]', p.base64)
             fd.append('image_names[]', p.fileName)
             fd.append('image_mimes[]', p.mimeType)
@@ -779,9 +778,14 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
             fd.append('image_sorts[]', String(p.sort))
           })
 
-          const res = await fetch(productForm.action, { method: 'POST', body: fd })
-          // 后端成功会返回重定向URL, 失败返回JSON
+          const res = await fetch(productForm.action, {
+            method: 'POST',
+            body: fd,
+            headers: { 'Accept': 'application/json' },
+          })
           const ct = res.headers.get('content-type') || ''
+
+          // 失败：后端返回 JSON（去重/校验等）
           if (ct.includes('application/json')) {
             const data = await res.json()
             alert(data.message || '保存失败')
@@ -789,14 +793,25 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
             submitBtn.textContent = origText
             return
           }
-          // 成功: 跟随后端重定向
-          if (res.redirected) {
+
+          // 成功：跟随后端重定向
+          if (res.redirected && res.url) {
             window.location.href = res.url
-          } else {
-            // 从隐藏字段读取 return_to
-            const returnInput = productForm.querySelector('input[name="return_to"]')
-            window.location.href = returnInput ? returnInput.value : '/admin/products'
+            return
           }
+
+          // 非预期响应：绝不静默跳列表
+          if (res.ok && ct.includes('text/html')) {
+            const html = await res.text()
+            document.open()
+            document.write(html)
+            document.close()
+            return
+          }
+
+          alert('保存失败（HTTP ' + res.status + '）')
+          submitBtn.disabled = false
+          submitBtn.textContent = origText
         } catch (err) {
           alert('保存失败: ' + err.message)
           submitBtn.disabled = false
