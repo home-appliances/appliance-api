@@ -62,8 +62,6 @@ export const products = pgTable('products', {
   searchVector: text('search_vector'),
   pinyin: text('pinyin'),
   pinyinInitials: text('pinyin_initials'),
-  mainImage: text('main_image'), // 主图：本地 /local-images 或 OSS CDN
-  imageId: bigint('image_id', { mode: 'number' }), // 已废弃，应恒为 null
   sourceUrl: text('source_url').unique(),
   sourcePlatform: text('source_platform').default('pconline'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -73,8 +71,22 @@ export const products = pgTable('products', {
 });
 
 // =====================================================
-// 产品图片：目前只做主图，存在 products.main_image（本地 /local-images 或 OSS URL）
+// 产品图片表（多类型：main 主图 / display 展示图 / detail 详情图 / scene 场景图）
+// 主图取该产品 image_type='main' 中 sort_order 最小的一条 URL
 // =====================================================
+export const productImages = pgTable('product_images', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  productId: bigint('product_id', { mode: 'number' }).notNull(),
+  imageUrl: text('image_url'),
+  imageType: text('image_type').default('main').notNull(),
+  sortOrder: integer('sort_order').default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  // 唯一约束：同一产品、同一类型、同一排序不重复
+  productTypeSortUnique: unique('product_images_product_type_sort_unique').on(
+    table.productId, table.imageType, table.sortOrder
+  ),
+}));
 
 // =====================================================
 // 品类参数规范表

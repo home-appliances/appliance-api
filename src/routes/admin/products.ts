@@ -171,7 +171,7 @@ products.delete('/api/admin/products/:id', async (c) => {
 });
 
 /**
- * 删除产品主图（清除 products.main_image 和 image_id）
+ * 删除产品主图（删除 product_images 中该产品的 main 图）
  * DELETE /api/admin/products/:id/main-image
  */
 products.delete('/api/admin/products/:id/main-image', async (c) => {
@@ -185,18 +185,29 @@ products.delete('/api/admin/products/:id/main-image', async (c) => {
 
     const { pool } = await import('../../db/index.js');
 
-    await pool.query(
-      'UPDATE products SET main_image = NULL, image_id = NULL, updated_at = NOW() WHERE id = $1',
+    // 查该产品的主图记录（若为 OSS URL 则删对象）
+    const imgResult = await pool.query(
+      `SELECT id, image_url FROM product_images
+       WHERE product_id = $1 AND image_type = 'main'
+       ORDER BY sort_order ASC, id ASC LIMIT 1`,
       [id]
     );
 
-    if (product.imageId) {
-      try {
-        await pool.query('DELETE FROM images WHERE id = $1', [product.imageId]);
-      } catch (e) {
-        console.warn('清理 images 表失败（不影响主流程）:', e);
+    if (imgResult.rows.length > 0) {
+      const { id: imageId, image_url: imageUrl } = imgResult.rows[0];
+      await pool.query('DELETE FROM product_images WHERE id = $1', [imageId]);
+
+      if (imageUrl && String(imageUrl).includes('cheapgo')) {
+        try {
+          const { deleteImage } = await import('../../utils/oss.js');
+          await deleteImage(imageUrl);
+        } catch (e) {
+          console.warn('删除 OSS 失败（不影响主流程）:', e);
+        }
       }
     }
+
+    await pool.query('UPDATE products SET updated_at = NOW() WHERE id = $1', [id]);
 
     return c.json({ code: 0, message: '主图已删除' });
   } catch (error) {

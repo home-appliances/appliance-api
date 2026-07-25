@@ -45,7 +45,7 @@ detail.get('/api/detail', async (c) => {
         model: product.model,
         price: product.price,
         rating: product.rating,
-        main_image: product.main_image || (images.length > 0 ? images[0] : ''),
+        main_image: images.length > 0 ? images[0] : '',
         images: images,
         sourceUrl: product.source_url,
         params: params || {},

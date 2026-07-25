@@ -215,8 +215,11 @@ function buildTsQuery(terms: string[]): string {
 
 const PRODUCT_LIST_COLS = `
   p.id, p.name, p.brand, p.model, p.price, p.rating, p.review_count,
-  p.params, p.category_id, p.pinyin, p.main_image, p.created_at,
-  c.name AS category_name, c.code AS category
+  p.params, p.category_id, p.pinyin, p.created_at,
+  c.name AS category_name, c.code AS category,
+  (SELECT pi.image_url FROM product_images pi
+   WHERE pi.product_id = p.id AND pi.image_type = 'main'
+   ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS main_image
 `;
 
 // =====================================================
@@ -425,10 +428,14 @@ export async function getProductParams(id: number): Promise<Record<string, strin
 // =====================================================
 export async function getProductImages(id: number): Promise<string[]> {
   try {
-    const pResult = await pool.query('SELECT main_image FROM products WHERE id = $1', [id]);
-    if (pResult.rows.length > 0 && pResult.rows[0].main_image) {
-      return [pResult.rows[0].main_image];
-    }
+    // 从 product_images 表取该产品所有图片 URL，主图优先（sort_order 升序）
+    const result = await pool.query(
+      `SELECT image_url FROM product_images
+       WHERE product_id = $1 AND image_url IS NOT NULL
+       ORDER BY image_type ASC, sort_order ASC, id ASC`,
+      [id]
+    );
+    return result.rows.map((r: any) => r.image_url).filter(Boolean);
   } catch (e) {
     console.error('getProductImages 失败:', e);
   }
@@ -598,7 +605,10 @@ export async function getProductsByCategoryId(
   const total = parseInt(countResult.rows[0].count);
 
   const result = await pool.query(`
-    SELECT p.*, c.name as category_name, p.main_image
+    SELECT p.*, c.name as category_name,
+      (SELECT pi.image_url FROM product_images pi
+       WHERE pi.product_id = p.id AND pi.image_type = 'main'
+       ORDER BY pi.sort_order ASC, pi.id ASC LIMIT 1) AS main_image
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE p.category_id = $1 AND p.deleted_at IS NULL

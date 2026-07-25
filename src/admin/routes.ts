@@ -474,7 +474,7 @@ admin.post('/products/create', authMiddleware, async (c) => {
   }
 })
 
-// 处理表单主图: 本地 images-data 或 OSS，只写 products.main_image
+// 处理表单主图: 本地 images-data 或 OSS，写入 product_images 表
 async function saveProductImageFiles(productId: number, body: Record<string, any>): Promise<void> {
   const { validateImageFile } = await import('../utils/oss.js')
   const {
@@ -520,11 +520,16 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
     console.log(`主图已上传 OSS: ${imageUrl}`)
   }
 
+  // 写入 product_images 表：删除该产品旧主图后插入新主图（sort_order=0）
+  await pool.query('DELETE FROM product_images WHERE product_id = $1 AND image_type = $2', [productId, 'main'])
   await pool.query(
-    'UPDATE products SET main_image = $1, image_id = NULL, updated_at = NOW() WHERE id = $2',
-    [imageUrl, productId]
+    `INSERT INTO product_images (product_id, image_url, image_type, sort_order, created_at)
+     VALUES ($1, $2, 'main', 0, NOW())`,
+    [productId, imageUrl]
   )
-  console.log(`已设置 main_image: ${imageUrl}`)
+  // 同步更新产品的 updated_at
+  await pool.query('UPDATE products SET updated_at = NOW() WHERE id = $1', [productId])
+  console.log(`已设置主图: ${imageUrl}`)
 }
 
 // 编辑产品页面
@@ -546,11 +551,11 @@ admin.get('/products/:id/edit', authMiddleware, async (c) => {
 
   if (!product) return c.redirect(returnTo)
 
-  // 使用 mainImage 作为主图
+  // 使用 mainImage（来自 getProductById 的子查询）作为主图
   const productWithImages = {
     ...product,
     images: product.mainImage ? [{
-      id: product.imageId || 0,
+      id: 0,
       imageUrl: product.mainImage,
       imageType: 'main',
       sortOrder: 0,
@@ -900,9 +905,9 @@ admin.post('/category-params/:id/delete', authMiddleware, async (c) => {
 })
 
 // ==================== 图片管理 ====================
-// 管理 products.main_image
+// 管理 product_images 表（多类型图片）
 
-// 图片列表：展示有主图的产品
+// 图片列表：展示有图片的产品
 admin.get('/product-images', authMiddleware, async (c) => {
   const adminUser = c.get('admin') as { role?: string }
   const role = adminUser?.role || 'admin'
@@ -911,8 +916,8 @@ admin.get('/product-images', authMiddleware, async (c) => {
   const pageSize = 50
   const offset = (page - 1) * pageSize
 
-  // 查询有主图的产品（支持按产品筛选）
-  let whereClause = 'WHERE p.deleted_at IS NULL AND p.main_image IS NOT NULL'
+  // 查询有图片的产品（主图 = image_type='main' 中 sort_order 最小的一条）
+  let whereClause = 'WHERE p.deleted_at IS NULL AND EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id = p.id)'
   const params: any[] = []
   if (productId) {
     whereClause += ' AND p.id = $1'
@@ -923,10 +928,15 @@ admin.get('/product-images', authMiddleware, async (c) => {
   // 用别名转为驼峰命名，与页面接口字段对齐
   const listQuery = `
     SELECT p.id, p.name, p.brand, p.model,
-           p.main_image AS "mainImage",
-           p.image_id AS "imageId",
+           pi.image_url AS "mainImage",
+           pi.id AS "imageId",
            p.updated_at AS "updatedAt"
     FROM products p
+    LEFT JOIN LATERAL (
+      SELECT image_url, id FROM product_images
+      WHERE product_id = p.id AND image_type = 'main'
+      ORDER BY sort_order ASC, id ASC LIMIT 1
+    ) pi ON true
     ${whereClause}
     ORDER BY p.updated_at DESC
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -952,41 +962,33 @@ admin.get('/product-images', authMiddleware, async (c) => {
   ))
 })
 
-// 删除产品主图（清除 main_image；若为 OSS URL 则删对象；不再依赖 images BYTEA）
+// 删除产品主图（删除 product_images 中该产品的 main 图；若为 OSS URL 则删对象）
 admin.post('/product-images/:id/delete', authMiddleware, async (c) => {
   const productId = parseInt(c.req.param('id'))
 
   try {
-    const productResult = await pool.query(
-      'SELECT main_image, image_id FROM products WHERE id = $1',
+    // 查该产品的主图记录
+    const imgResult = await pool.query(
+      `SELECT id, image_url FROM product_images
+       WHERE product_id = $1 AND image_type = 'main'
+       ORDER BY sort_order ASC, id ASC LIMIT 1`,
       [productId]
     )
 
-    if (productResult.rows.length === 0) {
+    if (imgResult.rows.length === 0) {
       return c.redirect('/admin/product-images')
     }
 
-    const { main_image: mainImage, image_id: imageId } = productResult.rows[0]
+    const { id: imageId, image_url: imageUrl } = imgResult.rows[0]
 
-    await pool.query(
-      'UPDATE products SET main_image = NULL, image_id = NULL, updated_at = NOW() WHERE id = $1',
-      [productId]
-    )
+    await pool.query('DELETE FROM product_images WHERE id = $1', [imageId])
 
-    if (mainImage && String(mainImage).includes('cheapgo')) {
+    if (imageUrl && String(imageUrl).includes('cheapgo')) {
       try {
         const { deleteImage } = await import('../utils/oss.js')
-        await deleteImage(mainImage)
+        await deleteImage(imageUrl)
       } catch (e) {
         console.warn(`[图片管理] 删除 OSS 失败（不影响主流程）:`, e)
-      }
-    }
-
-    if (imageId) {
-      try {
-        await pool.query('DELETE FROM images WHERE id = $1', [imageId])
-      } catch {
-        /* images 表可能已清空 */
       }
     }
 

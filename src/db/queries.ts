@@ -3,9 +3,9 @@
  * 提供类型安全的数据库操作
  */
 
-import { eq, desc, asc, like, ilike, sql, and, or, count, isNull, isNotNull, inArray } from 'drizzle-orm';
+import { eq, desc, asc, like, ilike, sql, and, or, count, isNull, isNotNull, inArray, max } from 'drizzle-orm';
 import { db, pool } from './drizzle.js';
-import {categories,products,categoryParams,admins,searchLogs,operationLogs,systemSettings} from './schema.js';
+import {categories,products,productImages,categoryParams,admins,searchLogs,operationLogs,systemSettings} from './schema.js';
 
 // =====================================================
 // 分类查询
@@ -229,9 +229,20 @@ export async function getProducts(options: {
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(whereClause);
 
-  // 查询数据（关联 categories 取分类名，直接从 products.main_image 取主图 URL）
+  // 查询数据（关联 categories 取分类名，主图从 product_images 取 sort_order 最小的 main 图）
   const sortColumn = sort === 'updated_at' ? products.updatedAt : products.createdAt;
   const orderFn = order === 'asc' ? asc : desc;
+
+  // 主图子查询：取该产品 image_type='main' 中 sort_order 最小的 URL
+  const mainImageSub = db
+    .select({ url: productImages.imageUrl })
+    .from(productImages)
+    .where(and(
+      eq(productImages.productId, products.id),
+      eq(productImages.imageType, 'main'),
+    ))
+    .orderBy(asc(productImages.sortOrder))
+    .limit(1);
 
   const data = await db
     .select({
@@ -247,8 +258,7 @@ export async function getProducts(options: {
       rating: products.rating,
       reviewCount: products.reviewCount,
       params: products.params,
-      mainImage: products.mainImage,
-      imageId: products.imageId,
+      mainImage: sql<string>`${mainImageSub}`.as('main_image'),
       createdAt: products.createdAt,
       updatedAt: products.updatedAt,
     })
@@ -269,6 +279,17 @@ export async function getProducts(options: {
 }
 
 export async function getProductById(id: number) {
+  // 主图子查询：取该产品 image_type='main' 中 sort_order 最小的 URL
+  const mainImageSub = db
+    .select({ url: productImages.imageUrl })
+    .from(productImages)
+    .where(and(
+      eq(productImages.productId, products.id),
+      eq(productImages.imageType, 'main'),
+    ))
+    .orderBy(asc(productImages.sortOrder))
+    .limit(1);
+
   const result = await db
     .select({
       id: products.id,
@@ -283,8 +304,7 @@ export async function getProductById(id: number) {
       rating: products.rating,
       reviewCount: products.reviewCount,
       params: products.params,
-      mainImage: products.mainImage,
-      imageId: products.imageId,
+      mainImage: sql<string>`${mainImageSub}`.as('main_image'),
       sourceUrl: products.sourceUrl,
       sourcePlatform: products.sourcePlatform,
       createdAt: products.createdAt,
@@ -452,7 +472,9 @@ export async function batchDeleteProducts(ids: number[], deletedBy?: string): Pr
 }
 
 // =====================================================
-// 产品图片（仅主图 products.main_image）
+// =====================================================
+// 产品图片（product_images 表，多类型：main/display/detail/scene）
+// 主图 = 该产品 image_type='main' 中 sort_order 最小的那条
 // =====================================================
 
 type MainImageRow = {
@@ -463,29 +485,34 @@ type MainImageRow = {
   sortOrder: number;
 };
 
-function asMainRow(productId: number, url: string | null | undefined): MainImageRow[] {
-  if (!url) return [];
-  return [{
-    id: productId,
-    productId,
-    imageUrl: url,
-    imageType: 'main',
-    sortOrder: 0,
-  }];
-}
-
 export async function getProductImages(productId: number) {
   const result = await db
-    .select({ id: products.id, mainImage: products.mainImage })
-    .from(products)
-    .where(eq(products.id, productId))
-    .limit(1);
-  return asMainRow(productId, result[0]?.mainImage);
+    .select({
+      id: productImages.id,
+      productId: productImages.productId,
+      imageUrl: productImages.imageUrl,
+      imageType: productImages.imageType,
+      sortOrder: productImages.sortOrder,
+    })
+    .from(productImages)
+    .where(eq(productImages.productId, productId))
+    .orderBy(asc(productImages.imageType), asc(productImages.sortOrder), asc(productImages.id));
+  return result as MainImageRow[];
 }
 
 export async function getProductImageById(id: number) {
-  const rows = await getProductImages(id);
-  return rows[0] || null;
+  const result = await db
+    .select({
+      id: productImages.id,
+      productId: productImages.productId,
+      imageUrl: productImages.imageUrl,
+      imageType: productImages.imageType,
+      sortOrder: productImages.sortOrder,
+    })
+    .from(productImages)
+    .where(eq(productImages.id, id))
+    .limit(1);
+  return (result[0] as MainImageRow) || null;
 }
 
 export async function createProductImage(data: {
@@ -497,49 +524,76 @@ export async function createProductImage(data: {
   if (!data.productId || !data.imageUrl) {
     throw new Error('createProductImage 需要 productId 与 imageUrl');
   }
-  await db
-    .update(products)
-    .set({ mainImage: data.imageUrl, imageId: null, updatedAt: new Date() })
-    .where(eq(products.id, data.productId));
-  return {
-    id: data.productId,
-    productId: data.productId,
-    imageUrl: data.imageUrl,
-    imageType: 'main',
-    sortOrder: 0,
-  };
+  // sort_order 自动取该产品同类型现有最大值 + 1
+  let sortOrder = data.sortOrder ?? 0;
+  if (data.sortOrder === undefined) {
+    const existing = await db
+      .select({ maxSort: max(productImages.sortOrder) })
+      .from(productImages)
+      .where(and(
+        eq(productImages.productId, data.productId),
+        eq(productImages.imageType, data.imageType || 'main'),
+      ));
+    sortOrder = (existing[0]?.maxSort ?? -1) + 1;
+  }
+  const result = await db
+    .insert(productImages)
+    .values({
+      productId: data.productId,
+      imageUrl: data.imageUrl,
+      imageType: data.imageType || 'main',
+      sortOrder,
+    })
+    .returning();
+  return result[0] as MainImageRow;
 }
 
 export async function updateProductImage(
   id: number,
   data: Partial<{ imageUrl: string; imageType: string; sortOrder: number }>
 ) {
-  if (data.imageUrl !== undefined) {
-    await db
-      .update(products)
-      .set({ mainImage: data.imageUrl, imageId: null, updatedAt: new Date() })
-      .where(eq(products.id, id));
+  const set: Record<string, unknown> = {};
+  if (data.imageUrl !== undefined) set.imageUrl = data.imageUrl;
+  if (data.imageType !== undefined) set.imageType = data.imageType;
+  if (data.sortOrder !== undefined) set.sortOrder = data.sortOrder;
+  if (Object.keys(set).length === 0) {
+    return await getProductImageById(id);
   }
-  const rows = await getProductImages(id);
-  return rows[0] || null;
+  const result = await db
+    .update(productImages)
+    .set(set)
+    .where(eq(productImages.id, id))
+    .returning();
+  return (result[0] as MainImageRow) || null;
 }
 
 export async function deleteProductImage(id: number) {
-  const before = await getProductImages(id);
-  await db
-    .update(products)
-    .set({ mainImage: null, imageId: null, updatedAt: new Date() })
-    .where(eq(products.id, id));
-  return before[0] || null;
+  const before = await getProductImageById(id);
+  await db.delete(productImages).where(eq(productImages.id, id));
+  return before;
 }
 
 export async function batchDeleteProductImages(ids: number[]) {
-  const out = [];
+  const out: MainImageRow[] = [];
   for (const id of ids) {
     const row = await deleteProductImage(id);
     if (row) out.push(row);
   }
   return out;
+}
+
+// 取主图 URL（image_type='main' 中 sort_order 最小的一条）
+export async function getMainImageUrl(productId: number): Promise<string | null> {
+  const result = await db
+    .select({ url: productImages.imageUrl })
+    .from(productImages)
+    .where(and(
+      eq(productImages.productId, productId),
+      eq(productImages.imageType, 'main'),
+    ))
+    .orderBy(asc(productImages.sortOrder))
+    .limit(1);
+  return result[0]?.url ?? null;
 }
 
 export async function updateProductImageSort(_items: Array<{ id: number; sortOrder: number }>) {

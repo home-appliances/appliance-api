@@ -1,13 +1,24 @@
 /**
  * 图片相关 API
  * 兼容：
- * - POST /api/image/download|upload → 下载/上传到 OSS，回写 products.main_image
+ * - POST /api/image/download|upload -> 下载/上传到 OSS，写入 product_images 表
  */
 import { Hono } from 'hono'
 import { pool } from '../db/index.js'
 import {ensureRemoteImageOnOss,uploadBufferViaStaging} from '../utils/image-oss-pipeline.js'
 
 const image = new Hono()
+
+// 写入主图到 product_images（先删旧主图再插新主图）
+async function setMainImage(productId: number, imageUrl: string) {
+  await pool.query('DELETE FROM product_images WHERE product_id = $1 AND image_type = $2', [productId, 'main'])
+  await pool.query(
+    `INSERT INTO product_images (product_id, image_url, image_type, sort_order, created_at)
+     VALUES ($1, $2, 'main', 0, NOW())`,
+    [productId, imageUrl]
+  )
+  await pool.query('UPDATE products SET updated_at = NOW() WHERE id = $1', [productId])
+}
 
 /**
  * 从 URL 下载并上传 OSS
@@ -26,10 +37,7 @@ image.post('/api/image/download', async (c) => {
     const ossUrl = await ensureRemoteImageOnOss(url)
 
     if (product_id) {
-      await pool.query(
-        'UPDATE products SET main_image = $1, image_id = NULL, updated_at = NOW() WHERE id = $2',
-        [ossUrl, product_id]
-      )
+      await setMainImage(product_id, ossUrl)
     }
 
     return c.json({
@@ -64,10 +72,7 @@ image.post('/api/image/upload', async (c) => {
     })
 
     if (productId) {
-      await pool.query(
-        'UPDATE products SET main_image = $1, image_id = NULL, updated_at = NOW() WHERE id = $2',
-        [ossUrl, productId]
-      )
+      await setMainImage(productId, ossUrl)
     }
 
     return c.json({ code: 0, message: '已上传 OSS', data: { url: ossUrl } })
@@ -82,7 +87,7 @@ image.post('/api/image/upload', async (c) => {
  */
 image.get('/api/image/:id', async (c) => {
   const id = c.req.param('id')
-  const { LOCAL_IMAGE_DIR, mimeFromExt } = await import('../utils/image-local.js')
+  const { LOCAL_IMAGE_DIR } = await import('../utils/image-local.js')
   const pathMod = await import('path')
   const fsMod = await import('fs')
   for (const ext of ['.jpg', '.jpeg', '.png', '.gif', '.webp']) {
@@ -107,14 +112,20 @@ image.get('/api/image/:id', async (c) => {
 image.get('/api/image/product/:productId', async (c) => {
   try {
     const productId = parseInt(c.req.param('productId'), 10)
-    const p = await pool.query(`SELECT main_image FROM products WHERE id = $1`, [productId])
-    if (p.rows[0]?.main_image) {
-      return c.json({
-        code: 0,
-        data: [{ id: 0, url: p.rows[0].main_image, image_type: 'main' }],
-      })
-    }
-    return c.json({ code: 0, data: [] })
+    const r = await pool.query(
+      `SELECT id, image_url AS url, image_type, sort_order
+       FROM product_images WHERE product_id = $1
+       ORDER BY image_type ASC, sort_order ASC, id ASC`,
+      [productId]
+    )
+    return c.json({
+      code: 0,
+      data: r.rows.map((row: any) => ({
+        id: row.id,
+        url: row.url,
+        image_type: row.image_type,
+      })),
+    })
   } catch (error: any) {
     return c.json({ error: error.message }, 500)
   }
@@ -125,13 +136,8 @@ image.get('/api/image/product/:productId', async (c) => {
  */
 image.delete('/api/image/:id', async (c) => {
   const id = parseInt(c.req.param('id'), 10)
-  await pool.query('UPDATE products SET image_id = NULL WHERE image_id = $1', [id])
-  try {
-    await pool.query('DELETE FROM images WHERE id = $1', [id])
-  } catch {
-    /* ignore */
-  }
-  return c.json({ code: 0, message: '已清理引用（BYTEA 表若已清空可忽略）' })
+  await pool.query('DELETE FROM product_images WHERE id = $1', [id])
+  return c.json({ code: 0, message: '已删除该图片记录' })
 })
 
 export default image
