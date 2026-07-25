@@ -58,6 +58,7 @@ export const products = pgTable('products', {
   rating: numeric('rating', { precision: 3, scale: 1 }),
   reviewCount: integer('review_count').default(0),
   params: jsonb('params').default({}).notNull(),
+  paramsSearchText: text('params_search_text'),
   searchVector: text('search_vector'),
   pinyin: text('pinyin'),
   pinyinInitials: text('pinyin_initials'),

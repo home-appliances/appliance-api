@@ -129,11 +129,12 @@ admin.get('/', authMiddleware, async (c) => {
       LIMIT 5
     `)
 
-    // 获取热门搜索
+    // 获取热门搜索（与 /api/hot 一致：次数优先，同分看最近搜索）
     const hotSearchesResult = await pool.query(`
       SELECT keyword, search_count
       FROM search_logs
-      ORDER BY search_count DESC
+      WHERE char_length(trim(keyword)) >= 2
+      ORDER BY search_count DESC, last_searched_at DESC
       LIMIT 10
     `)
 

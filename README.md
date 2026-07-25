@@ -59,7 +59,7 @@ appliance-api/
 │   │   ├── index.ts          # 连接池 (兼容旧代码)
 │   │   ├── seed.ts           # 初始化种子数据
 │   │   ├── snapshots/        # category_params 快照
-│   │   ├── migrate-search-vector.ts  # 全文搜索环境安装
+│   │   ├── migrate-search-vector.ts  # 加权全文 + params_search_text
 │   │   └── fill-pinyin.ts    # 拼音补全
 │   ├── utils/
 │   │   └── oss.ts            # 阿里云 OSS 上传工具
@@ -90,7 +90,7 @@ cp .env.example .env
 # 3. 初始化数据库 (首次)
 npm run db:push                 # Drizzle 推送 schema
 npm run db:seed                 # 灌入种子
-npm run migrate:search-vector   # 全文搜索（空库/新机一次）
+npm run migrate:search-vector   # 全文搜索（空库或升级加权索引时跑）
 
 # 4. 导入本地整理数据（可选）
 npm run import:zol-ac
@@ -169,31 +169,32 @@ Authorization header，没有则读 Cookie。
 
 ### 搜索功能
 
-基于 PostgreSQL `pg_jieba` 中文分词扩展实现全文搜索。
+基于 PostgreSQL `pg_jieba` 中文分词 + **加权** `search_vector`。
 
-**搜索字段（当前实现）：**
+**索引内容（触发器维护）：**
 
-- 产品名称 (`name`)
-- 品牌 (`brand`)
-- 型号 (`model`)
-- 产品参数 (`params`) — 如「变频」「一级」「1.5匹」
-- 分类名、拼音等（见搜索 SQL / ILIKE 兜底）
+| 权重 | 来源                                                        |
+|----|-----------------------------------------------------------|
+| A  | 产品名称 `name`                                               |
+| B  | 品牌 + 型号                                                   |
+| D  | `params_search_text`（仅 params 的 **value** 拼接，不含 JSON key） |
 
-> `search_vector` 由触发器 `products_search_vector_trigger` 在写入时自动维护（
-`name + brand + model + params`）。导入脚本不再手写覆盖该字段。
+> 写入/更新 `name|brand|model|params` 时自动刷新；导入脚本不必手写覆盖。
 
-**搜索逻辑：**
+**查询路径：**
 
-- 多关键词用空格分隔，使用 AND 逻辑（所有词都要命中）
-- 每个词可在名称/品牌/型号/参数等字段命中
+1. **先全文**（`search_vector @@`，可用 GIN）按 `ts_rank_cd` 排序
+2. **无命中再 ILIKE 降级**（name / brand / model / pinyin / `params_search_text` / 分类名）
+3. 搜索日志记**整句**；用户用空格分开的词再各记一截（如「美的 一级能效」）。检索用二字切分**不写日志**
+   （避免「工业空调」→「工业」）
 
 **示例：**
 
-| 搜索词     | 结果       | 说明           |
-|---------|----------|--------------|
-| `格力`    | 格力相关产品   | 品牌/名称匹配      |
-| `变频`    | 变频空调等    | 参数匹配（params） |
-| `美的 一级` | 美的一级能效产品 | 联合搜索         |
+| 搜索词     | 结果     | 说明                |
+|---------|--------|-------------------|
+| `格力`    | 格力相关产品 | 品牌/名称（高权重）        |
+| `变频`    | 变频相关产品 | 参数值进索引            |
+| `美的 一级` | 同时命中两词 | AND；日志会记「美的」「一级」等 |
 
 ## 图片存储
 
@@ -275,12 +276,12 @@ open 标为 `superseded`。设计说明见知识库「家电 · 项目总览」�
 
 **src/db/**
 
-| 脚本                         | 说明                     | 命令                                        |
-|----------------------------|------------------------|-------------------------------------------|
-| `seed.ts`                  | 分类/管理员/参数规范种子数据        | `npm run db:seed`                         |
-| `migrate-search-vector.ts` | 全文搜索环境（pg_jieba + GIN） | `npm run migrate:search-vector`           |
-| `fill-pinyin.ts`           | 补拼音字段                  | `npm run fill:pinyin`                     |
-| `update-admin-password.ts` | 更新管理员密码                | `npx tsx src/db/update-admin-password.ts` |
+| 脚本                         | 说明                        | 命令                                        |
+|----------------------------|---------------------------|-------------------------------------------|
+| `seed.ts`                  | 分类/管理员/参数规范种子数据           | `npm run db:seed`                         |
+| `migrate-search-vector.ts` | 加权全文 + params_search_text | `npm run migrate:search-vector`           |
+| `fill-pinyin.ts`           | 补拼音字段                     | `npm run fill:pinyin`                     |
+| `update-admin-password.ts` | 更新管理员密码                   | `npx tsx src/db/update-admin-password.ts` |
 
 ## 数据库命令
 
@@ -288,7 +289,7 @@ open 标为 `superseded`。设计说明见知识库「家电 · 项目总览」�
 |--------------------------------------|----------------------------|
 | `npm run db:push`                    | 推送 schema 到数据库（本地整理用）      |
 | `npm run db:seed`                    | 灌入种子数据                     |
-| `npm run migrate:search-vector`      | 安装全文搜索（空库/新机一次）            |
+| `npm run migrate:search-vector`      | 安装/重建全文搜索（空库或升级加权索引时跑）     |
 | `npm run fill:pinyin`                | 导入后补拼音                     |
 | `npm run db:generate` / `db:migrate` | 生产 migration（上线前再写，本地不必依赖） |
 
