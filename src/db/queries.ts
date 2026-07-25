@@ -447,21 +447,56 @@ export async function updateProduct(id: number, data: Partial<typeof products.$i
 }
 
 export async function deleteProduct(id: number, deletedBy?: string) {
-  // 软删除
+  const images = await getProductImages(id);
+
+  await db.delete(productImages).where(eq(productImages.productId, id));
+
   const result = await db
-    .update(products)
-    .set({ deletedAt: new Date(), deletedBy: deletedBy || null })
+    .delete(products)
     .where(eq(products.id, id))
     .returning();
+
+  if (result[0]) {
+    console.log(`[硬删除] 产品 #${id} 已被 ${deletedBy || '未知用户'} 删除，关联 ${images.length} 张图片`);
+  }
+
+  for (const img of images) {
+    if (img.imageUrl && String(img.imageUrl).includes('cheapgo')) {
+      try {
+        const { deleteImage } = await import('../utils/oss.js');
+        await deleteImage(img.imageUrl);
+      } catch (e) {
+        console.warn(`[删除产品] OSS 图片清理失败（不影响主流程）:`, e);
+      }
+    }
+  }
+
   return result[0] || null;
 }
 
 export async function batchDeleteProducts(ids: number[], deletedBy?: string): Promise<number> {
-  // 批量软删除
-  await db
-    .update(products)
-    .set({ deletedAt: new Date(), deletedBy: deletedBy || null })
-    .where(inArray(products.id, ids));
+  const allImages: MainImageRow[] = [];
+  for (const id of ids) {
+    const imgs = await getProductImages(id);
+    allImages.push(...imgs);
+  }
+
+  await db.delete(productImages).where(inArray(productImages.productId, ids));
+  await db.delete(products).where(inArray(products.id, ids));
+
+  console.log(`[批量硬删除] ${ids.length} 个产品已被 ${deletedBy || '未知用户'} 删除，关联 ${allImages.length} 张图片`);
+
+  for (const img of allImages) {
+    if (img.imageUrl && String(img.imageUrl).includes('cheapgo')) {
+      try {
+        const { deleteImage } = await import('../utils/oss.js');
+        await deleteImage(img.imageUrl);
+      } catch (e) {
+        console.warn(`[批量删除产品] OSS 图片清理失败（不影响主流程）:`, e);
+      }
+    }
+  }
+
   return ids.length;
 }
 

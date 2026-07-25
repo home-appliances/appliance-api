@@ -150,7 +150,7 @@ products.put('/api/admin/products/:id', async (c) => {
 });
 
 /**
- * 删除产品（软删除）
+ * 删除产品（硬删除，同时清理 OSS 图片）
  * DELETE /api/admin/products/:id
  */
 products.delete('/api/admin/products/:id', async (c) => {
@@ -217,7 +217,7 @@ products.delete('/api/admin/products/:id/main-image', async (c) => {
 });
 
 /**
- * 批量删除产品
+ * 批量删除产品（硬删除，同时清理 OSS 图片）
  * POST /api/admin/products/batch/delete
  */
 products.post('/api/admin/products/batch/delete', async (c) => {
