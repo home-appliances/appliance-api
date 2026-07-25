@@ -677,16 +677,33 @@ admin.post('/categories/create', authMiddleware, async (c) => {
     const body = await c.req.parseBody()
     const { code, name, display_name, icon, parent_id, sort_order, is_active } = body as Record<string, string>
 
-    if (!code || !name) {
+    if (!code?.trim() || !name?.trim()) {
       const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
       return c.html(categoryFormPage(undefined, categories.rows, '编码和名称不能为空'))
     }
 
-    await pool.query(
-      'INSERT INTO categories (code, name, display_name, icon, parent_id, sort_order, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [code, name, display_name || name, icon || null, parent_id || null, parseInt(sort_order || '0'), is_active === 'true']
-    )
-    return c.redirect('/admin/categories')
+    const { createCategory, CategoryDuplicateError } = await import('../db/queries.js')
+    try {
+      await createCategory({
+        code,
+        name,
+        displayName: display_name || name,
+        icon: icon || null,
+        parentId: parent_id ? parseInt(parent_id, 10) : null,
+        sortOrder: parseInt(sort_order || '0', 10),
+        isActive: is_active === 'true',
+      })
+      return c.redirect('/admin/categories')
+    } catch (err: any) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      const isDup = err?.name === 'CategoryDuplicateError' || err instanceof CategoryDuplicateError
+      const msg = isDup
+        ? err.message
+        : err?.code === '23505'
+          ? '分类编码或名称已存在'
+          : '创建失败: ' + (err?.message || String(err))
+      return c.html(categoryFormPage(undefined, categories.rows, msg))
+    }
   } catch (error: any) {
     const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
     return c.html(categoryFormPage(undefined, categories.rows, '创建失败: ' + error.message))
@@ -710,6 +727,12 @@ admin.post('/categories/:id/edit', authMiddleware, async (c) => {
     const id = parseInt(c.req.param('id'))
     const body = await c.req.parseBody()
     const { name, display_name, icon, parent_id, sort_order, is_active } = body as Record<string, string>
+
+    if (!name?.trim()) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      const current = categories.rows.find(c => c.id === id)
+      return c.html(categoryFormPage(current, categories.rows, '分类名称不能为空'))
+    }
 
     // 校验：不能把自己设为父分类（自引用）
     if (parent_id && parseInt(parent_id) === id) {
@@ -736,11 +759,28 @@ admin.post('/categories/:id/edit', authMiddleware, async (c) => {
       }
     }
 
-    await pool.query(
-      'UPDATE categories SET name=$1, display_name=$2, icon=$3, parent_id=$4, sort_order=$5, is_active=$6 WHERE id=$7',
-      [name, display_name || name, icon || null, parent_id || null, parseInt(sort_order || '0'), is_active === 'true', id]
-    )
-    return c.redirect('/admin/categories')
+    const { updateCategory, CategoryDuplicateError } = await import('../db/queries.js')
+    try {
+      await updateCategory(id, {
+        name,
+        displayName: display_name || name,
+        icon: icon || null,
+        parentId: parent_id ? parseInt(parent_id, 10) : null,
+        sortOrder: parseInt(sort_order || '0', 10),
+        isActive: is_active === 'true',
+      })
+      return c.redirect('/admin/categories')
+    } catch (err: any) {
+      const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
+      const current = categories.rows.find(c => c.id === id)
+      const isDup = err?.name === 'CategoryDuplicateError' || err instanceof CategoryDuplicateError
+      const msg = isDup
+        ? err.message
+        : err?.code === '23505'
+          ? '分类编码或名称已存在'
+          : '更新失败: ' + (err?.message || String(err))
+      return c.html(categoryFormPage(current, categories.rows, msg))
+    }
   } catch (error: any) {
     const categories = await pool.query('SELECT * FROM categories ORDER BY sort_order')
     return c.html(categoryFormPage({ id: c.req.param('id') }, categories.rows, '更新失败: ' + error.message))

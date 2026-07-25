@@ -4,7 +4,7 @@
  */
 
 import { eq, desc, asc, like, ilike, sql, and, or, count, isNull, isNotNull, inArray } from 'drizzle-orm';
-import { db } from './drizzle.js';
+import { db, pool } from './drizzle.js';
 import {categories,products,categoryParams,admins,searchLogs,operationLogs,systemSettings} from './schema.js';
 
 // =====================================================
@@ -38,15 +38,128 @@ export async function getCategoryById(id: number) {
   return result[0] || null;
 }
 
+/** 分类编码/名称唯一，编码去空格并小写 */
+export class CategoryDuplicateError extends Error {
+  existingId: number;
+  field: 'code' | 'name';
+  constructor(field: 'code' | 'name', existingId: number, detail: string) {
+    super(detail);
+    this.name = 'CategoryDuplicateError';
+    this.field = field;
+    this.existingId = existingId;
+  }
+}
+
+export function normalizeCategoryCode(code: string): string {
+  return String(code || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\u00a0\u3000]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+export function normalizeCategoryName(name: string): string {
+  return String(name || '').trim();
+}
+
+export async function findDuplicateCategory(opts: {
+  code?: string | null;
+  name?: string | null;
+  excludeId?: number;
+}): Promise<{ id: number; code: string; name: string; field: 'code' | 'name' } | null> {
+  const code = opts.code ? normalizeCategoryCode(opts.code) : '';
+  const name = opts.name ? normalizeCategoryName(opts.name) : '';
+  const excludeId = opts.excludeId;
+
+  if (code) {
+    const byCode = await pool.query(
+      `SELECT id, code, name FROM categories
+       WHERE lower(regexp_replace(trim(both E' \\t\\n\\r\\u00a0' from code), '\\s+', '_', 'g')) = $1
+         AND ($2::bigint IS NULL OR id <> $2)
+       LIMIT 1`,
+      [code, excludeId ?? null]
+    );
+    if (byCode.rows[0]) {
+      return { ...byCode.rows[0], field: 'code' as const };
+    }
+  }
+
+  if (name) {
+    const byName = await pool.query(
+      `SELECT id, code, name FROM categories
+       WHERE trim(name) = $1
+         AND ($2::bigint IS NULL OR id <> $2)
+       LIMIT 1`,
+      [name, excludeId ?? null]
+    );
+    if (byName.rows[0]) {
+      return { ...byName.rows[0], field: 'name' as const };
+    }
+  }
+
+  return null;
+}
+
+export async function assertCategoryUnique(opts: {
+  code?: string | null;
+  name?: string | null;
+  excludeId?: number;
+}): Promise<void> {
+  const dup = await findDuplicateCategory(opts);
+  if (!dup) return;
+  if (dup.field === 'code') {
+    throw new CategoryDuplicateError(
+      'code',
+      dup.id,
+      `分类编码已存在：${dup.code}（ID ${dup.id}，名称「${dup.name}」）`
+    );
+  }
+  throw new CategoryDuplicateError(
+    'name',
+    dup.id,
+    `分类名称已存在：「${dup.name}」（ID ${dup.id}，编码 ${dup.code}）`
+  );
+}
+
 export async function createCategory(data: typeof categories.$inferInsert) {
-  const result = await db.insert(categories).values(data).returning();
+  const code = normalizeCategoryCode(String(data.code || ''));
+  const name = normalizeCategoryName(String(data.name || ''));
+  if (!code || !name) {
+    throw new Error('分类编码和名称不能为空');
+  }
+  await assertCategoryUnique({ code, name });
+  const result = await db
+    .insert(categories)
+    .values({
+      ...data,
+      code,
+      name,
+      displayName: normalizeCategoryName(String(data.displayName || name)) || name,
+    })
+    .returning();
   return result[0];
 }
 
 export async function updateCategory(id: number, data: Partial<typeof categories.$inferInsert>) {
+  const patch: Partial<typeof categories.$inferInsert> = { ...data };
+  if (patch.code !== undefined) {
+    patch.code = normalizeCategoryCode(String(patch.code));
+  }
+  if (patch.name !== undefined) {
+    patch.name = normalizeCategoryName(String(patch.name));
+  }
+  if (patch.displayName !== undefined) {
+    patch.displayName = normalizeCategoryName(String(patch.displayName));
+  }
+  await assertCategoryUnique({
+    code: patch.code,
+    name: patch.name,
+    excludeId: id,
+  });
   const result = await db
     .update(categories)
-    .set(data)
+    .set(patch)
     .where(eq(categories.id, id))
     .returning();
   return result[0] || null;

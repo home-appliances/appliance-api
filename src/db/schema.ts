@@ -35,7 +35,7 @@ export const images = pgTable('images', {
 export const categories = pgTable('categories', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   code: text('code').unique().notNull(),
-  name: text('name').notNull(),
+  name: text('name').unique().notNull(),
   displayName: text('display_name'),
   icon: text('icon'),
   parentId: bigint('parent_id', { mode: 'number' }),

@@ -142,13 +142,15 @@ export const categoryFormPage = (category?: any, categories: any[] = [], error?:
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">分类编码 <span class="text-red-500">*</span></label>
             <input type="text" name="code" value="${category?.code || ''}" required placeholder="如：air_condition"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
-            <p class="mt-1 text-xs text-gray-500">英文编码，用于程序逻辑，创建后不可修改</p>
+              ${isEdit ? 'readonly' : ''}
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all ${isEdit ? 'bg-gray-50 text-gray-500' : ''}">
+            <p class="mt-1 text-xs text-gray-500">英文编码，唯一，自动去空格转小写；创建后不可修改</p>
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">分类名称 <span class="text-red-500">*</span></label>
             <input type="text" name="name" value="${category?.name || ''}" required placeholder="如：空调"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all">
+            <p class="mt-1 text-xs text-gray-500">中文名称，全局唯一</p>
           </div>
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-1.5">展示名称</label>
