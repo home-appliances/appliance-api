@@ -6,7 +6,10 @@ import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import {normalizeParams,type ParamDefMeta} from '../src/utils/normalize-param-value.js';
+import {seatParams,type ParamDefMeta} from '../src/utils/normalize-param-value.js';
+import {ensureImportExceptionsTable,insertExceptions,writeExceptionsJson,printExceptionSummary,supersedeOpenExceptions,type ExceptionRow} from './lib/import-exceptions.js';
+import { ensureRemoteImageOnOss, isOssCdnUrl } from '../src/utils/image-oss-pipeline.js';
+import {downloadToLocal,isLocalImageUrl,useLocalImageStorage} from '../src/utils/image-local.js';
 
 dotenv.config();
 
@@ -42,9 +45,9 @@ const BRAND_DICTIONARY = [
   '长虹', '康佳', '创维', '华凌', '科龙', '扬子', '新科', '日立', '三星',
   '夏普', '东芝', '云米', '夏新', '酷开', '现代', '深松', '申花', '帝智',
   '乐京', '东宝', '新飞', '先科', '米家', '小米', '飞利浦', '惠而浦',
-  '伊莱克斯',
+  '伊莱克斯', '统帅',
   // 英文品牌
-  'COLMO', 'Midea', 'Leader', 'JHS', 'TCL', 'LG',
+  'COLMO', 'Midea', 'Leader', 'JHS', 'TCL', 'LG', 'MITSEIN',
 ];
 
 // 英文品牌 → 中文映射
@@ -53,15 +56,41 @@ const ENG_TO_CHN: Record<string, string> = {
   Leader: '统帅',
 };
 
-// 品牌归一化映射
+// 品牌归一化映射（系列名 / 营销名 → 真品牌）
 const BRAND_NORMALIZE: Record<string, string> = {
   '大金空调': '大金',
   '富士通将军': '富士通',
   '卡萨帝揽光空调': '卡萨帝',
+  '卡萨帝星悦空调': '卡萨帝',
+  '卡萨帝鉴赏家': '卡萨帝',
   '米家巨省电': '米家',
+  '米家互联网空调': '米家',
+  '米家互联网立式空调': '米家',
+  '米家强劲风': '米家',
+  '米家新风': '米家',
+  '米家空调': '米家',
+  '米家速冷静': '米家',
   '小米柔风立式空调': '小米',
+  '小米柔风空调': '小米',
+  '小米智米变频空调': '小米',
+  '小米米家直流变频两季扇': '小米',
+  '美的酷省电': '美的',
+  '美的酷省电二代': '美的',
+  '美的风酷': '美的',
+  '美的生活': '美的',
+  '志高清风系列': '志高',
+  '志高星动': '志高',
+  '格力云锦天猫精灵语言互联空调': '格力',
+  '格力舒适风': '格力',
   '欧瑞博集成空调': '欧瑞博',
 };
+
+const DIRTY_BRAND_RE =
+  /系列|互联网|变频|天猫|精灵|酷省电|柔风|清风|星动|两季扇|立式空调|速冷静|强劲风|新风|鉴赏家|星悦|风酷|舒适风|语言互联/;
+
+function sortedBrandDict(): string[] {
+  return [...BRAND_DICTIONARY].sort((a, b) => b.length - a.length);
+}
 
 /** 从产品名中提取真实品牌 */
 function extractBrandFromName(name: string): string | null {
@@ -75,8 +104,7 @@ function extractBrandFromName(name: string): string | null {
     }
   }
 
-  const sortedBrands = [...BRAND_DICTIONARY].sort((a, b) => b.length - a.length);
-  for (const brand of sortedBrands) {
+  for (const brand of sortedBrandDict()) {
     if (name.startsWith(brand)) {
       return normalizeBrand(brand);
     }
@@ -93,16 +121,38 @@ function extractBrandFromName(name: string): string | null {
   return null;
 }
 
-/** 品牌归一化 */
+/** 品牌归一化：显式映射 → 字典前缀剥离系列名 → 原样 */
 function normalizeBrand(brand: string): string {
-  return BRAND_NORMALIZE[brand] || ENG_TO_CHN[brand] || brand;
+  const trimmed = (brand || '').trim();
+  if (!trimmed) return trimmed;
+  if (BRAND_NORMALIZE[trimmed]) return BRAND_NORMALIZE[trimmed];
+  if (ENG_TO_CHN[trimmed]) return ENG_TO_CHN[trimmed];
+  if (BRAND_DICTIONARY.includes(trimmed)) return trimmed;
+
+  for (const b of sortedBrandDict()) {
+    if (trimmed.startsWith(b) && trimmed.length > b.length) {
+      return BRAND_NORMALIZE[b] || ENG_TO_CHN[b] || b;
+    }
+  }
+  return trimmed;
 }
 
-/** 解析品牌：JSON brand 字段优先，若为空或"未知品牌"则从 name 提取 */
+function isDirtyBrand(brand: string): boolean {
+  const b = (brand || '').trim();
+  if (!b || b === '未知品牌') return true;
+  if (BRAND_DICTIONARY.includes(b) || ENG_TO_CHN[b]) return false;
+  return DIRTY_BRAND_RE.test(b) || b.length > 6;
+}
+
+/** 解析品牌：JSON brand 优先，系列名/脏名则再从产品名提取 */
 function resolveBrand(jsonBrand: string | undefined, name: string): string {
   const raw = (jsonBrand || '').trim();
   if (raw && raw !== '未知品牌') {
-    return normalizeBrand(raw);
+    const normalized = normalizeBrand(raw);
+    if (!isDirtyBrand(normalized)) return normalized;
+    const fromName = extractBrandFromName(name);
+    if (fromName && !isDirtyBrand(fromName)) return fromName;
+    return normalized;
   }
   const extracted = extractBrandFromName(name);
   return extracted || '未知品牌';
@@ -112,6 +162,7 @@ function resolveBrand(jsonBrand: string | undefined, name: string): string {
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
 const NORMALIZE_EXISTING = args.includes('--normalize-existing');
+const SKIP_OSS_IMAGES = args.includes('--skip-oss-images');
 const dirArgIdx = args.indexOf('--dir');
 const DATA_DIR = dirArgIdx >= 0 ? args[dirArgIdx + 1] : DEFAULT_DATA_DIR;
 
@@ -183,36 +234,45 @@ function cleanParams(params: Record<string, string>): Record<string, string> {
 }
 
 /**
- * 按系统定义映射并过滤参数。
- * - 先走 PARAM_MAP（外站名 → 系统名）
- * - 再白名单过滤：只保留 category_params 中已定义的 key
- * - 最后按 param_type / enum_values 做值归一化
+ * Transform：白名单 + 入座 → params，例外记 import_exceptions
+ * 原材料以爬虫 JSON 为准
  */
-function mapFilterAndNormalizeParams(
+function mapFilterAndSeatParams(
   raw: Record<string, string>,
   allowedKeys: Set<string>,
   paramDefs: Map<string, ParamDefMeta>,
   discarded: Map<string, number>,
   valueChangeCounts: Map<string, number>
-): Record<string, string> {
+): {
+  params: Record<string, string>;
+  exceptions: ExceptionRow[];
+} {
   const cleaned = cleanParams(raw);
   const mapped: Record<string, string> = {};
+  const exceptions: ExceptionRow[] = [];
 
   for (const [sourceKey, value] of Object.entries(cleaned)) {
     const systemKey = PARAM_MAP[sourceKey] ?? sourceKey;
     if (!allowedKeys.has(systemKey)) {
       discarded.set(sourceKey, (discarded.get(sourceKey) || 0) + 1);
+      exceptions.push({
+        type: 'unknown_key',
+        paramKey: sourceKey,
+        rawValue: value,
+        reason: `不在 category_params 白名单（映射后 key=${systemKey}），已丢弃`,
+      });
       continue;
     }
     mapped[systemKey] = value;
   }
 
-  const { params, changes } = normalizeParams(mapped, paramDefs);
+  const { params, changes, exceptions: valueEx } = seatParams(mapped, paramDefs);
   for (const c of changes) {
     const label = `${c.key}: ${c.from} → ${c.to}`;
     valueChangeCounts.set(label, (valueChangeCounts.get(label) || 0) + 1);
   }
-  return params;
+  exceptions.push(...valueEx);
+  return { params, exceptions };
 }
 
 async function loadParamDefs(categoryId: number | string): Promise<{
@@ -240,47 +300,104 @@ async function loadParamDefs(categoryId: number | string): Promise<{
   return { allowedKeys, paramDefs };
 }
 
-/** 只归一化库内已有 ZOL 产品的 params */
+/** 回刷：从桌面爬虫 JSON（按 source_url）重新 Transform，写回 params + 例外 */
 async function normalizeExistingProducts(
   categoryId: number | string,
-  paramDefs: Map<string, ParamDefMeta>
+  paramDefs: Map<string, ParamDefMeta>,
+  allowedKeys: Set<string>
 ) {
-  console.log('🔄 回刷模式: 只归一化已入库 params，不重导图片\n');
+  const batchId = `zol-normalize-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  console.log('🔄 回刷模式: 从爬虫 JSON 重新 Transform（不重导图片）');
+  console.log(`📁 JSON 目录: ${DATA_DIR}`);
+  console.log(`📦 batch_id: ${batchId}\n`);
+
+  const jsonByUrl = new Map<string, Record<string, string>>();
+  if (!fs.existsSync(DATA_DIR)) {
+    console.error(`❌ 数据目录不存在: ${DATA_DIR}`);
+    process.exit(1);
+  }
+  const jsonFiles = fs
+    .readdirSync(DATA_DIR)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => path.join(DATA_DIR, f));
+  for (const file of jsonFiles) {
+    try {
+      const data = JSON.parse(fs.readFileSync(file, 'utf-8')) as ZolProduct;
+      if (data.catalog_url) {
+        jsonByUrl.set(data.catalog_url, data.parameters || {});
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  console.log(`📂 已索引 JSON: ${jsonByUrl.size} 个\n`);
+
+  await ensureImportExceptionsTable(pool);
+  if (!DRY_RUN) {
+    const n = await supersedeOpenExceptions(pool, SOURCE_PLATFORM);
+    if (n) console.log(`↪️  旧 open 例外已标 superseded: ${n}`);
+  }
+
   const res = await pool.query(
-    `SELECT id, params FROM products
+    `SELECT id, name, source_url, params FROM products
      WHERE category_id = $1 AND source_platform = $2 AND deleted_at IS NULL`,
     [categoryId, SOURCE_PLATFORM]
   );
 
   let updated = 0;
   let unchanged = 0;
+  let noJson = 0;
   const sampleChanges: string[] = [];
   const valueChangeCounts = new Map<string, number>();
+  const allExceptions: ExceptionRow[] = [];
 
-  for (const row of res.rows as Array<{ id: number; params: Record<string, string> }>) {
-    const rawParams = (row.params || {}) as Record<string, string>;
-    const filtered: Record<string, string> = {};
-    for (const [k, v] of Object.entries(rawParams)) {
-      if (paramDefs.has(k) && v != null && String(v).trim()) {
-        filtered[k] = String(v).trim();
-      }
+  for (const row of res.rows as Array<{
+    id: number;
+    name: string;
+    source_url: string;
+    params: Record<string, string>;
+  }>) {
+    const extract = jsonByUrl.get(row.source_url);
+    if (!extract) {
+      noJson++;
+      continue;
     }
-    const { params, changed, changes } = normalizeParams(filtered, paramDefs);
-    const keysDropped = Object.keys(rawParams).length !== Object.keys(filtered).length;
-    if (!changed && !keysDropped) {
+    const prevParams = (row.params || {}) as Record<string, string>;
+    const discarded = new Map<string, number>();
+    const { params, exceptions } = mapFilterAndSeatParams(
+      extract,
+      allowedKeys,
+      paramDefs,
+      discarded,
+      valueChangeCounts
+    );
+
+    for (const ex of exceptions) {
+      allExceptions.push({
+        ...ex,
+        productId: row.id,
+        sourceUrl: row.source_url,
+        productName: row.name,
+      });
+    }
+
+    const paramsSame = JSON.stringify(sortObj(params)) === JSON.stringify(sortObj(prevParams));
+    if (paramsSame) {
       unchanged++;
       continue;
     }
-    for (const c of changes) {
-      const label = `${c.key}: ${c.from} → ${c.to}`;
-      valueChangeCounts.set(label, (valueChangeCounts.get(label) || 0) + 1);
-      if (sampleChanges.length < 15) sampleChanges.push(`#${row.id} ${label}`);
+
+    for (const [k, v] of Object.entries(params)) {
+      if (prevParams[k] !== v && sampleChanges.length < 15) {
+        sampleChanges.push(`#${row.id} ${k}: ${prevParams[k] ?? '(空)'} → ${v}`);
+      }
     }
+
     if (!DRY_RUN) {
-      await pool.query(
-        `UPDATE products SET params = $1, updated_at = NOW() WHERE id = $2`,
-        [JSON.stringify(params), row.id]
-      );
+      await pool.query(`UPDATE products SET params = $1, updated_at = NOW() WHERE id = $2`, [
+        JSON.stringify(params),
+        row.id,
+      ]);
     }
     updated++;
   }
@@ -288,17 +405,38 @@ async function normalizeExistingProducts(
   console.log(`📊 产品总数: ${res.rows.length}`);
   console.log(`✅ 需要更新: ${updated}${DRY_RUN ? '（预览未写入）' : ''}`);
   console.log(`⏭️  无需变更: ${unchanged}`);
+  console.log(`📭 无对应 JSON: ${noJson}`);
   if (sampleChanges.length) {
     console.log('\n📝 变更样例:');
     sampleChanges.forEach((s) => console.log(`   ${s}`));
   }
   if (valueChangeCounts.size) {
-    console.log('\n📈 高频值变换 (Top 20):');
+    console.log('\n📈 高频入座变换 (Top 20):');
     [...valueChangeCounts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 20)
       .forEach(([label, n]) => console.log(`   ${n}× ${label}`));
   }
+
+  printExceptionSummary(allExceptions);
+  const jsonPath = writeExceptionsJson(batchId, allExceptions);
+  console.log(`📄 例外清单: ${jsonPath}`);
+
+  if (!DRY_RUN && allExceptions.length > 0) {
+    const n = await insertExceptions(pool, {
+      batchId,
+      sourcePlatform: SOURCE_PLATFORM,
+      categoryId,
+      rows: allExceptions,
+    });
+    console.log(`💾 例外已写入 import_exceptions: ${n} 条`);
+  } else if (DRY_RUN) {
+    console.log('🔍 [预览] 例外未写入数据库');
+  }
+}
+
+function sortObj(obj: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b)));
 }
 
 // 主流程
@@ -338,7 +476,7 @@ async function main() {
   console.log('');
 
   if (NORMALIZE_EXISTING) {
-    await normalizeExistingProducts(categoryId, paramDefs);
+    await normalizeExistingProducts(categoryId, paramDefs, allowedKeys);
     await pool.end();
     console.log('\n✨ 回刷完成！');
     return;
@@ -357,6 +495,8 @@ async function main() {
     process.exit(0);
   }
 
+  const batchId = `zol-import-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  console.log(`📦 batch_id: ${batchId}`);
   console.log('📦 解析产品数据...');
   const products: Array<{
     name: string;
@@ -364,6 +504,7 @@ async function main() {
     model: string | null;
     price: string | null;
     params: Record<string, string>;
+    exceptions: ExceptionRow[];
     sourceUrl: string;
     mainImage: string | null;
     images: string[];
@@ -372,6 +513,7 @@ async function main() {
   const parseErrors: string[] = [];
   const discardedKeys = new Map<string, number>();
   const valueChangeCounts = new Map<string, number>();
+  const allExceptions: ExceptionRow[] = [];
 
   for (const file of jsonFiles) {
     try {
@@ -388,18 +530,28 @@ async function main() {
         ...(data.images || []),
       ].filter(Boolean);
 
+      const { params, exceptions } = mapFilterAndSeatParams(
+        data.parameters || {},
+        allowedKeys,
+        paramDefs,
+        discardedKeys,
+        valueChangeCounts
+      );
+
+      const exWithMeta = exceptions.map((ex) => ({
+        ...ex,
+        sourceUrl: data.catalog_url,
+        productName: data.name,
+      }));
+      allExceptions.push(...exWithMeta);
+
       products.push({
         name: data.name,
         brand: resolveBrand(data.brand, data.name),
         model: extractModel(data),
         price: parsePrice(data.price),
-        params: mapFilterAndNormalizeParams(
-          data.parameters || {},
-          allowedKeys,
-          paramDefs,
-          discardedKeys,
-          valueChangeCounts
-        ),
+        params,
+        exceptions: exWithMeta,
         sourceUrl: data.catalog_url,
         mainImage: data.main_image || null,
         images: allImages,
@@ -423,22 +575,25 @@ async function main() {
   }
   console.log(`\n📌 将入库的系统参数: ${keptKeyCounts.size} 种`);
   if (discardedKeys.size > 0) {
-    console.log(`🗑️  已丢弃（不在系统定义内）: ${discardedKeys.size} 种`);
+    console.log(`🗑️  未知键丢弃: ${discardedKeys.size} 种（已记例外）`);
     [...discardedKeys.entries()]
       .sort((a, b) => b[1] - a[1])
       .forEach(([key, count]) => console.log(`   - ${key}: ${count} 次`));
   } else {
-    console.log('🗑️  已丢弃: 无（外站字段均在白名单或已映射）');
+    console.log('🗑️  未知键丢弃: 无');
   }
   if (valueChangeCounts.size > 0) {
-    console.log(`🔧 值归一化变换 (Top 20):`);
+    console.log(`🔧 入座变换 (Top 20):`);
     [...valueChangeCounts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 20)
       .forEach(([label, count]) => console.log(`   ${count}× ${label}`));
   } else {
-    console.log('🔧 值归一化: 无需变换');
+    console.log('🔧 入座变换: 无');
   }
+  printExceptionSummary(allExceptions);
+  const jsonPath = writeExceptionsJson(batchId, allExceptions);
+  console.log(`📄 例外清单: ${jsonPath}`);
   console.log('');
 
   const brandDist: Record<string, number> = {};
@@ -455,6 +610,12 @@ async function main() {
     console.log('🔍 [预览模式] 未写入数据库');
     await pool.end();
     return;
+  }
+
+  await ensureImportExceptionsTable(pool);
+  {
+    const n = await supersedeOpenExceptions(pool, SOURCE_PLATFORM);
+    if (n) console.log(`↪️  旧 open 例外已标 superseded: ${n}`);
   }
 
   console.log('💾 写入产品数据...');
@@ -512,33 +673,64 @@ async function main() {
 
   console.log(`✅ 产品写入完成: 新增 ${inserted}, 更新 ${skipped}, 失败 ${failed}\n`);
 
-  console.log('🖼️  写入图片关联...');
-  let imgInserted = 0;
-  let imgSkipped = 0;
+  // 例外补上 product_id 后落库
+  if (allExceptions.length > 0) {
+    for (const ex of allExceptions) {
+      if (ex.sourceUrl && productIdMap.has(ex.sourceUrl)) {
+        ex.productId = productIdMap.get(ex.sourceUrl)!;
+      }
+    }
+    const n = await insertExceptions(pool, {
+      batchId,
+      sourcePlatform: SOURCE_PLATFORM,
+      categoryId,
+      rows: allExceptions,
+    });
+    console.log(`🏷️  例外已写入 import_exceptions: ${n} 条 (batch=${batchId}, status=open)\n`);
+  }
+
+  console.log(
+    useLocalImageStorage()
+      ? '🖼️  写入主图（源图→桌面 images-data，写入 products.main_image）...'
+      : '🖼️  写入主图（源图→OSS，写入 products.main_image）...'
+  );
+  if (SKIP_OSS_IMAGES) {
+    console.log('⚠️  --skip-oss-images：仅写入源站 URL（不推荐，仅调试）');
+  }
+  let imgOk = 0;
+  let imgFail = 0;
+  const localMode = useLocalImageStorage();
 
   for (const p of products) {
     const productId = productIdMap.get(p.sourceUrl);
     if (!productId || p.images.length === 0) continue;
 
-    for (let idx = 0; idx < p.images.length; idx++) {
-      const imgUrl = p.images[idx];
-      const imageType = idx === 0 ? 'main' : 'gallery';
-      try {
-        await pool.query(
-          `INSERT INTO product_images (product_id, image_url, image_type, sort_order, created_at)
-           VALUES ($1, $2, $3, $4, NOW())
-           ON CONFLICT (product_id, image_type, sort_order) DO UPDATE SET
-             image_url = EXCLUDED.image_url`,
-          [productId, imgUrl, imageType, idx]
-        );
-        imgInserted++;
-      } catch (err) {
-        imgSkipped++;
+    const srcUrl = p.images[0] || p.mainImage;
+    if (!srcUrl) continue;
+
+    try {
+      let storeUrl = srcUrl;
+      if (!SKIP_OSS_IMAGES && !isOssCdnUrl(srcUrl) && !isLocalImageUrl(srcUrl)) {
+        if (localMode) {
+          storeUrl = (await downloadToLocal(srcUrl, { filename: `p${productId}-main.jpg` })).url;
+        } else {
+          storeUrl = await ensureRemoteImageOnOss(srcUrl);
+        }
+      }
+      await pool.query(
+        `UPDATE products SET main_image = $1, image_id = NULL, updated_at = NOW() WHERE id = $2`,
+        [storeUrl, productId]
+      );
+      imgOk++;
+    } catch (err) {
+      imgFail++;
+      if (imgFail <= 5) {
+        console.warn(`   ⚠️ 主图失败 #${productId}: ${(err as Error).message}`);
       }
     }
   }
 
-  console.log(`✅ 图片关联完成: ${imgInserted} 写入, ${imgSkipped} 失败\n`);
+  console.log(`✅ 主图完成: ${imgOk} 写入, ${imgFail} 失败\n`);
 
   // search_vector 由 DB 触发器 products_search_vector_trigger 在 INSERT/UPDATE 时自动维护
   // （name + brand + model + params），无需在此手写覆盖
@@ -548,16 +740,10 @@ async function main() {
     SELECT
       COUNT(*) as total,
       COUNT(DISTINCT brand) as brands,
-      COUNT(DISTINCT model) as models
+      COUNT(DISTINCT model) as models,
+      COUNT(*) FILTER (WHERE main_image IS NOT NULL AND main_image <> '') as with_main
     FROM products
     WHERE category_id = $1 AND deleted_at IS NULL
-  `, [categoryId]);
-
-  const imgStats = await pool.query(`
-    SELECT COUNT(*) as total
-    FROM product_images pi
-    JOIN products p ON pi.product_id = p.id
-    WHERE p.category_id = $1 AND p.deleted_at IS NULL
   `, [categoryId]);
 
   console.log('='.repeat(60));
@@ -565,7 +751,7 @@ async function main() {
   console.log(`   空调产品总数: ${stats.rows[0].total}`);
   console.log(`   品牌数量: ${stats.rows[0].brands}`);
   console.log(`   型号数量: ${stats.rows[0].models}`);
-  console.log(`   图片数量: ${imgStats.rows[0].total}`);
+  console.log(`   有主图: ${stats.rows[0].with_main}`);
   console.log('='.repeat(60));
 
   const brandStats = await pool.query(`
