@@ -12,6 +12,7 @@
     "migrate:search-vector": "tsx src/db/migrate-search-vector.ts",
     "migrate:search-vector-upgrade": "tsx src/db/migrate-search-vector-upgrade.ts",
     "migrate:categories-params": "tsx src/db/migrate-categories-params-overwrite.ts",
+    "migrate:search-logs": "tsx src/db/migrate-search-logs-overwrite.ts",
     "fill:pinyin": "tsx src/db/fill-pinyin.ts",
     "import:zol-ac": "tsx scripts/import-zol-air-condition.ts",
     "import:zol-ac:normalize": "tsx scripts/import-zol-air-condition.ts --normalize-existing",
