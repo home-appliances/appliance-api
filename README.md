@@ -289,9 +289,56 @@ open 标为 `superseded`。设计说明见知识库「家电 · 项目总览」�
 |--------------------------------------|----------------------------|
 | `npm run db:push`                    | 推送 schema 到数据库（本地整理用）      |
 | `npm run db:seed`                    | 灌入种子数据                     |
+| `npm run db:generate`                | 从 schema 生成 migration SQL 文件 |
 | `npm run migrate:search-vector`      | 安装/重建全文搜索（空库或升级加权索引时跑）     |
 | `npm run fill:pinyin`                | 导入后补拼音                     |
-| `npm run db:generate` / `db:migrate` | 生产 migration（上线前再写，本地不必依赖） |
+
+## 数据库迁移（CI/CD 自动化）
+
+生产 DB 的 schema 变更通过 **migration 文件 + CI 自动执行** 完成，无需手动连 DB。
+
+### 工作流程
+
+```
+本地改 schema.ts
+    ↓
+npm run db:generate        # 生成 0001_xxx.sql 到 drizzle/
+    ↓
+git push
+    ↓
+GitHub Actions 自动：
+  1. 构建打包（含 drizzle/ migration 文件）
+  2. 部署 FC 代码
+  3. 调 POST /api/admin/db/migrate 接口（FC 走 VPC 内网连 DB 执行 migration）
+  4. 迁移失败则部署标记为失败
+```
+
+### 关键设计
+
+- **走 VPC 内网**：迁移由 FC 函数执行，FC 通过 VPC 连 RDS，**DB 可关闭外网访问**
+- **advisory lock 防并发**：多个 FC 实例同时启动时，只一个能执行迁移
+- **幂等**：`__drizzle_migrations` 表记录已执行的 migration hash，不会重复执行
+- **失败即中止**：任何 migration 执行失败，后续 migration 不执行，部署标记失败
+- **认证**：迁移接口需 `X-Migrate-Secret` 请求头（值在 `MIGRATE_SECRET` 环境变量，GitHub Secrets 持有）
+
+### 改 schema 标准流程
+
+1. 修改 `src/db/schema.ts`
+2. 本地跑 `npm run db:generate` 生成 migration SQL 文件
+3. （可选）本地 `npm run db:push` 验证 schema 变更
+4. `git push origin main`，CI 自动部署 + 迁移
+
+### baseline
+
+当前 baseline 是 `drizzle/0000_baseline.sql`，与生产 DB 当前结构一致。生产 DB 的 `__drizzle_migrations` 表已标记 baseline 为已执行，CI 不会重复跑。
+
+### 手动触发迁移（调试用）
+
+```bash
+curl -X POST https://appliance-api.cheapgo.top/api/admin/db/migrate \
+  -H "X-Migrate-Secret: <MIGRATE_SECRET 值>"
+```
+
 
 ## 部署
 
