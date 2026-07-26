@@ -334,12 +334,12 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         <input type="hidden" name="price" value="${product?.price || ''}">
         <input type="hidden" name="original_price" value="${product?.originalPrice || product?.original_price || ''}">
 
-        <!-- 产品图片区域（支持多张主图/展示图，可排序） -->
+        <!-- 产品图片区域（支持多张主图/展示图，新图排序由服务端分配） -->
         <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-3">产品图片 <span class="text-xs text-gray-400 font-normal">（可上传多张，主图用于列表展示，按 sort 升序取第一张主图）</span></label>
+          <label class="block text-sm font-medium text-gray-700 mb-3">产品图片 <span class="text-xs text-gray-400 font-normal">（可上传多张，主图用于列表展示；新图排序由服务端自动追加）</span></label>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4" id="image-list">
             ${product?.images && product.images.length > 0 ? product.images.map((img: any, idx: number) => `
-              <div class="relative group" data-image-id="${img.id || ''}">
+              <div class="relative group" data-image-id="${img.id || ''}" data-image-type="${img.imageType || 'main'}">
                 <img src="${img.imageUrl || img.url}" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="showImage(this.src, '产品图片')">
                 <span class="absolute top-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded type-badge">${img.imageType === 'display' ? '展示图' : '主图'}</span>
                 <span class="absolute bottom-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded">sort: ${img.sortOrder ?? 0}</span>
@@ -726,18 +726,16 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           const base64 = await fileToBase64(file)
           const seq = pendingSeq++
           const previewUrl = URL.createObjectURL(file)
-          // 默认主图，sort 自动递增（取当前暂存图的最大 sort + 1）
-          const maxSort = pendingImages.reduce((m, p) => Math.max(m, p.sort), -1)
+          // 默认主图，sort 由服务端分配，前端不传
           const imageType = 'main'
-          const sort = maxSort + 1
-          pendingImages.push({ seq, fileName: file.name, mimeType: file.type, base64, imageType, previewUrl, sort })
-          addPendingToDOM(seq, previewUrl, imageType, sort)
+          pendingImages.push({ seq, fileName: file.name, mimeType: file.type, base64, imageType, previewUrl })
+          addPendingToDOM(seq, previewUrl, imageType)
         }
         document.getElementById('file-input').value = ''
       }
 
-      // 暂存图加到列表(虚线边框 + 待上传标记 + 类型选择 + 排序 + 删除)
-      function addPendingToDOM(seq, previewUrl, imageType, sort) {
+      // 暂存图加到列表(虚线边框 + 待上传标记 + 类型选择 + 删除)
+      function addPendingToDOM(seq, previewUrl, imageType) {
         const list = document.getElementById('image-list')
         const div = document.createElement('div')
         div.className = 'relative group'
@@ -750,7 +748,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
               '<option value="main"' + (imageType === 'main' ? ' selected' : '') + '>主图</option>' +
               '<option value="display"' + (imageType === 'display' ? ' selected' : '') + '>展示图</option>' +
             '</select>' +
-            '<input type="number" value="' + sort + '" onchange="setPendingSort(' + seq + ', this.value)" class="w-10 bg-transparent border-none text-white text-xs outline-none" title="排序值（小的在前）">' +
+            '<span class="text-white/70 shrink-0" title="排序由服务端保存时自动分配">自动排序</span>' +
           '</div>' +
           '<button type="button" onclick="removePending(' + seq + ', this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>'
         list.appendChild(div)
@@ -759,11 +757,6 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
       function setPendingType(seq, type) {
         const p = pendingImages.find(x => x.seq === seq)
         if (p) p.imageType = type
-      }
-
-      function setPendingSort(seq, val) {
-        const p = pendingImages.find(x => x.seq === seq)
-        if (p) p.sort = parseInt(val, 10) || 0
       }
 
       function removePending(seq, btn) {
@@ -895,7 +888,6 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
             fd.append('image_names[]', p.fileName)
             fd.append('image_mimes[]', p.mimeType)
             fd.append('image_types[]', p.imageType)
-            fd.append('image_sorts[]', String(p.sort))
           })
 
           const res = await fetch(productForm.action, {

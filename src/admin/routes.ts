@@ -474,7 +474,7 @@ admin.post('/products/create', authMiddleware, async (c) => {
   }
 })
 
-// 处理表单图片: 多张图（主图/展示图），写入 product_images 表，sort_order 递增不覆盖
+// 处理表单图片: 多张图（主图/展示图），写入 product_images 表，sort_order 由服务端分配，忽略前端传入
 async function saveProductImageFiles(productId: number, body: Record<string, any>): Promise<void> {
   const { createProductImage } = await import('../db/queries.js')
   const { validateImageFile } = await import('../utils/oss.js')
@@ -489,7 +489,6 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
   const nameArr = toArr(body['image_names[]'])
   const mimeArr = toArr(body['image_mimes[]'])
   const typeArr = toArr(body['image_types[]'])
-  const sortArr = toArr(body['image_sorts[]'])
 
   if (dataArr.length === 0) return
 
@@ -498,11 +497,6 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
     const fileName = nameArr[i] || 'image.png'
     const mimeType = mimeArr[i] || 'image/png'
     const imageType = typeArr[i] || 'main'
-    // 前端可通过 image_sorts[] 指定排序；未指定则由 createProductImage 自动递增
-    const sortOrderRaw = sortArr[i]
-    const sortOrder = sortOrderRaw !== undefined && sortOrderRaw !== '' && sortOrderRaw !== null
-      ? parseInt(sortOrderRaw, 10)
-      : undefined
     const buf = Buffer.from(base64, 'base64')
 
     const validation = validateImageFile({ size: buf.length, originalName: fileName, mimeType })
@@ -533,7 +527,6 @@ async function saveProductImageFiles(productId: number, body: Record<string, any
       productId,
       imageUrl,
       imageType,
-      sortOrder,
     })
     console.log(`  [${i}] 已保存 -> 图片记录ID ${created.id} (type=${imageType}, sort=${created.sortOrder})`)
   }

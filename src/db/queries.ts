@@ -544,28 +544,30 @@ export async function getProductImageById(id: number) {
   return (result[0] as MainImageRow) || null;
 }
 
+/**
+ * 新增产品图片。sort_order 由服务端独占分配（同产品同类型 max+1）。
+ * 调整顺序请走 updateProductImage / updateProductImageSort，勿在创建时传 sort。
+ */
 export async function createProductImage(data: {
   productId: number;
   imageUrl?: string | null;
   imageType?: string;
-  sortOrder?: number;
 }) {
   if (!data.productId || !data.imageUrl) {
     throw new Error('createProductImage 需要 productId 与 imageUrl');
   }
   const imageType = data.imageType || 'main';
-  // sort_order 未指定时，取该产品同类型现有最大 sort_order + 1
-  let sortOrder = data.sortOrder;
-  if (sortOrder === undefined) {
-    const existing = await db
-      .select({ maxSort: max(productImages.sortOrder) })
-      .from(productImages)
-      .where(and(
-        eq(productImages.productId, data.productId),
-        eq(productImages.imageType, imageType),
-      ));
-    sortOrder = (existing[0]?.maxSort ?? -1) + 1;
-  }
+
+  // 唯一约束 product_images_product_type_sort_unique (product_id, image_type, sort_order)
+  const existing = await db
+    .select({ maxSort: max(productImages.sortOrder) })
+    .from(productImages)
+    .where(and(
+      eq(productImages.productId, data.productId),
+      eq(productImages.imageType, imageType),
+    ));
+  const sortOrder = (existing[0]?.maxSort ?? -1) + 1;
+
   const result = await db
     .insert(productImages)
     .values({

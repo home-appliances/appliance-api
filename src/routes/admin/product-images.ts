@@ -55,17 +55,17 @@ productImages.get('/api/admin/product-images/:id', async (c) => {
  */
 productImages.post('/api/admin/product-images', async (c) => {
   try {
-    const { product_id, image_url, image_type, sort_order } = await c.req.json();
+    const { product_id, image_url, image_type } = await c.req.json();
 
     if (!product_id) {
       return c.json({ code: 400, message: '产品ID为必填项' }, 400);
     }
 
+    // sort_order 由服务端分配，调整顺序请用 PUT .../batch/sort
     const result = await queries.createProductImage({
       productId: product_id,
       imageUrl: image_url || null,
       imageType: image_type || 'main',
-      sortOrder: sort_order || 0,
     });
 
     return c.json({ code: 0, data: result, message: '图片添加成功' });
