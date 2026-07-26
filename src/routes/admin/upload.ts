@@ -23,7 +23,6 @@ upload.post('/api/admin/upload/image', async (c) => {
     const file = body['file'] as File;
     const productId = body['product_id'] as string;
     const imageType = body['image_type'] as string || 'main';
-    const sortOrder = parseInt(body['sort_order'] as string || '0');
 
     if (!file) {
       return c.json({ code: 400, message: '请选择要上传的文件' }, 400);
@@ -47,13 +46,12 @@ upload.post('/api/admin/upload/image', async (c) => {
     // 上传到 OSS
     const imageUrl = await uploadImage(buffer, file.name, 'products');
 
-    // 如果指定了产品ID，保存到数据库
+    // 如果指定了产品ID，保存到数据库（sort_order 由服务端分配）
     if (productId) {
       const image = await queries.createProductImage({
         productId: parseInt(productId),
         imageUrl,
         imageType,
-        sortOrder,
       });
 
       return c.json({
@@ -62,7 +60,7 @@ upload.post('/api/admin/upload/image', async (c) => {
           id: image.id,
           url: imageUrl,
           image_type: imageType,
-          sort_order: sortOrder,
+          sort_order: image.sortOrder,
         },
         message: '上传成功',
       });
@@ -135,15 +133,9 @@ upload.post('/api/admin/upload/batch', async (c) => {
       return c.json({ code: 400, message: '请选择要上传的文件' }, 400);
     }
 
-    // 获取当前最大排序号
-    const existingImages = await queries.getProductImages(parseInt(productId));
-    const maxSortOrder = existingImages.length > 0
-      ? Math.max(...existingImages.map(img => img.sortOrder))
-      : -1;
-
     const results = [];
 
-    // 逐个上传
+    // 逐个上传（sort_order 由 createProductImage 按类型自动递增）
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
@@ -170,14 +162,13 @@ upload.post('/api/admin/upload/batch', async (c) => {
         productId: parseInt(productId),
         imageUrl,
         imageType,
-        sortOrder: maxSortOrder + 1 + i,
       });
 
       results.push({
         id: image.id,
         url: imageUrl,
         image_type: imageType,
-        sort_order: maxSortOrder + 1 + i,
+        sort_order: image.sortOrder,
       });
     }
 
