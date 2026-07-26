@@ -784,10 +784,20 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         const modelRe = /型号|货号|编码|SKU|sku|制冷剂/
         const seriesRe = /系列/
         const cnDescRe = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|质保|配件/
-        const measureSeg = /^(?:宽|高|深|厚|长|直径|内|外|室|机)?\\s*-?\\d+(?:\\.\\d+)?\\s*(?:\\(\\s*[A-Za-z]\\s*\\))?\\s*(?:kWh|kW|Wh|Hz|mm|cm|m³|m²|㎡|dB|db|℃|°C|%|匹|级|[WAV]|m)?$/i
+        const measureUnit = 'kWh|kW|Wh|Hz|mm|cm|m³h|m3h|m³|m3|m²|㎡|dB|db|℃|°C|kg|g|mLh|mL|ml|Lh|L|rpm|Pa|bar|lx|%|匹|级|[WAV]|m'
+        // new RegExp 字符串里 \\s 在模板中需写 \\\\s；正则字面量只需 \\s
+        const measureSeg = new RegExp('^(?:宽|高|深|厚|长|直径|内|外|室|机)?\\\\s*-?\\\\d+(?:\\\\.\\\\d+)?\\\\s*(?:\\\\(\\\\s*[A-Za-z]\\\\s*\\\\))?\\\\s*(?:' + measureUnit + ')?$', 'i')
+        function normalizeCompoundUnits(v) {
+          return String(v)
+            .replace(/m[³3]\\s*[/／]\\s*h/gi, 'm³h')
+            .replace(/r\\s*[/／]\\s*min/gi, 'rpm')
+            .replace(/mL\\s*[/／]\\s*h/gi, 'mLh')
+            .replace(/L\\s*[/／]\\s*h/gi, 'Lh')
+        }
         function isValidMeasure(v) {
-          if (!/^[\\d.\\s\\-–—*×xX/／~～+±()（）\\[\\]【】,，;；:：°℃%WAakKvVmMhHzdbDB³2㎡匹级宽高深厚长直径内外室机]+$/i.test(v)) return false
-          const parts = v.split(/[,，;；/／~～\\-–—+*×xX]+/).map(function(p) { return p.trim() }).filter(Boolean)
+          const normalized = normalizeCompoundUnits(v.trim())
+          if (!/^[\\d.\\s\\-–—*×xX/／~～+±()（）\\[\\]【】,，;；:：°℃%WAakKvVmMhHzdbDBgGlLPxrpm³2²㎡匹级宽高深厚长直径内外室机]+$/i.test(normalized)) return false
+          const parts = normalized.split(/[,，;；/／~～\\-–—+*×xX]+/).map(function(p) { return p.trim() }).filter(Boolean)
           return parts.length > 0 && parts.every(function(p) { return measureSeg.test(p) })
         }
         function hasGarbled(v) {
