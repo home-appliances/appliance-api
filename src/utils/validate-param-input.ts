@@ -28,8 +28,26 @@ const SERIES_KEY_RE = /系列/;
 /** 中文描述类（不含系列） */
 const CN_DESC_KEY_RE = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|质保|配件/;
 
+/**
+ * 允许的计量单位（含复合单位归一后的别名）
+ * m³h = m³/h；rpm 可来自 r/min
+ */
+const MEASURE_UNIT = 'kWh|kW|Wh|Hz|mm|cm|m³h|m3h|m³|m3|m²|㎡|dB|db|℃|°C|kg|g|mLh|mL|ml|Lh|L|rpm|Pa|bar|lx|%|匹|级|[WAV]|m';
+
 /** 单段计量：可选前缀词 + 数字 + 可选 (A) + 可选单位。禁止 1000W123 这种单位后再贴数字 */
-const MEASURE_SEG_RE = /^(?:宽|高|深|厚|长|直径|内|外|室|机)?\s*-?\d+(?:\.\d+)?\s*(?:\(\s*[A-Za-z]\s*\))?\s*(?:kWh|kW|Wh|Hz|mm|cm|m³|m²|㎡|dB|db|℃|°C|%|匹|级|[WAV]|m)?$/i;
+const MEASURE_SEG_RE = new RegExp(
+  `^(?:宽|高|深|厚|长|直径|内|外|室|机)?\\s*-?\\d+(?:\\.\\d+)?\\s*(?:\\(\\s*[A-Za-z]\\s*\\))?\\s*(?:${MEASURE_UNIT})?$`,
+  'i'
+);
+
+/** 复合单位：拆分前先归一，避免 m³/h、r/min 被 / 拆成无数字孤段 */
+function normalizeCompoundUnits(value: string): string {
+  return value
+    .replace(/m[³3]\s*[/／]\s*h/gi, 'm³h')
+    .replace(/r\s*[/／]\s*min/gi, 'rpm')
+    .replace(/mL\s*[/／]\s*h/gi, 'mLh')
+    .replace(/L\s*[/／]\s*h/gi, 'Lh');
+}
 
 /**
  * 乱码英数：小写字母坨 + 数字，如 sfssfd1
@@ -92,14 +110,15 @@ function err(
 export function isValidMeasureValue(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) return false;
+  const normalized = normalizeCompoundUnits(trimmed);
   if (
-    !/^[\d.\s\-–—*×xX/／~～+±()（）[\]【】,，;；:：°℃%WAakKvVmMhHzdbDB³2㎡匹级宽高深厚长直径内外室机]+$/iu.test(
-      trimmed
+    !/^[\d.\s\-–—*×xX/／~～+±()（）[\]【】,，;；:：°℃%WAakKvVmMhHzdbDBgGlLPxrpm³2²㎡匹级宽高深厚长直径内外室机]+$/iu.test(
+      normalized
     )
   ) {
     return false;
   }
-  const parts = trimmed
+  const parts = normalized
     .split(/[,，;；/／~～\-–—+]+/)
     .map((p) => p.trim())
     .filter(Boolean);

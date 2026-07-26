@@ -52,7 +52,7 @@ products.get('/api/admin/products', async (c) => {
  */
 products.post('/api/admin/products', async (c) => {
   try {
-    const { name, brand, category_id, model, price, original_price, rating, review_count, params } = await c.req.json();
+    const { name, brand, category_id, model, price, original_price, rating, review_count, params, source_url, source_platform } = await c.req.json();
 
     if (!name || !brand) {
       return c.json({ code: 400, message: '产品名称和品牌为必填项' }, 400);
@@ -71,7 +71,8 @@ products.post('/api/admin/products', async (c) => {
       rating: rating || null,
       reviewCount: review_count || 0,
       params: params || {},
-      sourcePlatform: 'admin',
+      sourceUrl: source_url || null,
+      sourcePlatform: source_platform || 'admin',
     });
 
     return c.json({ code: 0, data: result, message: '产品创建成功' });
@@ -121,7 +122,7 @@ products.get('/api/admin/products/:id', async (c) => {
 products.put('/api/admin/products/:id', async (c) => {
   try {
     const id = parseInt(c.req.param('id'));
-    const { name, brand, category_id, model, price, original_price, rating, review_count, params: productParams } = await c.req.json();
+    const { name, brand, category_id, model, price, original_price, rating, review_count, params: productParams, source_url, source_platform } = await c.req.json();
 
     const result = await queries.updateProduct(id, {
       name,
@@ -133,6 +134,8 @@ products.put('/api/admin/products/:id', async (c) => {
       rating,
       reviewCount: review_count,
       params: productParams,
+      ...(source_url !== undefined && { sourceUrl: source_url }),
+      ...(source_platform !== undefined && { sourcePlatform: source_platform }),
     });
 
     if (!result) {
