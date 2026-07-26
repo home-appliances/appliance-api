@@ -119,7 +119,7 @@ export function isValidMeasureValue(value: string): boolean {
     return false;
   }
   const parts = normalized
-    .split(/[,，;；/／~～\-–—+]+/)
+    .split(/[,，;；/／~～\-–—+*×xX]+/)
     .map((p) => p.trim())
     .filter(Boolean);
   if (!parts.length) return false;
