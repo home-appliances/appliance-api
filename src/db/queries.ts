@@ -601,7 +601,19 @@ export async function updateProductImage(
 
 export async function deleteProductImage(id: number) {
   const before = await getProductImageById(id);
+  if (!before) return null;
+
   await db.delete(productImages).where(eq(productImages.id, id));
+
+  if (before.imageUrl && String(before.imageUrl).includes('cheapgo')) {
+    try {
+      const { deleteImage } = await import('../utils/oss.js');
+      await deleteImage(before.imageUrl);
+    } catch (e) {
+      console.warn(`[删除图片] OSS 清理失败（不影响主流程） id=${id}:`, e);
+    }
+  }
+
   return before;
 }
 
