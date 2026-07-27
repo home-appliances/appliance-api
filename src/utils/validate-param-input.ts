@@ -25,8 +25,11 @@ const MODEL_KEY_RE = /型号|货号|编码|SKU|sku|制冷剂/;
 /** 系列名称：常含英文系列名，单独规则，勿与「中文描述」混用 */
 const SERIES_KEY_RE = /系列/;
 
-/** 中文描述类（不含系列） */
-const CN_DESC_KEY_RE = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|质保|配件/;
+/** 质保/保修：常见「3年」「365天」「整机6年…」，勿当纯中文描述拦数字 */
+const WARRANTY_KEY_RE = /质保|保修/;
+
+/** 中文描述类（不含系列、质保） */
+const CN_DESC_KEY_RE = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|配件/;
 
 /**
  * 允许的计量单位（含复合单位归一后的别名）
@@ -57,11 +60,28 @@ function hasGarbledAlnum(value: string): boolean {
   return /[a-z]{4,}\d|\d[a-z]{4,}/.test(value);
 }
 
-/** 描述类字段中的无意义数字尾巴/夹杂（如 键控/遥控3213123） */
+/** 质保类：允许 365天 / 6年 / 整机6年，压缩机…，只拦明显乱码 */
+function isValidWarrantyValue(value: string): boolean {
+  const t = value.trim();
+  if (!t) return false;
+  if (
+    !/^[\u4e00-\u9fffA-Za-z0-9\s\-–—，,、；;：:（）()及与和\/＋+.~～到至]+$/.test(t)
+  ) {
+    return false;
+  }
+  if (hasGarbledAlnum(t)) return false;
+  return true;
+}
+
+/** 描述类字段中的无意义数字尾巴/夹杂（如 白色123123、遥控3213123）
+ * 允许 PM2.5、WiFi 等，小数最多两位，更长小数尾巴视为乱输
+ */
 function hasDescDigitJunk(value: string): boolean {
-  if (/\d{3,}/.test(value)) return true;
-  if (/[\u4e00-\u9fff].*\d{2,}$/.test(value)) return true;
-  if (/[\u4e00-\u9fff][A-Za-z0-9]{3,}/.test(value)) return true;
+  const withoutShortDecimals = value.replace(/\d+\.\d{1,2}(?!\d)/g, '');
+  if (/\d{3,}/.test(withoutShortDecimals)) return true;
+  if (/[\u4e00-\u9fff].*\d{2,}$/.test(withoutShortDecimals)) return true;
+  if (/[\u4e00-\u9fff][a-z0-9]{3,}/.test(withoutShortDecimals)) return true;
+  if (/\d+\.\d{3,}/.test(value)) return true;
   return false;
 }
 
@@ -195,6 +215,13 @@ export function validateAdminParamValue(
     return null;
   }
 
+  if (WARRANTY_KEY_RE.test(haystack)) {
+    if (!isValidWarrantyValue(value)) {
+      return err(def, value, '质保说明格式不正确');
+    }
+    return null;
+  }
+
   if (CN_DESC_KEY_RE.test(haystack)) {
     if (hasGarbledAlnum(value) || hasDescDigitJunk(value)) {
       return err(def, value, '请填写中文说明，不要夹杂无关数字或乱码');
@@ -202,7 +229,7 @@ export function validateAdminParamValue(
     if (hasMeasureSnippet(value)) {
       return err(def, value, '不应包含功率/电压等计量写法');
     }
-    if (chineseRatio(value) < 0.3 && /[a-zA-Z]/.test(value)) {
+    if (/[a-zA-Z]/.test(value) && !/[\u4e00-\u9fff]/.test(value)) {
       return err(def, value, '应以中文描述为主');
     }
     return null;

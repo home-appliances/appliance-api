@@ -334,16 +334,16 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         <input type="hidden" name="price" value="${product?.price || ''}">
         <input type="hidden" name="original_price" value="${product?.originalPrice || product?.original_price || ''}">
 
-        <!-- 产品图片区域（支持多张主图/展示图，新图排序由服务端分配） -->
+        <!-- 产品图片区域（新图服务端分配 sort，编辑时可拖拽已有图排序） -->
         <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-3">产品图片 <span class="text-xs text-gray-400 font-normal">（可上传多张，主图用于列表展示；新图排序由服务端自动追加）</span></label>
+          <label class="block text-sm font-medium text-gray-700 mb-3">产品图片 <span class="text-xs text-gray-400 font-normal">（可上传多张，主图用于列表展示；${isEdit ? '拖拽已有图片可调整顺序，' : ''}新图保存时自动追加排序）</span></label>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4" id="image-list">
             ${product?.images && product.images.length > 0 ? product.images.map((img: any, idx: number) => `
-              <div class="relative group" data-image-id="${img.id || ''}" data-image-type="${img.imageType || 'main'}">
-                <img src="${img.imageUrl || img.url}" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer" onclick="showImage(this.src, '产品图片')">
-                <span class="absolute top-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded type-badge">${img.imageType === 'display' ? '展示图' : '主图'}</span>
-                <span class="absolute bottom-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded">sort: ${img.sortOrder ?? 0}</span>
-                <button type="button" onclick="deleteProductImage(${img.id || 0}, this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs">✕</button>
+              <div class="relative group cursor-grab active:cursor-grabbing" data-image-id="${img.id || ''}" data-image-type="${img.imageType || 'main'}" title="拖拽调整顺序，双击预览" ondblclick="var im=this.querySelector('img'); if(im) showImage(im.src, '产品图片')">
+                <img src="${img.imageUrl || img.url}" alt="产品图片" class="w-full h-32 object-cover rounded-lg border border-gray-200 pointer-events-none" draggable="false">
+                <span class="absolute top-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded type-badge pointer-events-none">${img.imageType === 'display' ? '展示图' : '主图'}</span>
+                <span class="absolute bottom-2 left-2 px-2 py-0.5 text-xs bg-black/50 text-white rounded sort-badge pointer-events-none">sort: ${img.sortOrder ?? 0}</span>
+                <button type="button" onclick="event.stopPropagation(); deleteProductImage(${img.id || 0}, this)" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs z-10">✕</button>
               </div>
             `).join('') : ''}
           </div>
@@ -401,6 +401,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
     <script>
       function showImage(url, title) {
         const modal = document.getElementById('imageModal')
@@ -776,7 +777,8 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         const measureRe = /功率|电流|制冷量|制热量|循环风量|新风量|除湿量|尺寸|噪音|噪声|风量|面积|电压|频率|电源|能效比|质量|重量|耗电|水压|扬程|转速|压力/
         const modelRe = /型号|货号|编码|SKU|sku|制冷剂/
         const seriesRe = /系列/
-        const cnDescRe = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|质保|配件/
+        const warrantyRe = /质保|保修/
+        const cnDescRe = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|配件/
         const measureUnit = 'kWh|kW|Wh|Hz|mm|cm|m³h|m3h|m³|m3|m²|㎡|dB|db|℃|°C|kg|g|mLh|mL|ml|Lh|L|rpm|Pa|bar|lx|%|匹|级|[WAV]|m'
         // new RegExp 字符串里 \\s 在模板中需写 \\\\s；正则字面量只需 \\s
         const measureSeg = new RegExp('^(?:宽|高|深|厚|长|直径|内|外|室|机)?\\\\s*-?\\\\d+(?:\\\\.\\\\d+)?\\\\s*(?:\\\\(\\\\s*[A-Za-z]\\\\s*\\\\))?\\\\s*(?:' + measureUnit + ')?$', 'i')
@@ -797,9 +799,13 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           return /[a-z]{4,}\\d|\\d[a-z]{4,}/.test(v)
         }
         function hasDescDigitJunk(v) {
-          if (/\\d{3,}/.test(v)) return true
-          if (/[\\u4e00-\\u9fff].*\\d{2,}$/.test(v)) return true
-          if (/[\\u4e00-\\u9fff][A-Za-z0-9]{3,}/.test(v)) return true
+          // 只剥离最多两位小数（PM2.5），更长小数尾巴视为乱输
+          const s = String(v)
+          const stripped = s.replace(/\\d+\\.\\d{1,2}(?!\\d)/g, '')
+          if (/\\d{3,}/.test(stripped)) return true
+          if (/[\\u4e00-\\u9fff].*\\d{2,}$/.test(stripped)) return true
+          if (/[\\u4e00-\\u9fff][a-z0-9]{3,}/.test(stripped)) return true
+          if (/\\d+\\.\\d{3,}/.test(s)) return true
           return false
         }
         function hasMeasureSnippet(v) {
@@ -847,12 +853,16 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
             } else if (hasGarbled(value)) {
               pushErr(label, value, '疑似乱码英文/数字，请改正')
             }
+          } else if (warrantyRe.test(hay)) {
+            if (!/^[\\u4e00-\\u9fffA-Za-z0-9\\s\\-–—，,、；;：:（）()及与和\\/＋+.~～到至]+$/.test(value) || hasGarbled(value)) {
+              pushErr(label, value, '质保说明格式不正确')
+            }
           } else if (cnDescRe.test(hay)) {
             if (hasGarbled(value) || hasDescDigitJunk(value)) {
               pushErr(label, value, '请填写中文说明，不要夹杂无关数字或乱码')
             } else if (hasMeasureSnippet(value)) {
               pushErr(label, value, '不应包含功率/电压等计量写法')
-            } else if (cnRatio(value) < 0.3 && /[a-zA-Z]/.test(value)) {
+            } else if (/[a-zA-Z]/.test(value) && !/[\\u4e00-\\u9fff]/.test(value)) {
               pushErr(label, value, '应以中文描述为主')
             }
           } else if (modelRe.test(hay)) {
@@ -951,6 +961,67 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           alert('删除失败: ' + err.message)
         }
       }
+
+      // 编辑页：拖拽已有图片即时保存排序（待上传图不参与）
+      ;(function initImageSortable() {
+        const isEditPage = ${isEdit ? 'true' : 'false'}
+        const list = document.getElementById('image-list')
+        if (!isEditPage || !list || typeof Sortable === 'undefined') return
+        if (!list.querySelector('[data-image-id]')) return
+
+        let saving = false
+        let pendingPersist = false
+
+        async function persistImageOrder() {
+          const nodes = Array.from(list.querySelectorAll('[data-image-id]'))
+          const items = nodes.map(function(el, i) {
+            return { id: parseInt(el.dataset.imageId, 10), sortOrder: i }
+          }).filter(function(it) { return Number.isFinite(it.id) && it.id > 0 })
+
+          nodes.forEach(function(el, i) {
+            const badge = el.querySelector('.sort-badge')
+            if (badge) badge.textContent = 'sort: ' + i
+          })
+
+          if (!items.length) return
+          if (saving) { pendingPersist = true; return }
+          saving = true
+          try {
+            const res = await fetch('/api/admin/product-images/batch/sort', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({ items: items }),
+              credentials: 'same-origin',
+            })
+            const data = await res.json().catch(function() { return {} })
+            if (!res.ok || data.code !== 0) {
+              alert(data.message || ('排序保存失败（HTTP ' + res.status + '）'))
+            }
+          } catch (err) {
+            alert('排序保存失败: ' + (err && err.message ? err.message : String(err)))
+          } finally {
+            saving = false
+            if (pendingPersist) {
+              pendingPersist = false
+              persistImageOrder()
+            }
+          }
+        }
+
+        Sortable.create(list, {
+          animation: 150,
+          draggable: '[data-image-id]',
+          filter: 'button, .delete-image-form',
+          preventOnFilter: true,
+          ghostClass: 'opacity-40',
+          chosenClass: 'ring-2',
+          dragClass: 'shadow-lg',
+          onEnd: function(evt) {
+            if (evt.oldIndex === evt.newIndex) return
+            persistImageOrder()
+          },
+        })
+      })()
     </script>
   `
 

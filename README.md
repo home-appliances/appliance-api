@@ -92,10 +92,9 @@ npm run db:push                 # Drizzle 推送 schema
 npm run db:seed                 # 灌入种子
 npm run migrate:search-vector   # 全文搜索（空库或升级加权索引时跑）
 
-# 4. 导入本地整理数据（可选）
-npm run import:zol-ac
+# 4. 导入本地整理数据（可选；禁止直连库，走 Admin API）
+# 见 ~/Desktop/crawler_test/lib/import-local-via-api.ts
 npm run fill:pinyin
-npm run check:etl
 
 # 5. 启动开发服务器
 npm run dev
@@ -202,7 +201,8 @@ Authorization header，没有则读 Cookie。
 
 只做主图：`products.main_image = /local-images/{id}.jpg`  
 文件在 `~/Desktop/crawler_test/images-data/`（**不在项目内**，可用 `IMAGE_STAGING_DIR` 覆盖）。  
-无 OSS Key 时导入/上传自动落本地（也可设 `IMAGE_STORAGE=local`）。缺主图时重跑 `npm run import:zol-ac`。
+无 OSS Key 时导入/上传自动落本地（也可设 `IMAGE_STORAGE=local`）。缺主图时用 crawler_test 的 API
+导入脚本重跑。
 
 示例：`http://localhost:3000/local-images/3819.jpg`
 
@@ -233,65 +233,55 @@ Authorization header，没有则读 Cookie。
 
 ### 运维脚本
 
-#### ZOL 空调导入
+#### ZOL 空调导入（仅 Admin API，禁止直连生产库）
 
-脚本：`scripts/import-zol-air-condition.ts`（值归一化：`src/utils/normalize-param-value.ts`）
+导入脚本已迁出本仓库，位于桌面爬虫工程：
+
+| 脚本                                                   | 用途        |
+|------------------------------------------------------|-----------|
+| `~/Desktop/crawler_test/lib/import-local-via-api.ts` | 本地 API 导入 |
+| `~/Desktop/crawler_test/lib/import-prod-via-api.ts`  | 生产 API 导入 |
 
 ```bash
-# 从爬虫 JSON 导入（默认 ~/Desktop/crawler_test/data；含白名单 + 值归一化）
-npm run import:zol-ac
+# 本地（需先 npm run dev）
+npx tsx ~/Desktop/crawler_test/lib/import-local-via-api.ts --dry-run
+npx tsx ~/Desktop/crawler_test/lib/import-local-via-api.ts
 
-# 预览导入，不写库
-npx tsx scripts/import-zol-air-condition.ts --dry-run
-
-# 指定数据目录
-npx tsx scripts/import-zol-air-condition.ts --dir /path/to/data
-
-# 只回刷：从爬虫 JSON 再 Transform（按需入座 + 例外），不重导图片
-npm run import:zol-ac:normalize
+# 生产（需 Admin 账号；默认跳过已存在的 source_url，需覆盖时加 --update-existing）
+npx tsx ~/Desktop/crawler_test/lib/import-prod-via-api.ts --dry-run
+npx tsx ~/Desktop/crawler_test/lib/import-prod-via-api.ts
 ```
 
-ETL 约定：
+说明：
 
-| 层         | 字段 / 产物                                               | 说明                |
-|-----------|-------------------------------------------------------|-------------------|
-| Extract   | 桌面爬虫 JSON                                             | 原材料，**不进库**       |
-| Transform | `products.params`                                     | 白名单 + 入座结果        |
-| 例外        | `import_exceptions`                                   | 未知键 / 入不了座 / 规则丢弃 |
-| 规范        | `src/db/snapshots/category-params-air-condition.json` | seed 对齐           |
-| 图片        | `products.main_image`                                 | 仅主图 URL           |
-
-规则简述：白名单过滤 → `PARAM_MAP` 异名翻译 → 枚举/布尔**按需入座**；对不上的不硬塞。新批次会把同平台旧
-open 标为 `superseded`。设计说明见知识库「家电 · 项目总览」。
+- 有 `source_url` 时按 **来源链接** 去重（同型号不同链接可并存）；无链接的后台手建仍按品牌+分类+型号。
+- Transform（白名单 / 入座 / 除霜脏值迁出）在 crawler_test 脚本内完成，不写本库 `import_exceptions` 表。
 
 **scripts/**
 
 | 脚本                                   | 说明                    | 命令                               |
 |--------------------------------------|-----------------------|----------------------------------|
 | `package.js`                         | 打包部署产物                | `npm run package`                |
-| `import-zol-air-condition.ts`        | 导入 ZOL 空调 / 回刷 params | 见上方「ZOL 空调导入」                    |
-| `check-etl.ts`                       | ZOL 空调 ETL 质检         | `npm run check:etl`              |
 | `export-category-params-snapshot.ts` | 导出 category_params 快照 | `npm run export:category-params` |
-| `lib/import-exceptions.ts`           | 例外写入（被导入脚本引用）         | —                                |
 
 **src/db/**
 
-| 脚本                        | 说明                                       | 命令                                        |
-|-----------------------------|------------------------------------------|-------------------------------------------|
-| `schema.ts`                 | Drizzle schema 定义（数据库结构的唯一真相源）          | -                                         |
-| `migrate-auto.ts`           | 自动迁移执行逻辑（CI 调用，走 VPC 内网）                | -                                         |
-| `seed.ts`                   | 分类/管理员/参数规范种子数据                         | `npm run db:seed`                         |
-| `fill-pinyin.ts`            | 补拼音字段                                    | `npm run fill:pinyin`                     |
-| `update-admin-password.ts`  | 更新管理员密码                                  | `npx tsx src/db/update-admin-password.ts` |
+| 脚本                         | 说明                             | 命令                                        |
+|----------------------------|--------------------------------|-------------------------------------------|
+| `schema.ts`                | Drizzle schema 定义（数据库结构的唯一真相源） | -                                         |
+| `migrate-auto.ts`          | 自动迁移执行逻辑（CI 调用，走 VPC 内网）       | -                                         |
+| `seed.ts`                  | 分类/管理员/参数规范种子数据                | `npm run db:seed`                         |
+| `fill-pinyin.ts`           | 补拼音字段                          | `npm run fill:pinyin`                     |
+| `update-admin-password.ts` | 更新管理员密码                        | `npx tsx src/db/update-admin-password.ts` |
 
 ## 数据库命令
 
-| 命令                       | 说明                                  |
-|--------------------------|---------------------------------------|
-| `npm run db:generate`    | 从 schema 生成 migration SQL 文件（改 schema 后跑） |
-| `npm run db:push`        | 推送 schema 到数据库（本地开发调试用）            |
-| `npm run db:seed`        | 灌入种子数据（新环境初始化）                      |
-| `npm run fill:pinyin`    | 导入产品后补拼音字段                          |
+| 命令                    | 说明                                        |
+|-----------------------|-------------------------------------------|
+| `npm run db:generate` | 从 schema 生成 migration SQL 文件（改 schema 后跑） |
+| `npm run db:push`     | 推送 schema 到数据库（本地开发调试用）                   |
+| `npm run db:seed`     | 灌入种子数据（新环境初始化）                            |
+| `npm run fill:pinyin` | 导入产品后补拼音字段                                |
 
 ## 数据库迁移（CI/CD 自动化）
 
@@ -341,7 +331,8 @@ npm run db:seed     # 灌入种子数据（16 个分类、admin 账号、参数�
 
 ### baseline
 
-当前 baseline 是 `drizzle/0000_baseline.sql`，与生产 DB 当前结构一致。生产 DB 的 `__drizzle_migrations` 表已标记 baseline 为已执行，CI 不会重复跑。
+当前 baseline 是 `drizzle/0000_baseline.sql`，与生产 DB 当前结构一致。生产 DB 的
+`__drizzle_migrations` 表已标记 baseline 为已执行，CI 不会重复跑。
 
 ### 手动触发迁移（调试用）
 
@@ -349,7 +340,6 @@ npm run db:seed     # 灌入种子数据（16 个分类、admin 账号、参数�
 curl -X POST https://appliance-api.cheapgo.top/api/admin/db/migrate \
   -H "X-Migrate-Secret: <MIGRATE_SECRET 值>"
 ```
-
 
 ## 部署
 
