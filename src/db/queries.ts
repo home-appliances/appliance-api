@@ -312,7 +312,7 @@ export async function getProductById(id: number) {
   return result[0] || null;
 }
 
-/** 品牌 + 分类 + 型号（无型号则用名称）唯一，仅未软删产品 */
+/** 有 source_url 时按来源链接唯一；无链接时回退品牌+分类+型号（后台手建） */
 export class ProductDuplicateError extends Error {
   existingId: number;
   constructor(existingId: number, detail: string) {
@@ -336,6 +336,43 @@ function productIdentityKey(model?: string | null, name?: string | null): string
   return normalizeModelKey(raw);
 }
 
+function normalizeSourceUrl(raw?: string | null): string | null {
+  const u = (raw || '').trim();
+  return u || null;
+}
+
+/** 按 source_url 查重（仅未软删）；库表亦有 unique(source_url) */
+export async function findDuplicateBySourceUrl(opts: {
+  sourceUrl: string;
+  excludeId?: number;
+}): Promise<{ id: number; name: string; brand: string; model: string | null; sourceUrl: string | null } | null> {
+  const sourceUrl = normalizeSourceUrl(opts.sourceUrl);
+  if (!sourceUrl) return null;
+
+  const conditions = [
+    isNull(products.deletedAt),
+    sql`trim(${products.sourceUrl}) = ${sourceUrl}`,
+  ];
+  if (opts.excludeId != null) {
+    conditions.push(sql`${products.id} <> ${opts.excludeId}`);
+  }
+
+  const rows = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      brand: products.brand,
+      model: products.model,
+      sourceUrl: products.sourceUrl,
+    })
+    .from(products)
+    .where(and(...conditions))
+    .limit(1);
+
+  return rows[0] || null;
+}
+
+/** 无 source_url 时：品牌 + 分类 + 型号（无型号则用名称） */
 export async function findDuplicateProduct(opts: {
   brand: string;
   categoryId: number | null | undefined;
@@ -382,6 +419,7 @@ async function assertProductUnique(opts: {
   categoryId: number | null | undefined;
   model?: string | null;
   name?: string | null;
+  sourceUrl?: string | null;
   excludeId?: number;
 }) {
   const brand = (opts.brand || '').trim();
@@ -391,6 +429,23 @@ async function assertProductUnique(opts: {
   if (opts.categoryId == null || Number.isNaN(Number(opts.categoryId))) {
     throw new Error('请选择分类');
   }
+
+  const sourceUrl = normalizeSourceUrl(opts.sourceUrl);
+  if (sourceUrl) {
+    const dupByUrl = await findDuplicateBySourceUrl({
+      sourceUrl,
+      excludeId: opts.excludeId,
+    });
+    if (dupByUrl) {
+      throw new ProductDuplicateError(
+        dupByUrl.id,
+        `已存在相同来源链接的产品（ID ${dupByUrl.id}）：${dupByUrl.name}`
+      );
+    }
+    // 有 source_url 时不再按品牌+型号拦截，允许同型号多 SKU（不同链接）并存
+    return;
+  }
+
   const identity = productIdentityKey(opts.model, opts.name);
   if (!identity) {
     throw new Error('型号或产品名称不能为空');
@@ -418,6 +473,7 @@ export async function createProduct(data: typeof products.$inferInsert) {
     categoryId: data.categoryId,
     model: data.model,
     name: data.name,
+    sourceUrl: data.sourceUrl,
   });
   const result = await db.insert(products).values(data).returning();
   return result[0];
@@ -430,11 +486,15 @@ export async function updateProduct(id: number, data: Partial<typeof products.$i
   const existing = await getProductById(id);
   if (!existing) return null;
 
+  const nextSourceUrl =
+    data.sourceUrl !== undefined ? data.sourceUrl : existing.sourceUrl;
+
   await assertProductUnique({
     brand: data.brand !== undefined ? data.brand : existing.brand,
     categoryId: data.categoryId !== undefined ? data.categoryId : existing.categoryId,
     model: data.model !== undefined ? data.model : existing.model,
     name: data.name !== undefined ? data.name : existing.name,
+    sourceUrl: nextSourceUrl,
     excludeId: id,
   });
 
