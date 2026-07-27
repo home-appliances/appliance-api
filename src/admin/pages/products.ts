@@ -777,7 +777,8 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         const measureRe = /功率|电流|制冷量|制热量|循环风量|新风量|除湿量|尺寸|噪音|噪声|风量|面积|电压|频率|电源|能效比|质量|重量|耗电|水压|扬程|转速|压力/
         const modelRe = /型号|货号|编码|SKU|sku|制冷剂/
         const seriesRe = /系列/
-        const cnDescRe = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|质保|配件/
+        const warrantyRe = /质保|保修/
+        const cnDescRe = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|配件/
         const measureUnit = 'kWh|kW|Wh|Hz|mm|cm|m³h|m3h|m³|m3|m²|㎡|dB|db|℃|°C|kg|g|mLh|mL|ml|Lh|L|rpm|Pa|bar|lx|%|匹|级|[WAV]|m'
         // new RegExp 字符串里 \\s 在模板中需写 \\\\s；正则字面量只需 \\s
         const measureSeg = new RegExp('^(?:宽|高|深|厚|长|直径|内|外|室|机)?\\\\s*-?\\\\d+(?:\\\\.\\\\d+)?\\\\s*(?:\\\\(\\\\s*[A-Za-z]\\\\s*\\\\))?\\\\s*(?:' + measureUnit + ')?$', 'i')
@@ -798,9 +799,13 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           return /[a-z]{4,}\\d|\\d[a-z]{4,}/.test(v)
         }
         function hasDescDigitJunk(v) {
-          if (/\\d{3,}/.test(v)) return true
-          if (/[\\u4e00-\\u9fff].*\\d{2,}$/.test(v)) return true
-          if (/[\\u4e00-\\u9fff][A-Za-z0-9]{3,}/.test(v)) return true
+          // 只剥离最多两位小数（PM2.5），更长小数尾巴视为乱输
+          const s = String(v)
+          const stripped = s.replace(/\\d+\\.\\d{1,2}(?!\\d)/g, '')
+          if (/\\d{3,}/.test(stripped)) return true
+          if (/[\\u4e00-\\u9fff].*\\d{2,}$/.test(stripped)) return true
+          if (/[\\u4e00-\\u9fff][a-z0-9]{3,}/.test(stripped)) return true
+          if (/\\d+\\.\\d{3,}/.test(s)) return true
           return false
         }
         function hasMeasureSnippet(v) {
@@ -848,12 +853,16 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
             } else if (hasGarbled(value)) {
               pushErr(label, value, '疑似乱码英文/数字，请改正')
             }
+          } else if (warrantyRe.test(hay)) {
+            if (!/^[\\u4e00-\\u9fffA-Za-z0-9\\s\\-–—，,、；;：:（）()及与和\\/＋+.~～到至]+$/.test(value) || hasGarbled(value)) {
+              pushErr(label, value, '质保说明格式不正确')
+            }
           } else if (cnDescRe.test(hay)) {
             if (hasGarbled(value) || hasDescDigitJunk(value)) {
               pushErr(label, value, '请填写中文说明，不要夹杂无关数字或乱码')
             } else if (hasMeasureSnippet(value)) {
               pushErr(label, value, '不应包含功率/电压等计量写法')
-            } else if (cnRatio(value) < 0.3 && /[a-zA-Z]/.test(value)) {
+            } else if (/[a-zA-Z]/.test(value) && !/[\\u4e00-\\u9fff]/.test(value)) {
               pushErr(label, value, '应以中文描述为主')
             }
           } else if (modelRe.test(hay)) {

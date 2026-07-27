@@ -312,7 +312,7 @@ export async function getProductById(id: number) {
   return result[0] || null;
 }
 
-/** 有 source_url 时按来源链接唯一；无链接时回退品牌+分类+型号（后台手建） */
+/** 有 source_url 时按来源链接唯一，无链接时回退品牌+分类+型号*/
 export class ProductDuplicateError extends Error {
   existingId: number;
   constructor(existingId: number, detail: string) {
@@ -341,7 +341,7 @@ function normalizeSourceUrl(raw?: string | null): string | null {
   return u || null;
 }
 
-/** 按 source_url 查重（仅未软删）；库表亦有 unique(source_url) */
+/** 按 source_url 查重，库表亦有 unique(source_url) */
 export async function findDuplicateBySourceUrl(opts: {
   sourceUrl: string;
   excludeId?: number;
@@ -350,7 +350,6 @@ export async function findDuplicateBySourceUrl(opts: {
   if (!sourceUrl) return null;
 
   const conditions = [
-    isNull(products.deletedAt),
     sql`trim(${products.sourceUrl}) = ${sourceUrl}`,
   ];
   if (opts.excludeId != null) {
@@ -386,7 +385,6 @@ export async function findDuplicateProduct(opts: {
   if (!brand || categoryId == null || !identity) return null;
 
   const conditions = [
-    isNull(products.deletedAt),
     sql`trim(${products.brand}) = ${brand}`,
     eq(products.categoryId, categoryId),
     sql`regexp_replace(
