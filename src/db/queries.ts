@@ -640,13 +640,26 @@ export async function getMainImageUrl(productId: number): Promise<string | null>
   return result[0]?.url ?? null;
 }
 
+/**
+ * 批量更新图片排序。两阶段写入，避免 (product_id, image_type, sort_order) 唯一约束在交换时冲突。
+ */
 export async function updateProductImageSort(items: Array<{ id: number; sortOrder: number }>) {
-  for (const item of items) {
-    await db
-      .update(productImages)
-      .set({ sortOrder: item.sortOrder })
-      .where(eq(productImages.id, item.id));
-  }
+  if (!items.length) return;
+
+  await db.transaction(async (tx) => {
+    for (const item of items) {
+      await tx
+        .update(productImages)
+        .set({ sortOrder: 1_000_000 + item.id })
+        .where(eq(productImages.id, item.id));
+    }
+    for (const item of items) {
+      await tx
+        .update(productImages)
+        .set({ sortOrder: item.sortOrder })
+        .where(eq(productImages.id, item.id));
+    }
+  });
 }
 
 // =====================================================

@@ -79,6 +79,39 @@ productImages.post('/api/admin/product-images', async (c) => {
 });
 
 /**
+ * 批量更新排序
+ * PUT /api/admin/product-images/batch/sort
+ * 须注册在 /:id 之前，避免 "batch" 被当成 id
+ */
+productImages.put('/api/admin/product-images/batch/sort', async (c) => {
+  try {
+    const { items } = await c.req.json();
+
+    if (!items || !Array.isArray(items)) {
+      return c.json({ code: 400, message: '参数错误' }, 400);
+    }
+
+    const normalized = items
+      .map((it: any) => ({
+        id: Number(it.id),
+        sortOrder: Number(it.sortOrder ?? it.sort_order),
+      }))
+      .filter((it: { id: number; sortOrder: number }) => Number.isFinite(it.id) && it.id > 0 && Number.isFinite(it.sortOrder));
+
+    if (!normalized.length) {
+      return c.json({ code: 400, message: '参数错误' }, 400);
+    }
+
+    await queries.updateProductImageSort(normalized);
+
+    return c.json({ code: 0, message: '排序更新成功' });
+  } catch (error) {
+    console.error('批量更新排序失败:', error);
+    return c.json({ code: 500, message: '批量更新排序失败' }, 500);
+  }
+});
+
+/**
  * 编辑图片
  * PUT /api/admin/product-images/:id
  */
@@ -124,27 +157,6 @@ productImages.delete('/api/admin/product-images/:id', async (c) => {
   } catch (error) {
     console.error('删除图片失败:', error);
     return c.json({ code: 500, message: '删除图片失败' }, 500);
-  }
-});
-
-/**
- * 批量更新排序
- * PUT /api/admin/product-images/batch/sort
- */
-productImages.put('/api/admin/product-images/batch/sort', async (c) => {
-  try {
-    const { items } = await c.req.json();
-
-    if (!items || !Array.isArray(items)) {
-      return c.json({ code: 400, message: '参数错误' }, 400);
-    }
-
-    await queries.updateProductImageSort(items);
-
-    return c.json({ code: 0, message: '排序更新成功' });
-  } catch (error) {
-    console.error('批量更新排序失败:', error);
-    return c.json({ code: 500, message: '批量更新排序失败' }, 500);
   }
 });
 
