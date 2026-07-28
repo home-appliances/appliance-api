@@ -780,8 +780,8 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         const warrantyRe = /质保|保修/
         const cnDescRe = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|配件/
         const measureUnit = 'kWh|kW|Wh|Hz|mm|cm|m³h|m3h|m³|m3|m²|㎡|dB|db|℃|°C|kg|g|mLh|mL|ml|Lh|L|rpm|Pa|bar|lx|%|匹|级|[WAV]|m'
-        // new RegExp 字符串里 \\s 在模板中需写 \\\\s；正则字面量只需 \\s
-        const measureSeg = new RegExp('^(?:宽|高|深|厚|长|直径|内|外|室|机)?\\\\s*-?\\\\d+(?:\\\\.\\\\d+)?\\\\s*(?:\\\\(\\\\s*[A-Za-z]\\\\s*\\\\))?\\\\s*(?:' + measureUnit + ')?$', 'i')
+        // 允许尺寸连写：宽800高290深190mm；new RegExp 字符串里 \\s 在模板中需写 \\\\s
+        const measureSeg = new RegExp('^(?:(?:宽|高|深|厚|长|直径|内|外|室|机)?\\\\s*[:：]?\\\\s*-?\\\\d+(?:\\\\.\\\\d+)?\\\\s*)+(?:\\\\(\\\\s*[A-Za-z]\\\\s*\\\\))?\\\\s*(?:' + measureUnit + ')?$', 'i')
         function normalizeCompoundUnits(v) {
           return String(v)
             .replace(/m[³3]\\s*[/／]\\s*h/gi, 'm³h')
