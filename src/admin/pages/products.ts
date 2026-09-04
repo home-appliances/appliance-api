@@ -769,47 +769,13 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
         btn.parentElement.remove()
       }
 
-      // 前端参数校验（与后端 validate-param-input 规则对齐）
+      // 前端参数校验
       function validateParamsClient(fd) {
         const errors = []
         const byKey = {}
         categoryParamDefs.forEach(function(p) { byKey[p.paramKey] = p })
-        const measureRe = /功率|电流|制冷量|制热量|循环风量|新风量|除湿量|尺寸|噪音|噪声|风量|面积|电压|频率|电源|能效比|质量|重量|耗电|水压|扬程|转速|压力/
-        const modelRe = /型号|货号|编码|SKU|sku|制冷剂/
-        const seriesRe = /系列/
-        const warrantyRe = /质保|保修/
-        const cnDescRe = /扫风|睡眠|方式|功能|材质|颜色|场景|特点|模式|清洁|换气|显示|控制|安装|外观|内胆|门体|面板|性能|配件/
-        const measureUnit = 'kWh|kW|Wh|Hz|mm|cm|m³h|m3h|m³|m3|m²|㎡|dB|db|℃|°C|kg|g|mLh|mL|ml|Lh|L|rpm|Pa|bar|lx|%|匹|级|[WAV]|m'
-        // 允许尺寸连写：宽800高290深190mm；new RegExp 字符串里 \\s 在模板中需写 \\\\s
-        const measureSeg = new RegExp('^(?:(?:宽|高|深|厚|长|直径|内|外|室|机)?\\\\s*[:：]?\\\\s*-?\\\\d+(?:\\\\.\\\\d+)?\\\\s*)+(?:\\\\(\\\\s*[A-Za-z]\\\\s*\\\\))?\\\\s*(?:' + measureUnit + ')?$', 'i')
-        function normalizeCompoundUnits(v) {
-          return String(v)
-            .replace(/m[³3]\\s*[/／]\\s*h/gi, 'm³h')
-            .replace(/r\\s*[/／]\\s*min/gi, 'rpm')
-            .replace(/mL\\s*[/／]\\s*h/gi, 'mLh')
-            .replace(/L\\s*[/／]\\s*h/gi, 'Lh')
-        }
-        function isValidMeasure(v) {
-          const normalized = normalizeCompoundUnits(v.trim())
-          if (!/^[\\d.\\s\\-–—*×xX/／~～+±()（）\\[\\]【】,，;；:：°℃%WAakKvVmMhHzdbDBgGlLPxrpm³2²㎡匹级宽高深厚长直径内外室机]+$/i.test(normalized)) return false
-          const parts = normalized.split(/[,，;；/／~～\\-–—+*×xX]+/).map(function(p) { return p.trim() }).filter(Boolean)
-          return parts.length > 0 && parts.every(function(p) { return measureSeg.test(p) })
-        }
         function hasGarbled(v) {
           return /[a-z]{4,}\\d|\\d[a-z]{4,}/.test(v)
-        }
-        function hasDescDigitJunk(v) {
-          // 只剥离最多两位小数（PM2.5），更长小数尾巴视为乱输
-          const s = String(v)
-          const stripped = s.replace(/\\d+\\.\\d{1,2}(?!\\d)/g, '')
-          if (/\\d{3,}/.test(stripped)) return true
-          if (/[\\u4e00-\\u9fff].*\\d{2,}$/.test(stripped)) return true
-          if (/[\\u4e00-\\u9fff][a-z0-9]{3,}/.test(stripped)) return true
-          if (/\\d+\\.\\d{3,}/.test(s)) return true
-          return false
-        }
-        function hasMeasureSnippet(v) {
-          return /(?:^|[^A-Za-z0-9])\\d+\\s*(?:kWh|kW|Wh|Hz|mm|W|A|V|安|伏|瓦)(?![A-Za-z0-9])/i.test(v) || /(?:^|[^A-Za-z0-9])(?:kWh|kW|Wh|Hz|W|A|V|安|伏|瓦)\\s*\\d+(?![A-Za-z0-9])/i.test(v)
         }
         function cnRatio(v) {
           const chars = Array.from(String(v).replace(/\\s/g, ''))
@@ -828,7 +794,6 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
           const def = byKey[key] || { paramKey: key, paramType: 'text', displayName: key }
           const type = String(def.paramType || 'text').toLowerCase()
           const label = def.displayName || key
-          const hay = key + ' ' + label
           if (type === 'enum') {
             let opts = def.enumValues
             if (typeof opts === 'string') { try { opts = JSON.parse(opts) } catch(e) { opts = [] } }
@@ -843,32 +808,8 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
             if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value) && !/^\\d{4}-\\d{2}$/.test(value)) {
               pushErr(label, value, '请使用日期格式 YYYY-MM-DD')
             }
-          } else if (measureRe.test(hay)) {
-            if (!isValidMeasure(value)) {
-              pushErr(label, value, '应为计量值（如 1000W、60dB），不能夹杂无关文字或多余数字')
-            }
-          } else if (seriesRe.test(hay)) {
-            if (!/^[\\u4e00-\\u9fffA-Za-z0-9\\-_./+\\s()（）·&]+$/.test(value)) {
-              pushErr(label, value, '含非法字符')
-            } else if (hasGarbled(value)) {
-              pushErr(label, value, '疑似乱码英文/数字，请改正')
-            }
-          } else if (warrantyRe.test(hay)) {
-            if (!/^[\\u4e00-\\u9fffA-Za-z0-9\\s\\-–—，,、；;：:（）()及与和\\/＋+.~～到至]+$/.test(value) || hasGarbled(value)) {
-              pushErr(label, value, '质保说明格式不正确')
-            }
-          } else if (cnDescRe.test(hay)) {
-            if (hasGarbled(value) || hasDescDigitJunk(value)) {
-              pushErr(label, value, '请填写中文说明，不要夹杂无关数字或乱码')
-            } else if (hasMeasureSnippet(value)) {
-              pushErr(label, value, '不应包含功率/电压等计量写法')
-            } else if (/[a-zA-Z]/.test(value) && !/[\\u4e00-\\u9fff]/.test(value)) {
-              pushErr(label, value, '应以中文描述为主')
-            }
-          } else if (modelRe.test(hay)) {
-            if (!/^[\\u4e00-\\u9fffA-Za-z0-9\\-_./+\\s()（）]+$/.test(value)) {
-              pushErr(label, value, '格式不正确')
-            }
+          } else if (hasGarbled(value) && (cnRatio(value) > 0.3 || (!/[A-Z]/.test(value) && !/[\\u4e00-\\u9fff]/.test(value)))) {
+            pushErr(label, value, '疑似乱码，请改正后再保存')
           }
         }
         return errors
@@ -879,7 +820,7 @@ export const productFormPage = (product?: any, error?: string, role = 'admin', c
       productForm.addEventListener('submit', async function(e) {
         e.preventDefault()
 
-        // 前端先拦一层非法参数（后端仍会再校验）
+        // 前端参数校验（后端仍会再校验）
         const clientErrors = validateParamsClient(new FormData(productForm))
         if (clientErrors.length) {
           alert('参数填写不合法：\\n' + clientErrors.join('\\n'))
