@@ -20,6 +20,22 @@ interface ImageRow {
 const typeLabel = (t: string) => t === 'display' ? '展示图' : (t === 'main' ? '主图' : t)
 const typeBadgeColor = (t: string) => t === 'display' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
 
+function escapeAttr(s: string): string {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+}
+
+function imagePathCell(url: string): string {
+  if (!url) return '<span class="text-gray-400">-</span>'
+  const safe = escapeAttr(url)
+  return `<a href="${safe}" target="_blank" rel="noopener noreferrer"
+       class="block max-w-[18rem] truncate text-primary-600 hover:underline"
+       title="${safe}">${safe}</a>`
+}
+
 export const productImagesPage = (
   images: ImageRow[],
   allProducts: any[],
@@ -34,33 +50,31 @@ export const productImagesPage = (
   const rows = images.map(img => `
     <tr class="hover:bg-gray-50 transition-colors">
       <td class="px-4 py-3 text-sm text-gray-700">${img.id}</td>
-      <td class="px-4 py-3 text-sm text-gray-700">
-        <a href="/admin/products/${img.product_id}/edit" class="text-primary-600 hover:underline" title="编辑产品">
+      <td class="px-4 py-3 text-sm text-gray-700 max-w-[16rem]">
+        <a href="/admin/products/${img.product_id}/edit" class="block truncate text-primary-600 hover:underline" title="编辑产品 #${img.product_id} ${escapeAttr(img.product_name)}">
           #${img.product_id} ${img.product_name}
         </a>
       </td>
       <td class="px-4 py-3">
         ${img.image_url
-          ? `<img src="${img.image_url}" alt="${typeLabel(img.image_type)}" class="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity" onclick="showImage('${img.image_url}', '${img.product_name} - ${typeLabel(img.image_type)}')" title="点击查看大图">`
-          : '<div class="w-16 h-16 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">无图</div>'}
+          ? `<img src="${img.image_url}" alt="${typeLabel(img.image_type)}" class="w-24 h-24 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity" onclick="showImage('${img.image_url}', '${img.product_name} - ${typeLabel(img.image_type)}')" title="点击查看大图">`
+          : '<div class="w-24 h-24 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">无图</div>'}
       </td>
-      <td class="px-4 py-3">
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeColor(img.image_type)}">${typeLabel(img.image_type)}</span>
+      <td class="px-4 py-3 whitespace-nowrap">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${typeBadgeColor(img.image_type)}">${typeLabel(img.image_type)}</span>
       </td>
-      <td class="px-4 py-3 text-sm text-gray-700">${img.sort_order}</td>
-      <td class="px-4 py-3 text-sm text-gray-500 max-w-xs">
-        ${img.image_url
-          ? `<span class="inline-block truncate align-middle" title="${img.image_url}">${img.image_url}</span>`
-          : '<span class="text-gray-400">-</span>'}
+      <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">${img.sort_order}</td>
+      <td class="px-4 py-3 text-sm text-gray-500 max-w-[18rem]">
+        ${imagePathCell(img.image_url)}
       </td>
-      <td class="px-4 py-3 text-sm text-gray-700">${new Date(img.created_at).toLocaleString('zh-CN')}</td>
-      <td class="px-4 py-3 text-right">
-        <div class="flex items-center justify-end gap-2">
-          <a href="/admin/products/${img.product_id}/edit" class="px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑产品</a>
-          <form method="POST" action="/admin/product-images/${img.id}/delete" class="inline delete-image-form">
+      <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">${new Date(img.created_at).toLocaleString('zh-CN')}</td>
+      <td class="px-3 py-3 text-right whitespace-nowrap w-1">
+        <div class="inline-flex items-center justify-end gap-2 whitespace-nowrap">
+          <a href="/admin/products/${img.product_id}/edit" class="shrink-0 whitespace-nowrap px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded hover:border-primary-500 hover:text-primary-600 transition-colors">编辑产品</a>
+          <form method="POST" action="/admin/product-images/${img.id}/delete" class="inline-block shrink-0 delete-image-form">
             <input type="hidden" class="product-name" value="${(img.product_name || '').replace(/"/g, '&quot;')}">
             <input type="hidden" class="image-type" value="${typeLabel(img.image_type)}">
-            <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors cursor-pointer border-0">删除</button>
+            <button type="submit" class="whitespace-nowrap px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors cursor-pointer border-0">删除</button>
           </form>
         </div>
       </td>
@@ -104,14 +118,14 @@ export const productImagesPage = (
         <table class="w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">图片ID</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">图片ID</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">所属产品</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">预览</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">类型</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">排序</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">预览</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">类型</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">排序</th>
               <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">图片路径</th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">创建时间</th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">操作</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">创建时间</th>
+              <th class="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap w-1">操作</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
