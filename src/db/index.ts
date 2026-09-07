@@ -424,22 +424,32 @@ export async function getProductParams(id: number): Promise<Record<string, strin
 }
 
 // =====================================================
-// 获取产品图片
+// 获取产品图片 URL（默认仅主图 main，可传 imageType 取其它类型）
 // =====================================================
-export async function getProductImages(id: number): Promise<string[]> {
+export async function getProductImages(
+  id: number,
+  opts?: { imageType?: string }
+): Promise<string[]> {
+  const imageType = opts?.imageType ?? 'main';
   try {
-    // 从 product_images 表取该产品所有图片 URL，主图优先（sort_order 升序）
     const result = await pool.query(
       `SELECT image_url FROM product_images
-       WHERE product_id = $1 AND image_url IS NOT NULL
-       ORDER BY image_type ASC, sort_order ASC, id ASC`,
-      [id]
+       WHERE product_id = $1
+         AND image_type = $2
+         AND image_url IS NOT NULL
+       ORDER BY sort_order ASC, id ASC`,
+      [id, imageType]
     );
     return result.rows.map((r: any) => r.image_url).filter(Boolean);
   } catch (e) {
     console.error('getProductImages 失败:', e);
   }
   return [];
+}
+
+/** 商品介绍展示图（image_type = display） */
+export async function getProductIntroImages(id: number): Promise<string[]> {
+  return getProductImages(id, { imageType: 'display' });
 }
 
 // =====================================================
