@@ -5,6 +5,7 @@
 import { Hono } from 'hono';
 import { authMiddleware } from '../../middleware/auth.js';
 import { uploadImage, deleteImage, validateImageFile } from '../../utils/oss.js';
+import { useLocalImageStorage, saveBufferToLocal } from '../../utils/image-local.js';
 import * as queries from '../../db/queries.js';
 
 const upload = new Hono();
@@ -43,8 +44,17 @@ upload.post('/api/admin/upload/image', async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 上传到 OSS
-    const imageUrl = await uploadImage(buffer, file.name, 'products');
+    // 本地无 OSS 时落盘，有凭据则上传 OSS
+    let imageUrl: string;
+    if (useLocalImageStorage()) {
+      const saved = saveBufferToLocal(buffer, {
+        filename: file.name,
+        mimeType: file.type,
+      });
+      imageUrl = saved.url;
+    } else {
+      imageUrl = await uploadImage(buffer, file.name, 'products');
+    }
 
     // 如果指定了产品ID，保存到数据库（sort_order 由服务端分配）
     if (productId) {
